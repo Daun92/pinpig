@@ -1,80 +1,161 @@
 import { useEffect } from 'react';
-import { useTransactionStore, selectMonthSummary } from '@/stores/transactionStore';
+import { useNavigate, Link } from 'react-router-dom';
+import { ChevronRight, Plus } from 'lucide-react';
+import { useTransactionStore, selectBudgetStatus } from '@/stores/transactionStore';
+import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
+import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
+import { Icon } from '@/components/common';
 import { formatCurrency } from '@/utils/format';
+import { isToday, isYesterday } from 'date-fns';
 
 export function HomePage() {
-  const { transactions, fetchTransactions, isLoading } = useTransactionStore();
-  const summary = useTransactionStore(selectMonthSummary);
+  const navigate = useNavigate();
+  const { transactions, currentMonth, fetchTransactions, isLoading } = useTransactionStore();
+  const { fetchSettings } = useSettingsStore();
+  const { fetchCategories } = useCategoryStore();
+
+  const monthlyBudget = useSettingsStore(selectMonthlyBudget);
+  const budgetStatus = useTransactionStore(selectBudgetStatus(monthlyBudget));
+  const categoryMap = useCategoryStore(selectCategoryMap);
 
   useEffect(() => {
+    fetchSettings();
+    fetchCategories();
     fetchTransactions(new Date());
-  }, [fetchTransactions]);
+  }, [fetchSettings, fetchCategories, fetchTransactions]);
+
+  const currentMonthLabel = currentMonth.toLocaleDateString('ko-KR', { month: 'long' });
+
+  const remaining = budgetStatus.remaining;
+  const percentUsed = budgetStatus.percentUsed;
+  const remainingDays = budgetStatus.remainingDays;
+  const dailyRecommended = budgetStatus.dailyRecommended;
+
+  const recentTransactions = transactions.slice(0, 3);
+
+  const formatTransactionTime = (date: Date, time: string) => {
+    if (isToday(date)) {
+      return `오늘 ${time}`;
+    }
+    if (isYesterday(date)) {
+      return `어제 ${time}`;
+    }
+    return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
+  };
 
   if (isLoading && transactions.length === 0) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-ink-mid">불러오는 중...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-body text-ink-mid">불러오는 중...</p>
       </div>
     );
   }
 
   return (
-    <div className="px-sm pt-safe-top">
-      {/* Header */}
-      <header className="py-md">
-        <p className="text-sub text-ink-mid">이번 달 남은 예산</p>
-        <h1 className="text-hero text-ink-black mt-xs">
-          {formatCurrency(summary.balance)}
-        </h1>
-      </header>
-
-      {/* Budget Progress */}
-      <section className="py-sm">
-        <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
-          <div
-            className="h-full bg-ink-black transition-all duration-300"
-            style={{ width: `${Math.min((summary.expense / (summary.income || 1)) * 100, 100)}%` }}
-          />
+    <div className="min-h-screen bg-paper-white pb-20">
+      {/* Hero Zone */}
+      <section className="px-6 pt-6">
+        {/* Month Display */}
+        <div className="text-center">
+          <button className="text-sub text-ink-mid">
+            {currentMonthLabel.replace('월', '월')}
+          </button>
         </div>
-        <div className="flex justify-between mt-xs text-caption text-ink-light">
-          <span>사용 {formatCurrency(summary.expense)}</span>
-          <span>수입 {formatCurrency(summary.income)}</span>
+
+        {/* Hero Amount */}
+        <div className="text-center mt-2">
+          <h1 className="text-hero text-ink-black">
+            {formatCurrency(remaining >= 0 ? remaining : 0)}
+          </h1>
+          <p className="text-sub text-ink-mid mt-1">
+            이번 달 쓸 수 있는 돈
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-6 mx-0">
+          <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
+            <div
+              className="h-full bg-ink-black rounded-full transition-all duration-300"
+              style={{ width: `${Math.min(percentUsed, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Daily Budget */}
+        <div className="text-center mt-3">
+          <p className="text-sub text-ink-mid">
+            {remainingDays}일 남음 · 하루 {formatCurrency(dailyRecommended)}
+          </p>
         </div>
       </section>
 
-      {/* Recent Transactions */}
-      <section className="py-md">
-        <h2 className="text-title text-ink-black mb-sm">최근 거래</h2>
-        {transactions.length === 0 ? (
-          <p className="text-body text-ink-mid py-lg text-center">
-            아직 거래 내역이 없어요
-          </p>
+      {/* Recent Transactions Section */}
+      <section className="mt-6">
+        {/* Section Header */}
+        <div className="flex justify-between items-center px-6 py-3">
+          <h2 className="text-sub text-ink-dark">최근 거래</h2>
+          <Link to="/history" className="text-sub text-ink-mid flex items-center gap-1">
+            모두
+            <ChevronRight size={16} />
+          </Link>
+        </div>
+
+        {/* Transaction List */}
+        {recentTransactions.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-body text-ink-light">아직 거래가 없어요</p>
+            <p className="text-sub text-ink-light mt-1">
+              + 버튼을 눌러 기록해보세요
+            </p>
+          </div>
         ) : (
-          <ul className="space-y-xs">
-            {transactions.slice(0, 5).map((tx) => (
-              <li
-                key={tx.id}
-                className="flex justify-between items-center py-sm border-b border-paper-mid"
-              >
-                <div>
-                  <p className="text-body text-ink-dark">{tx.memo || '메모 없음'}</p>
-                  <p className="text-caption text-ink-light">
-                    {tx.date.toLocaleDateString('ko-KR')}
-                  </p>
-                </div>
-                <span
-                  className={`text-amount ${
-                    tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
-                  }`}
+          <ul>
+            {recentTransactions.map((tx) => {
+              const category = categoryMap.get(tx.categoryId);
+              return (
+                <li
+                  key={tx.id}
+                  className="px-6 py-4 border-b border-paper-mid flex items-center gap-4"
                 >
-                  {tx.type === 'income' ? '+ ' : ''}
-                  {tx.amount.toLocaleString()}
-                </span>
-              </li>
-            ))}
+                  {/* Icon */}
+                  <div className="text-ink-mid">
+                    <Icon name={category?.icon || 'MoreHorizontal'} size={24} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-body text-ink-dark truncate">
+                        {tx.description || tx.memo || category?.name || '거래'}
+                      </span>
+                      <span className="text-caption text-ink-light ml-2 whitespace-nowrap">
+                        {formatTransactionTime(tx.date, tx.time)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <div className={`text-amount whitespace-nowrap ${
+                    tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
+                  }`}>
+                    {tx.type === 'income' ? '+ ' : ''}{tx.amount.toLocaleString()}원
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
+
+      {/* FAB */}
+      <button
+        onClick={() => navigate('/add')}
+        className="fixed bottom-24 right-6 w-14 h-14 bg-ink-black rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="새 거래 추가"
+      >
+        <Plus className="w-6 h-6 text-paper-white" />
+      </button>
     </div>
   );
 }

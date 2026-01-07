@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings } from '@/services/database';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag } from 'lucide-react';
+import { getSettings, updateSettings, resetDatabase } from '@/services/database';
+import { importTransactionsFromJSON, clearAllTransactions, getImportStatus } from '@/services/importData';
 import type { Settings } from '@/types';
 
 export function SettingsPage() {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const navigate = useNavigate();
+  const [, setSettings] = useState<Settings | null>(null);
   const [budget, setBudget] = useState('');
+  const [importStatus, setImportStatus] = useState<{
+    totalTransactions: number;
+    oldestDate: Date | null;
+    newestDate: Date | null;
+  } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -13,7 +24,14 @@ export function SettingsPage() {
         setBudget(s.monthlyBudget.toString());
       }
     });
+
+    refreshImportStatus();
   }, []);
+
+  const refreshImportStatus = async () => {
+    const status = await getImportStatus();
+    setImportStatus(status);
+  };
 
   const handleSaveBudget = async () => {
     const newBudget = parseInt(budget) || 0;
@@ -21,44 +39,207 @@ export function SettingsPage() {
     setSettings((prev) => (prev ? { ...prev, monthlyBudget: newBudget } : null));
   };
 
+  const handleImportData = async () => {
+    if (isImporting) return;
+
+    const confirmed = window.confirm(
+      '기존 데이터에 추가로 가져옵니다. 계속하시겠습니까?'
+    );
+    if (!confirmed) return;
+
+    setIsImporting(true);
+    setImportMessage('데이터를 가져오는 중...');
+
+    try {
+      const count = await importTransactionsFromJSON('/import-data.json');
+      setImportMessage(`${count.toLocaleString()}개의 거래를 가져왔습니다.`);
+      await refreshImportStatus();
+    } catch (error) {
+      console.error('Import failed:', error);
+      setImportMessage('가져오기 실패: ' + (error as Error).message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleClearData = async () => {
+    const confirmed = window.confirm(
+      '모든 거래 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?'
+    );
+    if (!confirmed) return;
+
+    try {
+      await clearAllTransactions();
+      setImportMessage('모든 거래 데이터가 삭제되었습니다.');
+      await refreshImportStatus();
+    } catch (error) {
+      console.error('Clear failed:', error);
+      setImportMessage('삭제 실패: ' + (error as Error).message);
+    }
+  };
+
+  const handleResetCategories = async () => {
+    const confirmed = window.confirm(
+      '모든 데이터(거래, 카테고리, 설정)가 초기화됩니다. 계속하시겠습니까?'
+    );
+    if (!confirmed) return;
+
+    try {
+      await resetDatabase();
+      setImportMessage('데이터베이스가 초기화되었습니다. 페이지를 새로고침합니다.');
+      await refreshImportStatus();
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Reset failed:', error);
+      setImportMessage('초기화 실패: ' + (error as Error).message);
+    }
+  };
+
+  const formatDate = (date: Date | null) => {
+    if (!date) return '-';
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
   return (
-    <div className="px-sm pt-safe-top pb-24">
-      <header className="py-md">
+    <div className="min-h-screen bg-paper-white pb-20">
+      {/* Header */}
+      <header className="h-14 flex items-center px-6 border-b border-paper-mid">
         <h1 className="text-title text-ink-black">설정</h1>
       </header>
 
-      {/* Monthly Budget */}
-      <section className="bg-paper-light rounded-md p-sm mb-sm">
-        <label className="text-sub text-ink-mid block mb-xs">월 예산</label>
-        <div className="flex gap-xs">
-          <input
-            type="number"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            placeholder="0"
-            className="flex-1 bg-paper-white rounded-sm px-sm py-xs text-body text-ink-black border border-paper-mid focus:outline-none focus:border-ink-mid"
-          />
+      {/* Budget Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">예산</h2>
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <span className="text-body text-ink-black">월 예산</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                onBlur={handleSaveBudget}
+                placeholder="0"
+                className="w-32 text-right bg-transparent text-body text-ink-mid outline-none"
+              />
+              <span className="text-body text-ink-mid">원</span>
+              <ChevronRight size={20} className="text-ink-light" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Category Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">카테고리</h2>
+        <div className="border-b border-paper-mid">
           <button
-            onClick={handleSaveBudget}
-            className="px-sm py-xs bg-ink-black text-paper-white rounded-sm text-body"
+            onClick={() => navigate('/settings/categories')}
+            className="w-full flex items-center justify-between py-4"
           >
-            저장
+            <div className="flex items-center gap-3">
+              <Tag size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">카테고리 관리</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
           </button>
         </div>
-        {settings && (
-          <p className="text-caption text-ink-light mt-xs">
-            현재 설정: {settings.monthlyBudget.toLocaleString()}원
-          </p>
+      </section>
+
+      {/* Data Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">데이터</h2>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={handleImportData}
+            disabled={isImporting}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <Upload size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">
+                {isImporting ? '가져오는 중...' : '데이터 가져오기'}
+              </span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button className="w-full flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <Download size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">데이터 내보내기 (CSV)</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={handleClearData}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <Trash2 size={20} className="text-red-500" />
+              <span className="text-body text-red-500">모든 거래 삭제</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={handleResetCategories}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <RefreshCw size={20} className="text-orange-500" />
+              <span className="text-body text-orange-500">데이터베이스 초기화</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+
+        {/* Import Status */}
+        {importStatus && (
+          <div className="py-4 bg-paper-light rounded-md mt-4 px-4">
+            <p className="text-sub text-ink-mid">현재 저장된 데이터</p>
+            <p className="text-body text-ink-black mt-1">
+              {importStatus.totalTransactions.toLocaleString()}개의 거래
+            </p>
+            {importStatus.totalTransactions > 0 && (
+              <p className="text-caption text-ink-light mt-1">
+                {formatDate(importStatus.oldestDate)} ~ {formatDate(importStatus.newestDate)}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Import Message */}
+        {importMessage && (
+          <div className="py-3 px-4 bg-paper-light rounded-md mt-3">
+            <p className="text-sub text-ink-dark">{importMessage}</p>
+          </div>
         )}
       </section>
 
-      {/* App Info */}
-      <section className="bg-paper-light rounded-md p-sm">
-        <h2 className="text-sub text-ink-mid mb-xs">앱 정보</h2>
-        <p className="text-body text-ink-dark">PinPig v0.1.0</p>
-        <p className="text-caption text-ink-light mt-xs">
-          심플하고 귀여운 나만의 가계부 앱
-        </p>
+      {/* App Info Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">정보</h2>
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <span className="text-body text-ink-black">버전</span>
+            <span className="text-body text-ink-mid">0.1.0</span>
+          </div>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button className="w-full flex items-center justify-between py-4">
+            <span className="text-body text-ink-black">피드백 보내기</span>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
       </section>
     </div>
   );

@@ -4,6 +4,7 @@ import { AddPage } from '@/pages/AddPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { StatsPage } from '@/pages/StatsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { CategoryManagePage } from '@/pages/CategoryManagePage';
 import { TabBar } from '@/components/layout/TabBar';
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/categories" element={<CategoryManagePage />} />
         </Routes>
       </main>
       <TabBar />

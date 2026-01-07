@@ -44,11 +44,111 @@
   - 일일 사용 패턴, 감정 곡선
   - 핵심 경험 원칙 4가지
 
+### #7 화면별 레이아웃 및 키포인트 상세화
+- **요청**: 통합 디자인 컨셉에 따른 화면별 레이아웃, 키포인트 구체화
+- **변경**: `docs/LAYOUTS.md` 생성
+- **결과**:
+  - 8개 화면 상세 레이아웃 (ASCII 와이어프레임)
+  - 컴포넌트별 Tailwind 스펙
+  - 공통 컴포넌트 (BottomNav, FAB)
+  - 인터랙션/애니메이션 정의
+  - 스마트 기본값 로직
+
+### #8 디자인 문서 검토 및 아이콘 가이드라인 통일
+- **요청**: 디자인 문서 충돌/모순점 점검, 이모지 → Lucide SVG 아이콘 전환
+- **분석 결과**:
+  - 발견된 충돌: 아이콘 표기 불일치, 라우트명 차이 (`/stats` vs `/report`), 중복 문서 존재
+  - 일관성 유지: 컬러 시스템, 타이포그래피, 여백 시스템은 모든 문서에서 동일
+- **변경**:
+  - `docs/DESIGN_SYSTEM.md`: 아이콘 시스템 섹션 강화
+    - "이모지 사용 금지, Lucide 선형 SVG 아이콘만 사용" 원칙 명시
+    - 카테고리별 Lucide 아이콘 import 예시 추가
+    - 수입 카테고리 아이콘 추가 (Wallet, Gift, TrendingUp, PlusCircle)
+    - UI 아이콘 확장 (Search, Trash2, Calendar, FileText, ChevronRight/Left)
+    - 사용 예시 코드 추가
+  - `docs/SCREENS.md`: 모든 와이어프레임에서 이모지 → `[Lucide아이콘명]` 형식으로 교체
+  - `docs/LAYOUTS.md`: 모든 와이어프레임에서 이모지 → `[Lucide아이콘명]` 형식으로 교체
+- **결과**: 디자인 문서 간 아이콘 표기 통일, 개발 시 Lucide React 활용 명확화
+
+### #9 프론트엔드 개발 시작 - 핵심 화면 구현
+- **요청**: 현재 구현 상태 확인 후 프론트엔드 개발 시작
+- **변경**:
+  - `src/types/index.ts`: 이모지 아이콘 → Lucide 아이콘명 전환 (Utensils, Car, ShoppingBag 등)
+  - `src/components/layout/TabBar.tsx`: 아이콘 수정 (Clock→List, PieChart→BarChart2), 라벨 변경 (통계→리포트)
+  - `src/components/common/Icon.tsx`: 동적 Lucide 아이콘 렌더링 컴포넌트 생성
+  - `src/pages/HomePage.tsx`: 디자인 스펙에 맞게 재구현
+    - Hero Zone (남은 예산, 진행률 바, 일평균 예산)
+    - 최근 거래 섹션 (카테고리 아이콘 표시)
+    - FAB 버튼
+  - `src/pages/AddPage.tsx`: 거래 입력 화면 재구현
+    - 타입 토글 (지출/수입)
+    - 카테고리 피커 (수평 스크롤, 아이콘)
+    - 숫자 키패드
+    - 시간대별 스마트 기본값
+  - `src/pages/HistoryPage.tsx`: 내역 화면 재구현
+    - 날짜별 그룹핑
+    - 일간 합계 표시
+    - 필터 바 (월, 카테고리)
+  - `src/services/queries.ts`, `src/stores/categoryStore.ts`: 타입 에러 수정
+- **결과**: MVP 핵심 화면 3개 (홈, 거래입력, 내역) 디자인 스펙 반영 완료, 타입체크 통과
+
+### #10 Excel 데이터 가져오기 기능 구현
+- **요청**: 2026-01-07.xlsx 파일 분석 및 데이터 업로드
+- **분석**:
+  - 총 6,121개 거래 데이터 (2018-09-23 ~ 2026-02-14)
+  - 18개 카테고리 (식비, 교통/차량, 문화생활, 월급 등)
+  - 수입/지출/차액수입 타입
+- **변경**:
+  - `scripts/import-excel.ts`: Excel 파싱 스크립트 생성
+  - `public/import-data.json`: 변환된 JSON 데이터 (6,121건)
+  - `src/services/importData.ts`: 브라우저 import 서비스
+    - `importTransactionsFromJSON()`: JSON에서 거래 가져오기
+    - `clearAllTransactions()`: 전체 삭제
+    - `getImportStatus()`: 현재 데이터 상태 조회
+  - `src/pages/SettingsPage.tsx`: 데이터 관리 UI 추가
+    - 데이터 가져오기 버튼
+    - 모든 데이터 삭제 버튼
+    - 현재 저장된 데이터 현황 표시
+- **카테고리 매핑**:
+  - 식비, 마트/편의점 → 식비
+  - 교통/차량 → 교통
+  - 문화생활 → 문화/여가
+  - 패션/미용, 생활용품 → 쇼핑
+  - 건강 → 의료/건강
+  - 월급, 상여 → 급여
+- **결과**: 설정 페이지에서 "데이터 가져오기" 클릭으로 6,121건 import 가능
+
+### #11 아이콘 에러 수정 - 데이터베이스 초기화 기능
+- **요청**: IndexedDB에 저장된 이모지 아이콘 → Lucide 아이콘 전환 문제 해결
+- **원인**: 코드는 Lucide 아이콘명을 기대하지만, DB에는 이전 이모지(🎬, 📦, 💊 등)가 저장됨
+- **변경**:
+  - `src/pages/SettingsPage.tsx`: 데이터베이스 초기화 버튼 추가
+    - `resetDatabase()` 함수 호출
+    - 초기화 후 페이지 자동 새로고침
+- **결과**: 설정 > 데이터베이스 초기화 클릭으로 해결 가능
+
+### #12 예산 설정 및 카테고리 관리, 리포트 화면 구현
+- **요청**: 예산설정, 카테고리 관리, 리포트 시각화 및 추이 분석
+- **변경**:
+  - `src/pages/CategoryManagePage.tsx`: 카테고리 관리 화면 신규 생성
+    - 지출/수입 탭 전환
+    - 카테고리 추가/수정/삭제 기능
+    - 아이콘 및 색상 선택 UI
+    - 카테고리별 예산 설정 (지출 카테고리 전용)
+  - `src/pages/StatsPage.tsx`: 통계 화면 전면 재구현
+    - 월 네비게이션 (이전/다음)
+    - 이번 달 지출 + 예산 대비 진행률
+    - 탭 전환: 카테고리별 / 월별 추이
+    - 카테고리별: 수평 바 차트, 건수/비율 표시
+    - 월별 추이: 6개월 바 차트, 수입/지출 합계
+    - 인사이트 섹션 (가장 많이 쓴 카테고리, 지난달 대비 변화, 예산 사용률)
+  - `src/pages/SettingsPage.tsx`: 카테고리 관리 메뉴 추가
+  - `src/App.tsx`: `/settings/categories` 라우트 추가
+- **결과**: 예산설정, 카테고리 관리, 리포트 시각화 및 추이 분석 완료, 타입체크 통과
+
 ---
 
 ## 진행 예정
-- 프로젝트 초기화 (Vite + React + TypeScript)
-- Tailwind CSS + 디자인 토큰 설정
-- 기본 컴포넌트 구현
+- 온보딩 플로우 구현
 
 ---

@@ -1,5 +1,5 @@
 import { db } from './database';
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { endOfMonth, subMonths, format } from 'date-fns';
 import type {
   Transaction,
   MonthSummary,
@@ -191,7 +191,7 @@ export async function searchTransactions(query: string): Promise<Transaction[]> 
     .filter(
       (tx) =>
         tx.description.toLowerCase().includes(lowerQuery) ||
-        (tx.memo && tx.memo.toLowerCase().includes(lowerQuery))
+        (tx.memo ? tx.memo.toLowerCase().includes(lowerQuery) : false)
     )
     .reverse()
     .sortBy('date');

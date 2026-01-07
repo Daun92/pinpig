@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Clock, PieChart, Settings, Plus } from 'lucide-react';
+import { Home, List, BarChart2, Settings, Plus } from 'lucide-react';
 
 const tabs = [
   { to: '/', icon: Home, label: '홈' },
-  { to: '/history', icon: Clock, label: '내역' },
+  { to: '/history', icon: List, label: '내역' },
   { to: '/add', icon: Plus, label: '추가', isMain: true },
-  { to: '/stats', icon: PieChart, label: '통계' },
+  { to: '/stats', icon: BarChart2, label: '리포트' },
   { to: '/settings', icon: Settings, label: '설정' },
 ];
 

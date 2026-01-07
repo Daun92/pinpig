@@ -90,27 +90,27 @@ export interface MonthSummary {
   transactionCount: number;
 }
 
-// Default Categories
+// Default Categories - icon values are Lucide icon names
 export const DEFAULT_EXPENSE_CATEGORIES: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  { name: '식비', icon: '🍚', color: '#FF6B6B', type: 'expense', order: 0, isDefault: true },
-  { name: '교통', icon: '🚇', color: '#4ECDC4', type: 'expense', order: 1, isDefault: true },
-  { name: '쇼핑', icon: '🛍️', color: '#45B7D1', type: 'expense', order: 2, isDefault: true },
-  { name: '문화/여가', icon: '🎬', color: '#96CEB4', type: 'expense', order: 3, isDefault: true },
-  { name: '의료/건강', icon: '💊', color: '#FFEAA7', type: 'expense', order: 4, isDefault: true },
-  { name: '주거/통신', icon: '🏠', color: '#DDA0DD', type: 'expense', order: 5, isDefault: true },
-  { name: '기타', icon: '📦', color: '#B8B8B8', type: 'expense', order: 6, isDefault: true },
+  { name: '식비', icon: 'Utensils', color: '#FF6B6B', type: 'expense', order: 0, isDefault: true },
+  { name: '교통', icon: 'Car', color: '#4ECDC4', type: 'expense', order: 1, isDefault: true },
+  { name: '쇼핑', icon: 'ShoppingBag', color: '#45B7D1', type: 'expense', order: 2, isDefault: true },
+  { name: '문화/여가', icon: 'Film', color: '#96CEB4', type: 'expense', order: 3, isDefault: true },
+  { name: '의료/건강', icon: 'Heart', color: '#FFEAA7', type: 'expense', order: 4, isDefault: true },
+  { name: '주거/통신', icon: 'Home', color: '#DDA0DD', type: 'expense', order: 5, isDefault: true },
+  { name: '기타', icon: 'MoreHorizontal', color: '#B8B8B8', type: 'expense', order: 6, isDefault: true },
 ];
 
 export const DEFAULT_INCOME_CATEGORIES: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  { name: '급여', icon: '💰', color: '#4A7C59', type: 'income', order: 0, isDefault: true },
-  { name: '용돈', icon: '🎁', color: '#FDA7DF', type: 'income', order: 1, isDefault: true },
-  { name: '기타수입', icon: '💵', color: '#74B9FF', type: 'income', order: 2, isDefault: true },
+  { name: '급여', icon: 'Wallet', color: '#4A7C59', type: 'income', order: 0, isDefault: true },
+  { name: '용돈', icon: 'Gift', color: '#FDA7DF', type: 'income', order: 1, isDefault: true },
+  { name: '기타수입', icon: 'TrendingUp', color: '#74B9FF', type: 'income', order: 2, isDefault: true },
 ];
 
 export const DEFAULT_PAYMENT_METHODS: Omit<PaymentMethod, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  { name: '현금', icon: '💵', color: '#4CAF50', order: 0, isDefault: true },
-  { name: '카드', icon: '💳', color: '#2196F3', order: 1, isDefault: true },
-  { name: '계좌이체', icon: '🏦', color: '#9C27B0', order: 2, isDefault: true },
+  { name: '현금', icon: 'Banknote', color: '#4CAF50', order: 0, isDefault: true },
+  { name: '카드', icon: 'CreditCard', color: '#2196F3', order: 1, isDefault: true },
+  { name: '계좌이체', icon: 'Building', color: '#9C27B0', order: 2, isDefault: true },
 ];
 
 // =========================================

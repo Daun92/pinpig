@@ -150,43 +150,82 @@ DON'T:
 
 ## 아이콘 시스템
 
+### 핵심 원칙
+
+> **이모지 사용 금지. Lucide 선형 SVG 아이콘만 사용.**
+
+이모지는 플랫폼별로 다르게 렌더링되고, 디자인 일관성을 해친다.
+모든 아이콘은 Lucide React 라이브러리의 선형(outline) 아이콘을 사용한다.
+
 ### 스타일
 
 | 속성 | 값 |
 |------|-----|
-| 타입 | Line Icon (외곽선) |
-| 두께 | 1.5px |
-| 모서리 | Rounded (2px) |
+| 라이브러리 | **Lucide React** (`lucide-react`) |
+| 타입 | Line Icon (외곽선, stroke only) |
+| 두께 | 1.5px (`strokeWidth={1.5}`) |
+| 모서리 | Rounded (기본값) |
 | 기본 크기 | 20px |
 | 색상 | `ink-mid` (#6B6966) |
+| 활성 색상 | `ink-black` (#1C1B1A) |
 
 ### 카테고리 아이콘
 
-| 카테고리 | Lucide 아이콘 |
-|----------|--------------|
-| 식비 | `utensils` |
-| 카페 | `coffee` |
-| 교통 | `car` |
-| 쇼핑 | `shopping-bag` |
-| 주거 | `home` |
-| 의료 | `heart-pulse` |
-| 여가 | `gamepad-2` |
-| 통신 | `smartphone` |
-| 금융 | `coins` |
-| 기타 | `more-horizontal` |
+| 카테고리 | Lucide 아이콘 | import |
+|----------|--------------|--------|
+| 식비 | `Utensils` | `import { Utensils } from 'lucide-react'` |
+| 카페 | `Coffee` | `import { Coffee } from 'lucide-react'` |
+| 교통 | `Car` | `import { Car } from 'lucide-react'` |
+| 쇼핑 | `ShoppingBag` | `import { ShoppingBag } from 'lucide-react'` |
+| 주거 | `Home` | `import { Home } from 'lucide-react'` |
+| 의료 | `HeartPulse` | `import { HeartPulse } from 'lucide-react'` |
+| 여가 | `Gamepad2` | `import { Gamepad2 } from 'lucide-react'` |
+| 통신 | `Smartphone` | `import { Smartphone } from 'lucide-react'` |
+| 금융 | `Coins` | `import { Coins } from 'lucide-react'` |
+| 기타 | `MoreHorizontal` | `import { MoreHorizontal } from 'lucide-react'` |
+
+### 수입 카테고리 아이콘
+
+| 카테고리 | Lucide 아이콘 | import |
+|----------|--------------|--------|
+| 급여 | `Wallet` | `import { Wallet } from 'lucide-react'` |
+| 보너스 | `Gift` | `import { Gift } from 'lucide-react'` |
+| 투자수익 | `TrendingUp` | `import { TrendingUp } from 'lucide-react'` |
+| 기타수입 | `PlusCircle` | `import { PlusCircle } from 'lucide-react'` |
 
 ### UI 아이콘
 
-| 기능 | Lucide 아이콘 |
-|------|--------------|
-| 추가 | `plus` |
-| 닫기 | `x` |
-| 뒤로 | `arrow-left` |
-| 더보기 | `more-horizontal` |
-| 체크 | `check` |
-| 설정 | `settings` |
-| 차트 | `bar-chart-2` |
-| 목록 | `list` |
+| 기능 | Lucide 아이콘 | import |
+|------|--------------|--------|
+| 추가 | `Plus` | `import { Plus } from 'lucide-react'` |
+| 닫기 | `X` | `import { X } from 'lucide-react'` |
+| 뒤로 | `ArrowLeft` | `import { ArrowLeft } from 'lucide-react'` |
+| 더보기 | `MoreHorizontal` | `import { MoreHorizontal } from 'lucide-react'` |
+| 체크 | `Check` | `import { Check } from 'lucide-react'` |
+| 설정 | `Settings` | `import { Settings } from 'lucide-react'` |
+| 차트 | `BarChart2` | `import { BarChart2 } from 'lucide-react'` |
+| 목록 | `List` | `import { List } from 'lucide-react'` |
+| 검색 | `Search` | `import { Search } from 'lucide-react'` |
+| 삭제 | `Trash2` | `import { Trash2 } from 'lucide-react'` |
+| 날짜 | `Calendar` | `import { Calendar } from 'lucide-react'` |
+| 메모 | `FileText` | `import { FileText } from 'lucide-react'` |
+| 화살표(우) | `ChevronRight` | `import { ChevronRight } from 'lucide-react'` |
+| 화살표(좌) | `ChevronLeft` | `import { ChevronLeft } from 'lucide-react'` |
+
+### 사용 예시
+
+```tsx
+import { Coffee, Plus, ArrowLeft } from 'lucide-react';
+
+// 기본 사용
+<Coffee size={20} strokeWidth={1.5} className="text-ink-mid" />
+
+// 활성 상태
+<Coffee size={20} strokeWidth={1.5} className="text-ink-black" />
+
+// FAB 아이콘
+<Plus size={24} strokeWidth={2} className="text-paper-white" />
+```
 
 ---
 

@@ -133,12 +133,12 @@ export const useCategoryStore = create<CategoryStore>()(
         set({ isLoading: true, error: null });
         try {
           const now = new Date();
-          const updates = orderedIds.map((id, index) => ({
-            key: id,
-            changes: { order: index, updatedAt: now },
-          }));
 
-          await db.categories.bulkUpdate(updates);
+          await db.transaction('rw', db.categories, async () => {
+            for (let i = 0; i < orderedIds.length; i++) {
+              await db.categories.update(orderedIds[i], { order: i, updatedAt: now });
+            }
+          });
 
           set((state) => ({
             categories: state.categories
