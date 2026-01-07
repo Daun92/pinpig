@@ -146,9 +146,116 @@
   - `src/App.tsx`: `/settings/categories` 라우트 추가
 - **결과**: 예산설정, 카테고리 관리, 리포트 시각화 및 추이 분석 완료, 타입체크 통과
 
+### #13 스마트 예산 시스템 구현
+- **요청**: 예산 설정 위저드, 월간 리뷰, 연간 대형 지출 예측 알림
+- **변경**:
+  - `src/types/index.ts`: BudgetRecommendation, AnnualExpensePattern, MonthlyReview 타입 추가
+  - `src/services/database.ts`: annualExpenses 테이블 추가 (스키마 v2)
+  - `src/services/queries.ts`: 예산 추천/연간지출/월간리뷰 쿼리 함수 추가
+  - `src/pages/BudgetWizardPage.tsx`: 4단계 예산 설정 위저드 생성
+    - Step 1: 과거 3개월 지출 분석 결과 표시
+    - Step 2: 카테고리별 지출 패턴 확인
+    - Step 3: 예산 목표 설정 (절약/유지/여유 프리셋)
+    - Step 4: 완료 확인
+  - `src/pages/AnnualExpensesPage.tsx`: 연간 대형 지출 관리 화면 생성
+    - 작년 데이터 기반 대형 지출 자동 탐지 (≥50만원 + 월평균 2.5배 이상)
+    - 항목별 알림 활성화/비활성화
+    - D-day 카운트다운 표시
+  - `src/pages/MonthlyReviewPage.tsx`: 월간 리뷰 화면 생성
+    - 월 네비게이션
+    - 예산 대비 사용률 시각화
+    - 인사이트 (초과/절약/증가/감소)
+    - 카테고리별 전월 대비 비교
+  - `src/pages/SettingsPage.tsx`: 예산 마법사/연간지출/월간리뷰 메뉴 추가
+  - `src/App.tsx`: 새 라우트 추가 (/settings/budget-wizard, /settings/annual-expenses, /review)
+- **결과**: 스마트 예산 시스템 완료, 타입체크 통과
+
+### #14 거래 입력 UI/UX 개선 (Phase 1.5)
+- **요청**: 결제수단 선택, 가맹점 입력, 날짜 선택 기능 추가
+- **변경**:
+  - `src/stores/paymentMethodStore.ts`: 결제수단 Store 생성
+    - fetchPaymentMethods, addPaymentMethod, updatePaymentMethod, deletePaymentMethod
+    - selectPaymentMethods, selectDefaultPaymentMethod 셀렉터
+  - `src/pages/AddPage.tsx`: 거래 입력 화면 개선
+    - 결제수단 선택 UI (칩 형태, 지출 시에만 표시)
+    - 가맹점/상호명 입력 필드 ("어디서?" placeholder)
+    - 날짜 선택 (오늘/어제/이전 날짜 선택 가능, 화살표 네비게이션)
+    - 기존 메모 필드 → description 필드로 전환
+- **결과**: 3터치 원칙 유지하면서 추가 정보 입력 가능, 타입체크 통과
+
+### #15 거래 입력 UI 전면 개선 + 결제수단 관리
+- **요청**: 결제수단 관리 화면, 레이아웃 개선, 커스텀 키패드 제거, FAB 저장 버튼
+- **변경**:
+  - `src/pages/PaymentMethodManagePage.tsx`: 결제수단 관리 화면 생성
+    - 결제수단 추가/수정/삭제
+    - 아이콘 및 색상 선택
+    - 카드별 실적 관리를 위한 다중 카드 지원
+  - `src/pages/AddPage.tsx`: 전면 개선
+    - 커스텀 숫자 키패드 제거 → 시스템 입력(키보드) 사용
+    - 레이아웃 재구성 (스크롤 가능한 컨텐츠 영역)
+    - 카테고리/결제수단 겹침 문제 해결
+    - 금액 입력 시 자동 포커스
+  - `src/pages/SettingsPage.tsx`: 결제수단 관리 메뉴 추가
+  - `src/App.tsx`: `/settings/payment-methods` 라우트 추가
+- **결과**: 시스템 입력 사용으로 UX 개선, 카드별 관리 가능, 타입체크 통과
+
+### #16 TabBar FAB 동적 동작 + 메모/날짜선택 개선
+- **요청**:
+  - TabBar 중앙 FAB이 AddPage에서 저장 버튼(✓)으로 동작
+  - 메모 필드 추가
+  - 날짜 선택을 달력 팝업 방식으로 변경
+- **변경**:
+  - `src/stores/addPageStore.ts`: TabBar↔AddPage 통신용 Store 생성
+    - canSubmit: 저장 가능 상태
+    - submitHandler: 저장 핸들러 등록
+    - triggerSubmit: 저장 실행
+  - `src/components/layout/TabBar.tsx`: FAB 동적 동작 구현
+    - 일반 페이지: + 아이콘, /add로 네비게이션
+    - AddPage + 저장가능: ✓ 아이콘, 저장 실행
+  - `src/components/common/DateTimePicker.tsx`: 날짜/시간 선택 달력 모달 생성
+    - 월 네비게이션
+    - 미래 날짜 선택 비활성화
+    - 시간 선택 (time input)
+  - `src/pages/AddPage.tsx`:
+    - addPageStore 연동 (submitHandler 등록, canSubmit 업데이트)
+    - 별도 FAB 제거 (TabBar FAB 사용)
+    - 메모 필드 추가 (마지막 항목)
+    - 날짜 선택: 좌우 화살표 → 달력 팝업 클릭 방식
+- **결과**: 3터치 원칙 강화, 직관적인 날짜 선택, 타입체크 통과
+
+### #17 카테고리 상세 모달 개선
+- **요청**: 하단 네비게이션에 가려지는 문제 해결, TOP5 지출 표시
+- **변경**:
+  - `src/services/queries.ts`: `getTopTransactionsByCategory()` 함수 추가
+  - `src/components/report/CategoryTrendModal.tsx`:
+    - 모달에 `pb-20` 패딩 추가 (하단 네비 overlap 해결)
+    - `max-h-[85vh] overflow-y-auto` 추가 (긴 콘텐츠 스크롤)
+    - 헤더 `sticky` 처리
+    - TOP5 지출 섹션 추가 (순위/내용/날짜/금액)
+    - year/month props 추가로 현재 보고 있는 월의 데이터 표시
+  - `src/pages/StatsPage.tsx`: 모달에 year, month 전달
+- **결과**: 모달 하단 가림 해결, 카테고리별 TOP5 지출 표시, 타입체크 통과
+
+### #18 통계 페이지 수입/지출 통합 분석
+- **요청**: 지출 분석만 있어서 수입도 함께 관리
+- **변경**:
+  - `src/pages/StatsPage.tsx`:
+    - 지출/수입 토글 버튼 추가 (상단 pill 형태)
+    - `transactionType` state로 분석 대상 전환
+    - Summary 섹션: 선택된 타입에 맞게 표시
+    - 수입 모드: 잔액(수입-지출) 정보 추가 표시
+    - 인사이트: 타입별 맞춤 메시지 (지출→지난달 대비, 수입→저축률 등)
+    - 카테고리 금액: 수입일 때 녹색 + 표시
+  - `src/components/report/CategoryTrendModal.tsx`:
+    - `type` prop 추가 (expense/income)
+    - 타입별 라벨 변경 ("최고 지출" ↔ "최고 수입")
+    - TOP5 금액 색상 타입별 적용
+- **결과**: 수입/지출 통합 분석 가능, 타입체크 통과
+
 ---
 
 ## 진행 예정
 - 온보딩 플로우 구현
+- PWA 푸시 알림 연동
 
 ---

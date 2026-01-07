@@ -126,6 +126,25 @@ export interface MonthlyTrend {
   transactionCount: number;
 }
 
+export interface AnnualTrend {
+  year: number;
+  income: number;
+  expense: number;
+  balance: number;
+  transactionCount: number;
+}
+
+export interface CategoryTrend {
+  year: number;
+  month: number;
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  amount: number;
+  transactionCount: number;
+}
+
 export interface BudgetStatus {
   monthlyBudget: number;
   totalExpense: number;
@@ -144,4 +163,85 @@ export interface TransactionExportRow {
   description: string;
   amount: number;
   memo: string;
+}
+
+// =========================================
+// Budget Wizard Types
+// =========================================
+
+export interface BudgetRecommendation {
+  avgExpense3Months: number;           // 최근 3개월 평균 지출
+  maxExpenseMonth: number;             // 가장 많이 쓴 달 금액
+  minExpenseMonth: number;             // 가장 적게 쓴 달 금액
+  totalExpense3Months: number;         // 3개월 총 지출
+  dataMonths: number;                  // 분석에 사용된 월 수
+  categoryBreakdown: CategoryBudgetRecommendation[];
+}
+
+export interface CategoryBudgetRecommendation {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  avgAmount: number;                   // 3개월 평균
+  percentage: number;                  // 전체 대비 비율
+  recommendedBudget: number;           // 추천 예산
+}
+
+// =========================================
+// Annual Expense Pattern Types
+// =========================================
+
+export interface AnnualExpensePattern {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  description: string;                 // "자동차보험", "재산세" 등
+  month: number;                       // 발생 월 (1-12)
+  day: number;                         // 발생 일 (1-31)
+  amount: number;                      // 작년 금액
+  year: number;                        // 발생 연도
+  isEnabled: boolean;                  // 알림 활성화 여부
+  notifyDaysBefore: number;            // 며칠 전 알림 (기본 14일)
+  lastNotifiedYear?: number;           // 마지막 알림 연도
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type CreateAnnualExpenseInput = Omit<AnnualExpensePattern, 'id' | 'createdAt' | 'updatedAt'>;
+
+// =========================================
+// Monthly Review Types
+// =========================================
+
+export interface MonthlyReview {
+  year: number;
+  month: number;
+  totalExpense: number;
+  totalIncome: number;
+  budgetUsedPercent: number;
+  insights: ReviewInsight[];
+  categoryComparison: CategoryComparison[];
+}
+
+export interface ReviewInsight {
+  type: 'over_budget' | 'under_budget' | 'increase' | 'decrease' | 'trend';
+  categoryName?: string;
+  message: string;
+  amount?: number;
+  percentChange?: number;
+}
+
+export interface CategoryComparison {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  currentAmount: number;
+  previousAmount: number;
+  budgetAmount?: number;
+  percentChange: number;
+  isOverBudget: boolean;
 }

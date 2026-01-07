@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { ChevronRight, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { useTransactionStore, selectBudgetStatus } from '@/stores/transactionStore';
 import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
@@ -9,8 +9,7 @@ import { formatCurrency } from '@/utils/format';
 import { isToday, isYesterday } from 'date-fns';
 
 export function HomePage() {
-  const navigate = useNavigate();
-  const { transactions, currentMonth, fetchTransactions, isLoading } = useTransactionStore();
+  const { transactions, fetchTransactions, isLoading } = useTransactionStore();
   const { fetchSettings } = useSettingsStore();
   const { fetchCategories } = useCategoryStore();
 
@@ -24,7 +23,8 @@ export function HomePage() {
     fetchTransactions(new Date());
   }, [fetchSettings, fetchCategories, fetchTransactions]);
 
-  const currentMonthLabel = currentMonth.toLocaleDateString('ko-KR', { month: 'long' });
+  const today = new Date();
+  const currentDateLabel = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
   const remaining = budgetStatus.remaining;
   const percentUsed = budgetStatus.percentUsed;
@@ -55,11 +55,11 @@ export function HomePage() {
     <div className="min-h-screen bg-paper-white pb-20">
       {/* Hero Zone */}
       <section className="px-6 pt-6">
-        {/* Month Display */}
+        {/* Date Display */}
         <div className="text-center">
-          <button className="text-sub text-ink-mid">
-            {currentMonthLabel.replace('월', '월')}
-          </button>
+          <span className="text-sub text-ink-mid">
+            {currentDateLabel}
+          </span>
         </div>
 
         {/* Hero Amount */}
@@ -148,14 +148,6 @@ export function HomePage() {
         )}
       </section>
 
-      {/* FAB */}
-      <button
-        onClick={() => navigate('/add')}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-ink-black rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-        aria-label="새 거래 추가"
-      >
-        <Plus className="w-6 h-6 text-paper-white" />
-      </button>
     </div>
   );
 }

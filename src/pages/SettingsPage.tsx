@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag } from 'lucide-react';
+import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart } from 'lucide-react';
 import { getSettings, updateSettings, resetDatabase } from '@/services/database';
 import { importTransactionsFromJSON, clearAllTransactions, getImportStatus } from '@/services/importData';
 import type { Settings } from '@/types';
@@ -131,11 +131,47 @@ export function SettingsPage() {
             </div>
           </div>
         </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => navigate('/settings/budget-wizard')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <Wand2 size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">예산 설정 마법사</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => navigate('/settings/annual-expenses')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <CalendarClock size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">연간 대형 지출 관리</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => navigate('/review')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <FileBarChart size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">월간 리뷰</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
       </section>
 
-      {/* Category Section */}
+      {/* Category & Payment Section */}
       <section className="px-6 pt-6">
-        <h2 className="text-sub text-ink-light mb-2">카테고리</h2>
+        <h2 className="text-sub text-ink-light mb-2">카테고리 & 결제수단</h2>
         <div className="border-b border-paper-mid">
           <button
             onClick={() => navigate('/settings/categories')}
@@ -144,6 +180,18 @@ export function SettingsPage() {
             <div className="flex items-center gap-3">
               <Tag size={20} className="text-ink-mid" />
               <span className="text-body text-ink-black">카테고리 관리</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => navigate('/settings/payment-methods')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <CreditCard size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">결제수단 관리</span>
             </div>
             <ChevronRight size={20} className="text-ink-light" />
           </button>

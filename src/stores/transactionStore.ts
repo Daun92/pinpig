@@ -7,6 +7,8 @@ import {
   getMonthlySummary,
   getCategoryBreakdown,
   getMonthlyTrend,
+  getAnnualTrend,
+  getCategoryTrend,
   exportTransactionsToCSV,
 } from '@/services/queries';
 import type {
@@ -16,6 +18,8 @@ import type {
   MonthSummary,
   CategorySummary,
   MonthlyTrend,
+  AnnualTrend,
+  CategoryTrend,
   BudgetStatus,
 } from '@/types';
 import { endOfMonth, differenceInDays } from 'date-fns';
@@ -26,6 +30,8 @@ interface TransactionState {
   monthSummary: MonthSummary | null;
   categoryBreakdown: CategorySummary[];
   monthlyTrend: MonthlyTrend[];
+  annualTrend: AnnualTrend[];
+  categoryTrend: CategoryTrend[];
   isLoading: boolean;
   error: string | null;
 }
@@ -42,6 +48,8 @@ interface TransactionActions {
   fetchMonthSummary: (year: number, month: number) => Promise<void>;
   fetchCategoryBreakdown: (year: number, month: number, type?: 'income' | 'expense') => Promise<void>;
   fetchMonthlyTrend: (months?: number) => Promise<void>;
+  fetchAnnualTrend: (years?: number) => Promise<void>;
+  fetchCategoryTrend: (categoryId: string, months?: number) => Promise<void>;
 
   // Export
   exportToCSV: (year: number, month: number) => Promise<string>;
@@ -63,6 +71,8 @@ export const useTransactionStore = create<TransactionStore>()(
       monthSummary: null,
       categoryBreakdown: [],
       monthlyTrend: [],
+      annualTrend: [],
+      categoryTrend: [],
       isLoading: false,
       error: null,
 
@@ -193,6 +203,24 @@ export const useTransactionStore = create<TransactionStore>()(
         }
       },
 
+      fetchAnnualTrend: async (years: number = 3) => {
+        try {
+          const trend = await getAnnualTrend(years);
+          set({ annualTrend: trend });
+        } catch (error) {
+          console.error('Failed to fetch annual trend:', error);
+        }
+      },
+
+      fetchCategoryTrend: async (categoryId: string, months: number = 6) => {
+        try {
+          const trend = await getCategoryTrend(categoryId, months);
+          set({ categoryTrend: trend });
+        } catch (error) {
+          console.error('Failed to fetch category trend:', error);
+        }
+      },
+
       exportToCSV: async (year: number, month: number) => {
         return exportTransactionsToCSV(year, month);
       },
@@ -271,3 +299,5 @@ export const selectTransactionsByDate = (state: TransactionStore) => {
 export const selectCurrentMonth = (state: TransactionStore) => state.currentMonth;
 export const selectCategoryBreakdown = (state: TransactionStore) => state.categoryBreakdown;
 export const selectMonthlyTrend = (state: TransactionStore) => state.monthlyTrend;
+export const selectAnnualTrend = (state: TransactionStore) => state.annualTrend;
+export const selectCategoryTrend = (state: TransactionStore) => state.categoryTrend;

@@ -4,6 +4,7 @@ import type {
   Category,
   PaymentMethod,
   Settings,
+  AnnualExpensePattern,
 } from '@/types';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
@@ -17,6 +18,7 @@ class PinPigDatabase extends Dexie {
   categories!: Table<Category>;
   paymentMethods!: Table<PaymentMethod>;
   settings!: Table<Settings>;
+  annualExpenses!: Table<AnnualExpensePattern>;
 
   constructor() {
     super('PinPigDB');
@@ -27,6 +29,15 @@ class PinPigDatabase extends Dexie {
       categories: 'id, type, name, order, [type+order]',
       paymentMethods: 'id, name, order',
       settings: 'id',
+    });
+
+    // Schema v2: Add annual expenses table
+    this.version(2).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, date, [date+type], [categoryId+date], createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
     });
   }
 }

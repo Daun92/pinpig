@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, ChevronDown, Plus } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
 import { Icon } from '@/components/common';
@@ -47,7 +46,6 @@ function groupTransactionsByDate(transactions: Transaction[]): DateGroup[] {
 }
 
 export function HistoryPage() {
-  const navigate = useNavigate();
   const { transactions, currentMonth, fetchTransactions, isLoading } = useTransactionStore();
   const { fetchCategories } = useCategoryStore();
   const categoryMap = useCategoryStore(selectCategoryMap);
@@ -157,14 +155,6 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* FAB */}
-      <button
-        onClick={() => navigate('/add')}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-ink-black rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-        aria-label="새 거래 추가"
-      >
-        <Plus className="w-6 h-6 text-paper-white" />
-      </button>
     </div>
   );
 }

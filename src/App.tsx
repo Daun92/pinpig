@@ -5,6 +5,10 @@ import { HistoryPage } from '@/pages/HistoryPage';
 import { StatsPage } from '@/pages/StatsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { CategoryManagePage } from '@/pages/CategoryManagePage';
+import { PaymentMethodManagePage } from '@/pages/PaymentMethodManagePage';
+import { BudgetWizardPage } from '@/pages/BudgetWizardPage';
+import { AnnualExpensesPage } from '@/pages/AnnualExpensesPage';
+import { MonthlyReviewPage } from '@/pages/MonthlyReviewPage';
 import { TabBar } from '@/components/layout/TabBar';
 
 export default function App() {
@@ -18,6 +22,10 @@ export default function App() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/categories" element={<CategoryManagePage />} />
+          <Route path="/settings/payment-methods" element={<PaymentMethodManagePage />} />
+          <Route path="/settings/budget-wizard" element={<BudgetWizardPage />} />
+          <Route path="/settings/annual-expenses" element={<AnnualExpensesPage />} />
+          <Route path="/review" element={<MonthlyReviewPage />} />
         </Routes>
       </main>
       <TabBar />
