@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
+import { usePaymentMethodStore } from '@/stores/paymentMethodStore';
 import { Icon } from '@/components/common';
+import { TransactionDetailModal } from '@/components/transaction/TransactionDetailModal';
 import { isToday, isYesterday, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { Transaction } from '@/types';
@@ -48,12 +50,27 @@ function groupTransactionsByDate(transactions: Transaction[]): DateGroup[] {
 export function HistoryPage() {
   const { transactions, currentMonth, fetchTransactions, isLoading } = useTransactionStore();
   const { fetchCategories } = useCategoryStore();
+  const { fetchPaymentMethods } = usePaymentMethodStore();
   const categoryMap = useCategoryStore(selectCategoryMap);
+
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCategories();
+    fetchPaymentMethods();
     fetchTransactions(new Date());
-  }, [fetchCategories, fetchTransactions]);
+  }, [fetchCategories, fetchPaymentMethods, fetchTransactions]);
+
+  const handleTransactionClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedTransaction(null);
+  };
 
   const dateGroups = groupTransactionsByDate(transactions);
 
@@ -116,7 +133,8 @@ export function HistoryPage() {
                   return (
                     <li
                       key={tx.id}
-                      className="px-6 py-4 border-b border-paper-mid"
+                      onClick={() => handleTransactionClick(tx)}
+                      className="px-6 py-4 border-b border-paper-mid cursor-pointer active:bg-paper-light transition-colors"
                     >
                       <div className="flex items-start gap-4">
                         {/* Icon */}
@@ -155,6 +173,12 @@ export function HistoryPage() {
         </div>
       )}
 
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+      />
     </div>
   );
 }

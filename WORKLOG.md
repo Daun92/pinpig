@@ -252,10 +252,56 @@
     - TOP5 금액 색상 타입별 적용
 - **결과**: 수입/지출 통합 분석 가능, 타입체크 통과
 
+### #19 온보딩 플로우 구현
+- **요청**: 최초 실행 시 예산 설정 온보딩
+- **변경**:
+  - `src/pages/OnboardingPage.tsx`: 온보딩 페이지 생성
+    - Step 1: 웰컴 화면 (로고, 태그라인, 시작 버튼)
+    - Step 2: 예산 설정 (슬라이더, 빠른 선택 버튼)
+    - Step 3: 완료 화면 (체크 애니메이션)
+  - `src/App.tsx`: 온보딩 완료 여부 체크 및 리디렉션 로직
+- **결과**: 신규 사용자 온보딩 플로우 완료
+
+### #20 거래 상세/수정/삭제 모달 구현
+- **요청**: 거래 클릭 시 상세 보기, 수정/삭제 기능
+- **변경**:
+  - `src/components/transaction/TransactionDetailModal.tsx`: 상세 모달 생성
+    - 거래 정보 표시 (카테고리, 날짜, 결제수단, 메모)
+    - 수정/삭제 버튼
+  - `src/pages/HistoryPage.tsx`: 거래 클릭 시 모달 열기
+  - `src/pages/AddPage.tsx`: 수정 모드 지원 (URL 파라미터 `?edit=id`)
+- **결과**: 거래 CRUD 완성
+
+### #21 CSV 내보내기 기능 구현
+- **요청**: 거래 내역 CSV 파일로 다운로드
+- **변경**:
+  - `src/services/exportData.ts`: CSV 내보내기 서비스 생성
+  - `src/pages/SettingsPage.tsx`: 내보내기 버튼 연결
+- **결과**: 설정 > 데이터 내보내기(CSV)로 다운로드 가능
+
+### #22 다크모드 지원 구현
+- **요청**: 라이트/다크/시스템 테마 지원
+- **변경**:
+  - `tailwind.config.js`: CSS 변수 기반 색상 시스템으로 전환
+  - `src/styles/globals.css`: 다크모드 CSS 변수 정의
+  - `src/hooks/useTheme.ts`: 테마 관리 훅 생성
+  - `src/pages/SettingsPage.tsx`: 테마 선택 UI 추가
+- **결과**: 다크모드 지원 완료
+
+### #23 PWA 푸시 알림 구현
+- **요청**: 예산 80% 사용 시 알림
+- **변경**:
+  - `src/services/notifications.ts`: 알림 서비스 생성
+    - 권한 요청/확인
+    - 예산 상태 체크 및 알림
+    - 알림 설정 저장/조회
+  - `src/App.tsx`: 앱 시작 시 예산 알림 체크
+  - `src/pages/SettingsPage.tsx`: 알림 설정 UI 추가 (토글 스위치)
+- **결과**: 예산 알림 기능 완료
+
 ---
 
 ## 진행 예정
-- 온보딩 플로우 구현
-- PWA 푸시 알림 연동
+- (현재 MVP 기능 구현 완료)
 
 ---

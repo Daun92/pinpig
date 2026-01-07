@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, Calendar, Store, FileText } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
 import { useAddPageStore } from '@/stores/addPageStore';
 import { Icon, DateTimePicker } from '@/components/common';
-import type { TransactionType } from '@/types';
+import { db } from '@/services/database';
+import type { TransactionType, Transaction } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -20,8 +21,13 @@ function getDefaultCategoryByTime(hour: number): string {
 
 export function AddPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
+  const isEditMode = Boolean(editId);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const addTransaction = useTransactionStore((state) => state.addTransaction);
+  const updateTransaction = useTransactionStore((state) => state.updateTransaction);
   const { fetchCategories } = useCategoryStore();
   const { fetchPaymentMethods } = usePaymentMethodStore();
   const { setSubmitHandler, setCanSubmit } = useAddPageStore();
@@ -39,6 +45,8 @@ export function AddPage() {
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
   const isValidAmount = amount && parseInt(amount) > 0;
@@ -48,14 +56,46 @@ export function AddPage() {
     fetchPaymentMethods();
   }, [fetchCategories, fetchPaymentMethods]);
 
+  // 수정 모드: 기존 거래 데이터 불러오기
   useEffect(() => {
-    // Auto focus on amount input
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
+    if (!editId) return;
+
+    const loadTransaction = async () => {
+      setIsLoading(true);
+      try {
+        const tx = await db.transactions.get(editId);
+        if (tx) {
+          setEditingTransaction(tx);
+          setType(tx.type);
+          setAmount(tx.amount.toString());
+          setSelectedCategoryId(tx.categoryId);
+          setSelectedPaymentMethodId(tx.paymentMethodId || '');
+          setDescription(tx.description || '');
+          setMemo(tx.memo || '');
+          setDate(tx.date);
+          setTime(tx.time);
+        }
+      } catch (error) {
+        console.error('Failed to load transaction:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTransaction();
+  }, [editId]);
 
   useEffect(() => {
+    // Auto focus on amount input (only in add mode)
+    if (!isEditMode && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditMode]);
+
+  useEffect(() => {
+    // 수정 모드일 때는 자동 카테고리 선택 건너뜀
+    if (isEditMode) return;
+
     if (currentCategories.length > 0 && !selectedCategoryId) {
       const hour = new Date().getHours();
       const defaultHint = getDefaultCategoryByTime(hour);
@@ -71,36 +111,57 @@ export function AddPage() {
 
       setSelectedCategoryId(matchingCategory?.id || currentCategories[0]?.id || '');
     }
-  }, [currentCategories, selectedCategoryId]);
+  }, [currentCategories, selectedCategoryId, isEditMode]);
 
   useEffect(() => {
+    // 수정 모드일 때는 타입 변경 시 카테고리 자동 선택 건너뜀
+    if (isEditMode && editingTransaction) return;
+
     if (currentCategories.length > 0) {
       setSelectedCategoryId(currentCategories[0]?.id || '');
     }
-  }, [type]);
+  }, [type, isEditMode, editingTransaction]);
 
   useEffect(() => {
+    // 수정 모드일 때는 자동 결제수단 선택 건너뜀
+    if (isEditMode) return;
+
     if (defaultPaymentMethod && !selectedPaymentMethodId) {
       setSelectedPaymentMethodId(defaultPaymentMethod.id);
     }
-  }, [defaultPaymentMethod, selectedPaymentMethodId]);
+  }, [defaultPaymentMethod, selectedPaymentMethodId, isEditMode]);
 
   const handleSubmit = useCallback(async () => {
     if (!amount || parseInt(amount) <= 0 || !selectedCategoryId) return;
 
-    await addTransaction({
-      type,
-      amount: parseInt(amount),
-      categoryId: selectedCategoryId,
-      paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
-      description: description || '',
-      memo: memo || '',
-      date,
-      time,
-    });
+    if (isEditMode && editId) {
+      // 수정 모드
+      await updateTransaction(editId, {
+        type,
+        amount: parseInt(amount),
+        categoryId: selectedCategoryId,
+        paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+        description: description || '',
+        memo: memo || '',
+        date,
+        time,
+      });
+    } else {
+      // 추가 모드
+      await addTransaction({
+        type,
+        amount: parseInt(amount),
+        categoryId: selectedCategoryId,
+        paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+        description: description || '',
+        memo: memo || '',
+        date,
+        time,
+      });
+    }
 
-    navigate('/');
-  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, description, memo, date, time, addTransaction, navigate]);
+    navigate(-1);
+  }, [isEditMode, editId, type, amount, selectedCategoryId, selectedPaymentMethodId, description, memo, date, time, addTransaction, updateTransaction, navigate]);
 
   // Register submit handler and update canSubmit state for TabBar FAB
   useEffect(() => {
@@ -134,6 +195,15 @@ export function AddPage() {
     return format(d, 'M월 d일', { locale: ko });
   };
 
+  // 로딩 중 표시
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-paper-white">
+        <div className="w-8 h-8 border-2 border-ink-light border-t-ink-black rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-paper-white safe-top">
       {/* Header */}
@@ -144,12 +214,15 @@ export function AddPage() {
         >
           <X size={24} />
         </button>
+        <span className="text-title text-ink-black">
+          {isEditMode ? '거래 수정' : ''}
+        </span>
         <button
           onClick={handleSubmit}
           disabled={!isValidAmount}
           className={`text-body ${isValidAmount ? 'text-ink-black' : 'text-ink-light'}`}
         >
-          저장
+          {isEditMode ? '수정' : '저장'}
         </button>
       </header>
 

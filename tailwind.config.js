@@ -5,23 +5,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Warm Mono Palette (Paper)
+        // Warm Mono Palette (Paper) - Light mode background
         paper: {
-          white: '#FAF9F7',
-          light: '#F5F4F1',
-          mid: '#ECEAE6',
+          white: 'var(--color-paper-white)',
+          light: 'var(--color-paper-light)',
+          mid: 'var(--color-paper-mid)',
         },
-        // Warm Mono Palette (Ink)
+        // Warm Mono Palette (Ink) - Light mode foreground
         ink: {
-          black: '#1C1B1A',
-          dark: '#3D3C3A',
-          mid: '#6B6966',
-          light: '#9C9A96',
+          black: 'var(--color-ink-black)',
+          dark: 'var(--color-ink-dark)',
+          mid: 'var(--color-ink-mid)',
+          light: 'var(--color-ink-light)',
         },
         // Semantic Colors
         semantic: {
-          positive: '#4A7C59',
-          caution: '#8B7355',
+          positive: 'var(--color-semantic-positive)',
+          caution: 'var(--color-semantic-caution)',
         },
       },
       fontFamily: {

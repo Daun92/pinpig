@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart } from 'lucide-react';
+import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart, Sun, Moon, Monitor, Bell, BellOff } from 'lucide-react';
 import { getSettings, updateSettings, resetDatabase } from '@/services/database';
 import { importTransactionsFromJSON, clearAllTransactions, getImportStatus } from '@/services/importData';
-import type { Settings } from '@/types';
+import { exportTransactionsToCSV } from '@/services/exportData';
+import { useTheme, getThemeLabel } from '@/hooks/useTheme';
+import {
+  requestNotificationPermission,
+  getNotificationPermission,
+  getNotificationSettings,
+  saveNotificationSettings,
+  type NotificationSettings,
+} from '@/services/notifications';
+import type { Settings, ThemeMode } from '@/types';
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [, setSettings] = useState<Settings | null>(null);
   const [budget, setBudget] = useState('');
   const [importStatus, setImportStatus] = useState<{
@@ -15,7 +25,17 @@ export function SettingsPage() {
     newestDate: Date | null;
   } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(getNotificationSettings());
+
+  const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+    { value: 'light', label: '라이트', icon: Sun },
+    { value: 'dark', label: '다크', icon: Moon },
+    { value: 'system', label: '시스템', icon: Monitor },
+  ];
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -26,7 +46,27 @@ export function SettingsPage() {
     });
 
     refreshImportStatus();
+    setNotificationPermission(getNotificationPermission());
   }, []);
+
+  const handleToggleBudgetAlert = async () => {
+    const newSettings = {
+      ...notificationSettings,
+      budgetAlert: !notificationSettings.budgetAlert,
+    };
+
+    // 알림 활성화 시 권한 요청
+    if (newSettings.budgetAlert && notificationPermission !== 'granted') {
+      const permission = await requestNotificationPermission();
+      setNotificationPermission(permission);
+      if (permission !== 'granted') {
+        return;
+      }
+    }
+
+    setNotificationSettings(newSettings);
+    saveNotificationSettings(newSettings);
+  };
 
   const refreshImportStatus = async () => {
     const status = await getImportStatus();
@@ -59,6 +99,23 @@ export function SettingsPage() {
       setImportMessage('가져오기 실패: ' + (error as Error).message);
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    if (isExporting) return;
+
+    setIsExporting(true);
+    setImportMessage('');
+
+    try {
+      await exportTransactionsToCSV();
+      setImportMessage('CSV 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('Export failed:', error);
+      setImportMessage('내보내기 실패: ' + (error as Error).message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -217,10 +274,16 @@ export function SettingsPage() {
           </button>
         </div>
         <div className="border-b border-paper-mid">
-          <button className="w-full flex items-center justify-between py-4">
+          <button
+            onClick={handleExportData}
+            disabled={isExporting}
+            className="w-full flex items-center justify-between py-4"
+          >
             <div className="flex items-center gap-3">
               <Download size={20} className="text-ink-mid" />
-              <span className="text-body text-ink-black">데이터 내보내기 (CSV)</span>
+              <span className="text-body text-ink-black">
+                {isExporting ? '내보내는 중...' : '데이터 내보내기 (CSV)'}
+              </span>
             </div>
             <ChevronRight size={20} className="text-ink-light" />
           </button>
@@ -270,6 +333,102 @@ export function SettingsPage() {
           <div className="py-3 px-4 bg-paper-light rounded-md mt-3">
             <p className="text-sub text-ink-dark">{importMessage}</p>
           </div>
+        )}
+      </section>
+
+      {/* Display Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">화면</h2>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => setShowThemeSelector(!showThemeSelector)}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              {theme === 'dark' ? (
+                <Moon size={20} className="text-ink-mid" />
+              ) : theme === 'light' ? (
+                <Sun size={20} className="text-ink-mid" />
+              ) : (
+                <Monitor size={20} className="text-ink-mid" />
+              )}
+              <span className="text-body text-ink-black">다크 모드</span>
+            </div>
+            <span className="text-body text-ink-mid">{getThemeLabel(theme)}</span>
+          </button>
+        </div>
+
+        {/* Theme Selector */}
+        {showThemeSelector && (
+          <div className="py-2 bg-paper-light rounded-md mt-2">
+            {themeOptions.map((option) => {
+              const IconComponent = option.icon;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    setTheme(option.value);
+                    setShowThemeSelector(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 ${
+                    theme === option.value ? 'bg-paper-mid' : ''
+                  }`}
+                >
+                  <IconComponent size={18} className="text-ink-mid" />
+                  <span className="text-body text-ink-black">{option.label}</span>
+                  {theme === option.value && (
+                    <span className="ml-auto text-semantic-positive">✓</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Notification Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">알림</h2>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={handleToggleBudgetAlert}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              {notificationSettings.budgetAlert ? (
+                <Bell size={20} className="text-ink-mid" />
+              ) : (
+                <BellOff size={20} className="text-ink-mid" />
+              )}
+              <div className="flex flex-col items-start">
+                <span className="text-body text-ink-black">예산 알림</span>
+                <span className="text-caption text-ink-light">
+                  예산의 80% 사용 시 알림
+                </span>
+              </div>
+            </div>
+            <div
+              className={`w-12 h-7 rounded-full p-1 transition-colors ${
+                notificationSettings.budgetAlert ? 'bg-semantic-positive' : 'bg-paper-mid'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  notificationSettings.budgetAlert ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </div>
+          </button>
+        </div>
+        {notificationPermission === 'denied' && (
+          <p className="text-caption text-semantic-caution mt-2">
+            브라우저에서 알림이 차단되어 있습니다. 설정에서 허용해주세요.
+          </p>
+        )}
+        {notificationPermission === 'unsupported' && (
+          <p className="text-caption text-ink-light mt-2">
+            이 브라우저는 알림을 지원하지 않습니다.
+          </p>
         )}
       </section>
 
