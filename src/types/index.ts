@@ -10,8 +10,10 @@ export interface Transaction {
   amount: number;
   categoryId: string;
   paymentMethodId?: string;
+  description: string;           // 가맹점/상호명
   memo?: string;
   date: Date;
+  time: string;                  // HH:mm 형식
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +57,8 @@ export interface Settings {
   currency: string;
   currencySymbol: string;
   startDayOfMonth: number;
+  payday: number;                    // 급여일 (1-31)
+  isOnboardingComplete: boolean;     // 온보딩 완료 여부
   theme: ThemeMode;
   updatedAt: Date;
 }
@@ -64,6 +68,8 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updatedAt'> = {
   currency: 'KRW',
   currencySymbol: '원',
   startDayOfMonth: 1,
+  payday: 25,
+  isOnboardingComplete: false,
   theme: 'system',
 };
 
@@ -106,3 +112,36 @@ export const DEFAULT_PAYMENT_METHODS: Omit<PaymentMethod, 'id' | 'createdAt' | '
   { name: '카드', icon: '💳', color: '#2196F3', order: 1, isDefault: true },
   { name: '계좌이체', icon: '🏦', color: '#9C27B0', order: 2, isDefault: true },
 ];
+
+// =========================================
+// Report & Analytics Types
+// =========================================
+
+export interface MonthlyTrend {
+  year: number;
+  month: number;
+  income: number;
+  expense: number;
+  balance: number;
+  transactionCount: number;
+}
+
+export interface BudgetStatus {
+  monthlyBudget: number;
+  totalExpense: number;
+  remaining: number;
+  remainingDays: number;
+  dailyRecommended: number;
+  percentUsed: number;
+  isOverBudget: boolean;
+}
+
+export interface TransactionExportRow {
+  date: string;           // YYYY-MM-DD
+  time: string;           // HH:mm
+  type: string;           // '수입' | '지출'
+  category: string;       // Category name
+  description: string;
+  amount: number;
+  memo: string;
+}

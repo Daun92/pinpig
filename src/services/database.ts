@@ -21,9 +21,10 @@ class PinPigDatabase extends Dexie {
   constructor() {
     super('PinPigDB');
 
+    // Schema v1 with compound indexes for efficient queries
     this.version(1).stores({
-      transactions: 'id, type, categoryId, paymentMethodId, date, createdAt',
-      categories: 'id, type, name, order',
+      transactions: 'id, type, categoryId, paymentMethodId, date, [date+type], [categoryId+date], createdAt',
+      categories: 'id, type, name, order, [type+order]',
       paymentMethods: 'id, name, order',
       settings: 'id',
     });
@@ -115,4 +116,16 @@ export async function updateSettings(updates: Partial<Settings>): Promise<void> 
     ...updates,
     updatedAt: new Date(),
   });
+}
+
+/**
+ * Reset database (development only)
+ * Clears all data and re-initializes with defaults
+ */
+export async function resetDatabase(): Promise<void> {
+  await db.transactions.clear();
+  await db.categories.clear();
+  await db.paymentMethods.clear();
+  await db.settings.clear();
+  await initializeDatabase();
 }
