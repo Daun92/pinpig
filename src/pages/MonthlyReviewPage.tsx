@@ -84,7 +84,7 @@ export function MonthlyReviewPage() {
   const canGoNext = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1) < new Date();
 
   return (
-    <div className="min-h-screen bg-paper-white pb-20">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">

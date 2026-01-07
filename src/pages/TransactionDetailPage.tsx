@@ -1,39 +1,45 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { X, ChevronDown, Calendar, CreditCard, Tag, MessageSquare } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { X, Trash2, ChevronDown, Calendar, CreditCard, Tag, MessageSquare } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
-import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
-import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
-import { useAddPageStore } from '@/stores/addPageStore';
+import {
+  useCategoryStore,
+  selectExpenseCategories,
+  selectIncomeCategories,
+} from '@/stores/categoryStore';
+import {
+  usePaymentMethodStore,
+  selectPaymentMethods,
+} from '@/stores/paymentMethodStore';
+import { useFabStore } from '@/stores/fabStore';
 import { Icon, DateTimePicker } from '@/components/common';
+import { db } from '@/services/database';
 import { getRecentMemos } from '@/services/queries';
-import type { TransactionType } from '@/types';
+import type { Transaction, TransactionType } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
-function getDefaultCategoryByTime(hour: number): string {
-  if (hour >= 7 && hour < 10) return 'transport';
-  if (hour >= 11 && hour < 14) return 'food';
-  if (hour >= 14 && hour < 17) return 'cafe';
-  if (hour >= 18 && hour < 21) return 'food';
-  return 'etc';
-}
-
 type ExpandedSection = 'none' | 'category' | 'payment' | 'extra';
 
-export function AddPage() {
+export function TransactionDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const amountInputRef = useRef<HTMLInputElement>(null);
   const memoInputRef = useRef<HTMLInputElement>(null);
-  const addTransaction = useTransactionStore((state) => state.addTransaction);
+
+  const updateTransaction = useTransactionStore((state) => state.updateTransaction);
+  const deleteTransaction = useTransactionStore((state) => state.deleteTransaction);
+  const fetchTransactions = useTransactionStore((state) => state.fetchTransactions);
   const { fetchCategories } = useCategoryStore();
   const { fetchPaymentMethods } = usePaymentMethodStore();
-  const { setSubmitHandler, setCanSubmit } = useAddPageStore();
+  const { setSubmitHandler, setCanSubmit } = useFabStore();
+
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
   const paymentMethods = usePaymentMethodStore(selectPaymentMethods);
-  const defaultPaymentMethod = usePaymentMethodStore(selectDefaultPaymentMethod);
 
+  const [originalTransaction, setOriginalTransaction] = useState<Transaction | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -42,11 +48,9 @@ export function AddPage() {
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [showDatePicker, setShowDatePicker] = useState(false);
-  // 첫 진입 시 카테고리/결제수단 열림 상태
-  const [expandedSection, setExpandedSection] = useState<ExpandedSection>('category');
-  // 사용자가 직접 선택했는지 추적 (첫 선택 후 미니멀 칩으로 전환)
-  const [hasUserSelectedCategory, setHasUserSelectedCategory] = useState(false);
-  const [hasUserSelectedPayment, setHasUserSelectedPayment] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<ExpandedSection>('none');
+  const [hasUserSelectedCategory, setHasUserSelectedCategory] = useState(true);
+  const [hasUserSelectedPayment, setHasUserSelectedPayment] = useState(true);
   // 최근 사용 메모 (태그 제안용)
   const [recentMemos, setRecentMemos] = useState<string[]>([]);
 
@@ -54,70 +58,107 @@ export function AddPage() {
   const selectedCategory = currentCategories.find(c => c.id === selectedCategoryId);
   const selectedPaymentMethod = paymentMethods.find(p => p.id === selectedPaymentMethodId);
 
+  // Load transaction data
   useEffect(() => {
-    fetchCategories();
-    fetchPaymentMethods();
-    // 최근 메모 불러오기
-    getRecentMemos(8).then(setRecentMemos);
-  }, [fetchCategories, fetchPaymentMethods]);
-
-  useEffect(() => {
-    if (amountInputRef.current) {
-      amountInputRef.current.focus();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentCategories.length > 0 && !selectedCategoryId) {
-      const hour = new Date().getHours();
-      const defaultHint = getDefaultCategoryByTime(hour);
-
-      let matchingCategory;
-      if (defaultHint === 'food') {
-        matchingCategory = currentCategories.find((c) => c.name.includes('식비'));
-      } else if (defaultHint === 'cafe') {
-        matchingCategory = currentCategories.find((c) => c.name.includes('카페'));
-      } else if (defaultHint === 'transport') {
-        matchingCategory = currentCategories.find((c) => c.name.includes('교통'));
+    const loadTransaction = async () => {
+      if (!id) {
+        navigate(-1);
+        return;
       }
 
-      setSelectedCategoryId(matchingCategory?.id || currentCategories[0]?.id || '');
-    }
-  }, [currentCategories, selectedCategoryId]);
+      try {
+        const transaction = await db.transactions.get(id);
+        if (!transaction) {
+          alert('거래를 찾을 수 없습니다.');
+          navigate(-1);
+          return;
+        }
 
-  useEffect(() => {
-    if (currentCategories.length > 0) {
-      setSelectedCategoryId(currentCategories[0]?.id || '');
-      // 타입 변경 시 상태 리셋 - 카테고리 다시 열림
-      setHasUserSelectedCategory(false);
-      setHasUserSelectedPayment(false);
-      setExpandedSection('category');
-    }
-  }, [type]);
+        setOriginalTransaction(transaction);
+        setType(transaction.type);
+        setAmount(transaction.amount.toString());
+        setSelectedCategoryId(transaction.categoryId);
+        setSelectedPaymentMethodId(transaction.paymentMethodId || '');
+        // description과 memo를 통합하여 memo로 사용
+        const combinedMemo = [transaction.description, transaction.memo].filter(Boolean).join(' ').trim();
+        setMemo(combinedMemo);
+        setDate(new Date(transaction.date));
+        setTime(transaction.time);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to load transaction:', error);
+        alert('거래를 불러오는데 실패했습니다.');
+        navigate(-1);
+      }
+    };
 
+    fetchCategories();
+    fetchPaymentMethods();
+    loadTransaction();
+    // 최근 메모 불러오기
+    getRecentMemos(8).then(setRecentMemos);
+  }, [id, navigate, fetchCategories, fetchPaymentMethods]);
+
+  // Handle category change when type changes
   useEffect(() => {
-    if (defaultPaymentMethod && !selectedPaymentMethodId) {
-      setSelectedPaymentMethodId(defaultPaymentMethod.id);
+    if (originalTransaction && currentCategories.length > 0) {
+      const originalType = originalTransaction.type;
+      if (type !== originalType) {
+        setSelectedCategoryId(currentCategories[0]?.id || '');
+      }
     }
-  }, [defaultPaymentMethod, selectedPaymentMethodId]);
+  }, [type, currentCategories, originalTransaction]);
 
   const handleSubmit = useCallback(async () => {
-    if (!amount || parseInt(amount) <= 0 || !selectedCategoryId) return;
+    if (!id || !amount || parseInt(amount) <= 0 || !selectedCategoryId) return;
 
-    await addTransaction({
-      type,
-      amount: parseInt(amount),
-      categoryId: selectedCategoryId,
-      paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
-      description: '', // deprecated, kept for backward compatibility
-      memo: memo || '',
-      date,
-      time,
-    });
+    try {
+      await updateTransaction(id, {
+        type,
+        amount: parseInt(amount),
+        categoryId: selectedCategoryId,
+        paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+        description: '', // deprecated, kept for backward compatibility
+        memo: memo || '',
+        date,
+        time,
+      });
 
-    navigate('/');
-  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, memo, date, time, addTransaction, navigate]);
+      await fetchTransactions();
+      navigate(-1);
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      alert('거래 수정에 실패했습니다.');
+    }
+  }, [
+    id,
+    type,
+    amount,
+    selectedCategoryId,
+    selectedPaymentMethodId,
+    memo,
+    date,
+    time,
+    updateTransaction,
+    fetchTransactions,
+    navigate,
+  ]);
 
+  const handleDelete = async () => {
+    if (!id) return;
+    if (!confirm('이 거래를 삭제하시겠습니까?')) return;
+
+    try {
+      await deleteTransaction(id);
+      await fetchTransactions();
+      navigate(-1);
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
+      alert('거래 삭제에 실패했습니다.');
+    }
+  };
+
+  // Register submit handler for FAB
   useEffect(() => {
     setSubmitHandler(handleSubmit);
     return () => {
@@ -155,7 +196,6 @@ export function AddPage() {
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setHasUserSelectedCategory(true);
-    // 선택 후 결제수단으로 이동 (지출일 때) 또는 접기
     setTimeout(() => {
       if (type === 'expense' && !hasUserSelectedPayment) {
         setExpandedSection('payment');
@@ -168,14 +208,12 @@ export function AddPage() {
   const handlePaymentSelect = (paymentId: string) => {
     setSelectedPaymentMethodId(paymentId);
     setHasUserSelectedPayment(true);
-    // 선택 후 자동으로 접기
     setTimeout(() => setExpandedSection('none'), 150);
   };
 
   const handleMemoToggle = () => {
     const willExpand = expandedSection !== 'extra';
     toggleSection('extra');
-    // 메모 펼칠 때 자동 포커스
     if (willExpand) {
       setTimeout(() => {
         memoInputRef.current?.focus();
@@ -193,9 +231,16 @@ export function AddPage() {
   // 현재 입력과 겹치지 않는 태그만 필터링
   const availableTags = recentMemos.filter(tag => !memo.includes(tag));
 
-  // 미니멀 칩 vs 풀 버튼 결정
   const showCategoryAsChip = hasUserSelectedCategory && expandedSection !== 'category';
   const showPaymentAsChip = hasUserSelectedPayment && expandedSection !== 'payment';
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-paper-white">
+        <p className="text-body text-ink-mid">불러오는 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-paper-white safe-top">
@@ -232,7 +277,12 @@ export function AddPage() {
           </button>
         </div>
 
-        <div className="w-10 -mr-1" />
+        <button
+          onClick={handleDelete}
+          className="w-10 h-10 flex items-center justify-center text-semantic-negative -mr-1"
+        >
+          <Trash2 size={20} />
+        </button>
       </header>
 
       {/* Main Content */}
@@ -315,7 +365,6 @@ export function AddPage() {
         {/* 3. 카테고리 / 결제수단 (필수) */}
         {/* ================================ */}
         <div className="space-y-2">
-
           {/* 카테고리 선택 */}
           {!showCategoryAsChip && (
             <div>

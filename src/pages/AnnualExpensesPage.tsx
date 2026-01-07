@@ -114,7 +114,7 @@ export function AnnualExpensesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper-white pb-20">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
@@ -136,9 +136,9 @@ export function AnnualExpensesPage() {
 
       {/* Detected Patterns Modal */}
       {showDetected && detectedPatterns.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowDetected(false)} />
-          <div className="relative w-full max-w-lg bg-paper-white rounded-t-2xl max-h-[70vh] overflow-auto">
+          <div className="relative w-full max-w-lg bg-paper-white rounded-2xl max-h-[70vh] overflow-auto animate-fade-in">
             <div className="p-6">
               <h2 className="text-title text-ink-black mb-2">올해 예상되는 큰 지출</h2>
               <p className="text-sub text-ink-mid mb-6">작년 데이터를 분석해봤어요</p>

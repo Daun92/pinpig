@@ -1,45 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, GripVertical, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, Plus, GripVertical } from 'lucide-react';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
-import { Icon } from '@/components/common/Icon';
+import { Icon, SwipeToDelete } from '@/components/common';
 import type { Category, TransactionType } from '@/types';
-
-// Lucide 아이콘 선택용 리스트
-const AVAILABLE_ICONS = [
-  'Utensils', 'Coffee', 'Car', 'ShoppingBag', 'Film', 'Heart', 'Home',
-  'Smartphone', 'Plane', 'Gift', 'Book', 'Music', 'Gamepad2', 'Dumbbell',
-  'Wallet', 'TrendingUp', 'Building', 'CreditCard', 'Banknote', 'MoreHorizontal'
-];
-
-const AVAILABLE_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD',
-  '#FDA7DF', '#74B9FF', '#A29BFE', '#FD79A8', '#00B894', '#E17055',
-  '#4A7C59', '#B8B8B8'
-];
-
-interface CategoryFormData {
-  name: string;
-  icon: string;
-  color: string;
-  budget?: number;
-}
 
 export function CategoryManagePage() {
   const navigate = useNavigate();
-  const { fetchCategories, addCategory, updateCategory, deleteCategory, error, clearError } = useCategoryStore();
+  const { fetchCategories, deleteCategory, reorderCategories, error } = useCategoryStore();
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
 
   const [activeTab, setActiveTab] = useState<TransactionType>('expense');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState<CategoryFormData>({
-    name: '',
-    icon: 'MoreHorizontal',
-    color: '#B8B8B8',
-    budget: undefined
-  });
+
+  // Drag and drop state
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [localCategories, setLocalCategories] = useState<Category[]>([]);
+  const dragStartY = useRef<number>(0);
+  const draggedElement = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -47,110 +26,176 @@ export function CategoryManagePage() {
 
   const displayCategories = activeTab === 'expense' ? expenseCategories : incomeCategories;
 
-  const handleOpenForm = (category?: Category) => {
-    if (category) {
-      setEditingCategory(category);
-      setFormData({
-        name: category.name,
-        icon: category.icon,
-        color: category.color,
-        budget: category.budget
-      });
-    } else {
-      setEditingCategory(null);
-      setFormData({
-        name: '',
-        icon: 'MoreHorizontal',
-        color: AVAILABLE_COLORS[Math.floor(Math.random() * AVAILABLE_COLORS.length)],
-        budget: undefined
-      });
-    }
-    setIsFormOpen(true);
+  useEffect(() => {
+    setLocalCategories(displayCategories);
+  }, [displayCategories]);
+
+  const goToAdd = () => {
+    navigate(`/settings/categories/new?type=${activeTab}`);
   };
 
-  const handleCloseForm = () => {
-    setIsFormOpen(false);
-    setEditingCategory(null);
-    setFormData({ name: '', icon: 'MoreHorizontal', color: '#B8B8B8', budget: undefined });
-    clearError();
+  const goToEdit = (category: Category) => {
+    navigate(`/settings/categories/${category.id}/edit`);
   };
 
-  const handleSubmit = async () => {
-    if (!formData.name.trim()) return;
-
-    try {
-      if (editingCategory) {
-        await updateCategory(editingCategory.id, {
-          name: formData.name.trim(),
-          icon: formData.icon,
-          color: formData.color,
-          budget: formData.budget
-        });
-      } else {
-        await addCategory({
-          name: formData.name.trim(),
-          icon: formData.icon,
-          color: formData.color,
-          type: activeTab,
-          order: displayCategories.length,
-          budget: formData.budget
-        });
-      }
-      handleCloseForm();
-    } catch (err) {
-      // Error is handled in store
-    }
-  };
-
-  const handleDelete = async (category: Category) => {
+  const handleDelete = async (category: Category, skipConfirm = false) => {
     if (category.isDefault) {
       alert('기본 카테고리는 삭제할 수 없습니다.');
       return;
     }
 
-    const confirmed = window.confirm(`"${category.name}" 카테고리를 삭제하시겠습니까?`);
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      const confirmed = window.confirm(`"${category.name}" 카테고리를 삭제하시겠습니까?`);
+      if (!confirmed) return;
+    }
 
     try {
       await deleteCategory(category.id);
-    } catch (err) {
+    } catch {
       // Error is handled in store
     }
   };
 
+  // Touch drag handlers
+  const handleTouchStart = (e: React.TouchEvent, category: Category) => {
+    const target = e.currentTarget as HTMLDivElement;
+    const touch = e.touches[0];
+
+    // Only start drag if touching the grip handle area (first 44px)
+    const rect = target.getBoundingClientRect();
+    if (touch.clientX - rect.left > 44) return;
+
+    setDraggedId(category.id);
+    dragStartY.current = touch.clientY;
+    draggedElement.current = target;
+    target.style.opacity = '0.7';
+    target.style.transform = 'scale(1.02)';
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!draggedId) return;
+
+    const touch = e.touches[0];
+    const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+
+    for (const el of elements) {
+      const id = (el as HTMLElement).dataset?.categoryId;
+      if (id && id !== draggedId) {
+        setDragOverId(id);
+        break;
+      }
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (draggedElement.current) {
+      draggedElement.current.style.opacity = '1';
+      draggedElement.current.style.transform = '';
+    }
+
+    if (draggedId && dragOverId && draggedId !== dragOverId) {
+      const fromIndex = localCategories.findIndex(c => c.id === draggedId);
+      const toIndex = localCategories.findIndex(c => c.id === dragOverId);
+
+      if (fromIndex !== -1 && toIndex !== -1) {
+        const newCategories = [...localCategories];
+        const [removed] = newCategories.splice(fromIndex, 1);
+        newCategories.splice(toIndex, 0, removed);
+        setLocalCategories(newCategories);
+        await reorderCategories(newCategories.map(c => c.id));
+      }
+    }
+
+    setDraggedId(null);
+    setDragOverId(null);
+    draggedElement.current = null;
+  };
+
+  // Mouse drag handlers
+  const handleDragStart = (e: React.DragEvent, category: Category) => {
+    setDraggedId(category.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', category.id);
+    (e.currentTarget as HTMLDivElement).style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    (e.currentTarget as HTMLDivElement).style.opacity = '1';
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, category: Category) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedId && category.id !== draggedId) {
+      setDragOverId(category.id);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetCategory: Category) => {
+    e.preventDefault();
+
+    if (!draggedId || draggedId === targetCategory.id) {
+      setDragOverId(null);
+      return;
+    }
+
+    const fromIndex = localCategories.findIndex(c => c.id === draggedId);
+    const toIndex = localCategories.findIndex(c => c.id === targetCategory.id);
+
+    if (fromIndex !== -1 && toIndex !== -1) {
+      const newCategories = [...localCategories];
+      const [removed] = newCategories.splice(fromIndex, 1);
+      newCategories.splice(toIndex, 0, removed);
+      setLocalCategories(newCategories);
+      await reorderCategories(newCategories.map(c => c.id));
+    }
+
+    setDragOverId(null);
+  };
+
   return (
-    <div className="min-h-screen bg-paper-white pb-20">
+    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
         <button
           onClick={() => navigate(-1)}
           className="w-10 h-10 flex items-center justify-center"
         >
-          <ArrowLeft size={24} className="text-ink-black" />
+          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
         </button>
-        <h1 className="text-title text-ink-black">카테고리 관리</h1>
+        <h1 className="text-title text-ink-black dark:text-paper-white">카테고리 관리</h1>
         <button
-          onClick={() => handleOpenForm()}
+          onClick={goToAdd}
           className="w-10 h-10 flex items-center justify-center"
         >
-          <Plus size={24} className="text-ink-black" />
+          <Plus size={24} className="text-ink-black dark:text-paper-white" />
         </button>
       </header>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-paper-mid">
+      <div className="flex border-b border-paper-mid dark:border-ink-dark">
         <button
           onClick={() => setActiveTab('expense')}
-          className={`flex-1 py-3 text-center text-body ${
-            activeTab === 'expense' ? 'text-ink-black border-b-2 border-ink-black' : 'text-ink-mid'
+          className={`flex-1 py-3 text-center text-body transition-colors ${
+            activeTab === 'expense'
+              ? 'text-ink-black dark:text-paper-white border-b-2 border-ink-black dark:border-paper-white'
+              : 'text-ink-mid'
           }`}
         >
           지출
         </button>
         <button
           onClick={() => setActiveTab('income')}
-          className={`flex-1 py-3 text-center text-body ${
-            activeTab === 'income' ? 'text-ink-black border-b-2 border-ink-black' : 'text-ink-mid'
+          className={`flex-1 py-3 text-center text-body transition-colors ${
+            activeTab === 'income'
+              ? 'text-ink-black dark:text-paper-white border-b-2 border-ink-black dark:border-paper-white'
+              : 'text-ink-mid'
           }`}
         >
           수입
@@ -159,170 +204,99 @@ export function CategoryManagePage() {
 
       {/* Error Message */}
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sub text-red-600">{error}</p>
+        <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+          <p className="text-sub text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Drag instruction */}
+      {localCategories.length > 1 && (
+        <div className="px-6 py-2 bg-paper-light dark:bg-ink-dark">
+          <p className="text-caption text-ink-mid text-center">
+            ≡ 아이콘을 드래그하여 순서를 변경할 수 있습니다
+          </p>
         </div>
       )}
 
       {/* Category List */}
       <div className="px-6 pt-4">
-        {displayCategories.map((category) => (
-          <div
-            key={category.id}
-            className="flex items-center py-4 border-b border-paper-mid"
-          >
-            <GripVertical size={20} className="text-ink-light mr-3" />
-
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center mr-3"
-              style={{ backgroundColor: category.color + '20' }}
-            >
-              <Icon name={category.icon} size={20} className="text-ink-dark" />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-body text-ink-black">{category.name}</p>
-              {category.budget && category.budget > 0 && (
-                <p className="text-caption text-ink-mid">
-                  예산: {category.budget.toLocaleString()}원
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleOpenForm(category)}
-                className="w-8 h-8 flex items-center justify-center"
-              >
-                <Edit2 size={16} className="text-ink-mid" />
-              </button>
-              {!category.isDefault && (
-                <button
-                  onClick={() => handleDelete(category)}
-                  className="w-8 h-8 flex items-center justify-center"
-                >
-                  <Trash2 size={16} className="text-red-500" />
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {displayCategories.length === 0 && (
+        {localCategories.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-body text-ink-light">카테고리가 없습니다</p>
-            <p className="text-sub text-ink-light mt-2">+ 버튼을 눌러 추가해보세요</p>
+            <button
+              onClick={goToAdd}
+              className="mt-4 px-4 py-2 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body"
+            >
+              카테고리 추가
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {localCategories.map((category) => (
+              <SwipeToDelete
+                key={category.id}
+                onDelete={() => handleDelete(category, true)}
+                confirmMessage={`"${category.name}" 카테고리를 삭제하시겠습니까?`}
+                disabled={category.isDefault}
+              >
+                <div
+                  data-category-id={category.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, category)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleDragOver(e, category)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, category)}
+                  onTouchStart={(e) => handleTouchStart(e, category)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  className={`flex items-center gap-3 p-4 bg-paper-light dark:bg-ink-dark rounded-md transition-all cursor-grab active:cursor-grabbing ${
+                    draggedId === category.id ? 'opacity-50 scale-[1.02]' : ''
+                  } ${
+                    dragOverId === category.id ? 'ring-2 ring-ink-black dark:ring-paper-white' : ''
+                  }`}
+                >
+                  <div
+                    data-grip
+                    className="touch-none cursor-grab active:cursor-grabbing p-1"
+                  >
+                    <GripVertical size={20} className="text-ink-light" />
+                  </div>
+
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: category.color + '20' }}
+                  >
+                    <Icon name={category.icon} size={20} style={{ color: category.color }} />
+                  </div>
+
+                  <div className="flex-1 min-w-0" onClick={() => goToEdit(category)}>
+                    <p className="text-body text-ink-black dark:text-paper-white truncate">{category.name}</p>
+                    {category.budget && category.budget > 0 && (
+                      <p className="text-caption text-ink-mid">
+                        예산: {category.budget.toLocaleString()}원
+                      </p>
+                    )}
+                    {category.isDefault && (
+                      <p className="text-caption text-ink-light">기본</p>
+                    )}
+                  </div>
+                </div>
+              </SwipeToDelete>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Add/Edit Form Modal */}
-      {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={handleCloseForm}
-          />
-
-          <div className="relative w-full max-w-lg bg-paper-white rounded-t-2xl animate-slide-up">
-            <div className="p-6">
-              <h2 className="text-title text-ink-black mb-6">
-                {editingCategory ? '카테고리 수정' : '새 카테고리'}
-              </h2>
-
-              {/* Name Input */}
-              <div className="mb-6">
-                <label className="text-sub text-ink-mid block mb-2">이름</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="카테고리 이름"
-                  className="w-full px-4 py-3 bg-paper-light rounded-md text-body text-ink-black outline-none"
-                  autoFocus
-                />
-              </div>
-
-              {/* Budget Input (지출 카테고리만) */}
-              {activeTab === 'expense' && (
-                <div className="mb-6">
-                  <label className="text-sub text-ink-mid block mb-2">예산 (선택)</label>
-                  <div className="flex items-center">
-                    <input
-                      type="number"
-                      value={formData.budget || ''}
-                      onChange={(e) => setFormData({ ...formData, budget: e.target.value ? parseInt(e.target.value) : undefined })}
-                      placeholder="0"
-                      className="flex-1 px-4 py-3 bg-paper-light rounded-md text-body text-ink-black outline-none"
-                    />
-                    <span className="ml-2 text-body text-ink-mid">원</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Icon Picker */}
-              <div className="mb-6">
-                <label className="text-sub text-ink-mid block mb-2">아이콘</label>
-                <div className="flex flex-wrap gap-2">
-                  {AVAILABLE_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      onClick={() => setFormData({ ...formData, icon })}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        formData.icon === icon ? 'bg-ink-black' : 'bg-paper-light'
-                      }`}
-                    >
-                      <Icon
-                        name={icon}
-                        size={20}
-                        className={formData.icon === icon ? 'text-paper-white' : 'text-ink-mid'}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Color Picker */}
-              <div className="mb-8">
-                <label className="text-sub text-ink-mid block mb-2">색상</label>
-                <div className="flex flex-wrap gap-2">
-                  {AVAILABLE_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setFormData({ ...formData, color })}
-                      className={`w-8 h-8 rounded-full ${
-                        formData.color === color ? 'ring-2 ring-offset-2 ring-ink-black' : ''
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCloseForm}
-                  className="flex-1 py-3 bg-paper-light rounded-md text-body text-ink-mid"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!formData.name.trim()}
-                  className={`flex-1 py-3 rounded-md text-body ${
-                    formData.name.trim()
-                      ? 'bg-ink-black text-paper-white'
-                      : 'bg-paper-mid text-ink-light'
-                  }`}
-                >
-                  {editingCategory ? '수정' : '추가'}
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Info */}
+      <section className="px-6 py-4 mt-4">
+        <div className="p-4 bg-paper-light dark:bg-ink-dark rounded-md">
+          <p className="text-caption text-ink-mid">
+            카테고리 순서를 변경하면 거래 입력 시 표시되는 순서가 바뀝니다.
+            {activeTab === 'expense' && ' 지출 카테고리에는 예산을 설정할 수 있습니다.'}
+          </p>
         </div>
-      )}
+      </section>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Lightbulb, X } from 'lucide-react';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
@@ -30,6 +30,8 @@ export function StatsPage() {
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('6months');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categoryTrendData, setCategoryTrendData] = useState<Map<string, CategoryTrend[]>>(new Map());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(currentMonth.getFullYear());
 
   const {
     monthSummary,
@@ -95,6 +97,26 @@ export function StatsPage() {
     if (next <= new Date()) {
       setCurrentMonth(next);
     }
+  };
+
+  const openMonthPicker = () => {
+    setPickerYear(currentMonth.getFullYear());
+    setShowMonthPicker(true);
+  };
+
+  const handleSelectMonth = (month: number) => {
+    const selected = new Date(pickerYear, month, 1);
+    setCurrentMonth(selected);
+    setShowMonthPicker(false);
+  };
+
+  const isMonthDisabled = (month: number) => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonthNum = now.getMonth();
+    if (pickerYear > currentYear) return true;
+    if (pickerYear === currentYear && month > currentMonthNum) return true;
+    return false;
   };
 
   const handleCategoryToggle = useCallback((categoryId: string) => {
@@ -202,33 +224,30 @@ export function StatsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper-white pb-20">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header with Month Navigation */}
-      <header className="h-14 flex items-center justify-between px-6 border-b border-paper-mid">
-        <h1 className="text-title text-ink-black">통계</h1>
-        <div className="flex items-center gap-2">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+        <h1 className="text-title text-ink-black pl-2">분석</h1>
+        <div className="flex items-center bg-paper-light rounded-lg">
           <button
             onClick={handlePrevMonth}
-            className="w-8 h-8 flex items-center justify-center"
+            className="w-9 h-9 flex items-center justify-center text-ink-dark"
           >
-            <ChevronLeft size={20} className="text-ink-mid" />
+            <ChevronLeft size={18} />
           </button>
-          <span className="text-body text-ink-black min-w-16 text-center">
+          <button
+            onClick={openMonthPicker}
+            className="flex items-center gap-1 px-1 py-2 text-sub text-ink-dark"
+          >
             {format(currentMonth, 'M월', { locale: ko })}
-          </span>
+            <ChevronDown size={14} />
+          </button>
           <button
             onClick={handleNextMonth}
-            className="w-8 h-8 flex items-center justify-center"
             disabled={addMonths(currentMonth, 1) > new Date()}
+            className="w-9 h-9 flex items-center justify-center text-ink-dark disabled:text-ink-light"
           >
-            <ChevronRight
-              size={20}
-              className={
-                addMonths(currentMonth, 1) > new Date()
-                  ? 'text-paper-mid'
-                  : 'text-ink-mid'
-              }
-            />
+            <ChevronRight size={18} />
           </button>
         </div>
       </header>
@@ -335,7 +354,7 @@ export function StatsPage() {
               <CategoryDonutChart
                 data={categoryBreakdown}
                 totalAmount={displayAmount}
-                height={180}
+                height={280}
               />
 
               {/* Category List */}
@@ -467,7 +486,7 @@ export function StatsPage() {
       )}
 
       {/* Insights Section */}
-      <section className="px-6 py-4">
+      <section className="px-6 py-4 pb-20">
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb size={16} className="text-ink-mid" />
           <span className="text-sub text-ink-mid">이번 달 관심사</span>
@@ -483,6 +502,83 @@ export function StatsPage() {
           </ul>
         </div>
       </section>
+
+      {/* Month Picker Modal */}
+      {showMonthPicker && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-paper-white w-full max-w-lg rounded-2xl animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-4 border-b border-paper-mid">
+              <h2 className="text-title text-ink-black">월 선택</h2>
+              <button
+                onClick={() => setShowMonthPicker(false)}
+                className="w-10 h-10 flex items-center justify-center"
+              >
+                <X size={20} className="text-ink-mid" />
+              </button>
+            </div>
+
+            {/* Year Navigation */}
+            <div className="flex items-center justify-center gap-4 py-4 border-b border-paper-mid">
+              <button
+                onClick={() => setPickerYear((prev) => prev - 1)}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-paper-light"
+              >
+                <ChevronLeft size={20} className="text-ink-dark" />
+              </button>
+
+              <span className="text-title text-ink-black min-w-24 text-center">
+                {pickerYear}년
+              </span>
+
+              <button
+                onClick={() => setPickerYear((prev) => prev + 1)}
+                disabled={pickerYear >= new Date().getFullYear()}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-paper-light disabled:opacity-30"
+              >
+                <ChevronRight size={20} className="text-ink-dark" />
+              </button>
+            </div>
+
+            {/* Month Grid (4x3) */}
+            <div className="grid grid-cols-4 gap-2 px-4 py-4">
+              {Array.from({ length: 12 }, (_, i) => {
+                const isSelected =
+                  pickerYear === currentMonth.getFullYear() &&
+                  i === currentMonth.getMonth();
+                const disabled = isMonthDisabled(i);
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => !disabled && handleSelectMonth(i)}
+                    disabled={disabled}
+                    className={`py-3 rounded-lg text-body transition-colors ${
+                      isSelected
+                        ? 'bg-ink-black text-paper-white'
+                        : disabled
+                        ? 'bg-paper-light text-ink-light'
+                        : 'bg-paper-light text-ink-dark hover:bg-paper-mid'
+                    }`}
+                  >
+                    {i + 1}월
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Close Button */}
+            <div className="px-4 pb-4">
+              <button
+                onClick={() => setShowMonthPicker(false)}
+                className="w-full py-4 bg-ink-black text-paper-white text-body rounded-lg"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Category Trend Modal */}
       {selectedCategory && (

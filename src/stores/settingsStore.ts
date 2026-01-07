@@ -43,13 +43,35 @@ export const useSettingsStore = create<SettingsStore>()(
       updateSettings: async (updates: Partial<Settings>) => {
         set({ isLoading: true, error: null });
         try {
-          const updateData = { ...updates, updatedAt: new Date() };
-          await db.settings.update('default', updateData);
+          // Get current settings first
+          let currentSettings = await db.settings.get('default');
 
-          set((state) => ({
-            settings: state.settings ? { ...state.settings, ...updateData } : null,
+          if (!currentSettings) {
+            // If settings don't exist, create them with defaults
+            const { DEFAULT_SETTINGS } = await import('@/types');
+            currentSettings = {
+              ...DEFAULT_SETTINGS,
+              id: 'default',
+              updatedAt: new Date(),
+            } as Settings;
+            await db.settings.add(currentSettings);
+          }
+
+          // Merge updates with current settings
+          const updatedSettings: Settings = {
+            ...currentSettings,
+            ...updates,
+            updatedAt: new Date(),
+          };
+
+          // Use put to ensure the record is saved (upsert)
+          await db.settings.put(updatedSettings);
+
+          // Update state with the new settings
+          set({
+            settings: updatedSettings,
             isLoading: false,
-          }));
+          });
         } catch (error) {
           console.error('Failed to update settings:', error);
           set({ error: '설정 저장에 실패했습니다.', isLoading: false });

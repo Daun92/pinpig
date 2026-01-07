@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { getBudgetRecommendation, applyBudgetRecommendation } from '@/services/queries';
 import { Icon } from '@/components/common/Icon';
 import type { BudgetRecommendation, CategoryBudgetRecommendation } from '@/types';
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 interface CategoryBudgetState extends CategoryBudgetRecommendation {
   budget: number;
+  isExpanded: boolean;
 }
 
 export function BudgetWizardPage() {
@@ -35,6 +36,7 @@ export function BudgetWizardPage() {
         rec.categoryBreakdown.map((cat) => ({
           ...cat,
           budget: cat.recommendedBudget,
+          isExpanded: false,
         }))
       );
     } catch (error) {
@@ -53,7 +55,7 @@ export function BudgetWizardPage() {
   };
 
   const handleNext = () => {
-    if (step < 4) {
+    if (step < 5) {
       setStep((prev) => (prev + 1) as WizardStep);
     }
   };
@@ -84,6 +86,23 @@ export function BudgetWizardPage() {
     }
   };
 
+  const handleCategoryBudgetChange = (categoryId: string, newBudget: number) => {
+    setCategoryBudgets((prev) =>
+      prev.map((cat) =>
+        cat.categoryId === categoryId ? { ...cat, budget: newBudget } : cat
+      )
+    );
+    setIsAutoDistribute(false);
+  };
+
+  const toggleCategoryExpanded = (categoryId: string) => {
+    setCategoryBudgets((prev) =>
+      prev.map((cat) =>
+        cat.categoryId === categoryId ? { ...cat, isExpanded: !cat.isExpanded } : cat
+      )
+    );
+  };
+
   const handleComplete = async () => {
     setIsSaving(true);
     try {
@@ -94,7 +113,7 @@ export function BudgetWizardPage() {
           budget: cat.budget,
         }))
       );
-      setStep(4);
+      setStep(5);
     } catch (error) {
       console.error('Failed to save budget:', error);
       alert('예산 저장에 실패했습니다.');
@@ -114,9 +133,12 @@ export function BudgetWizardPage() {
     return amount.toLocaleString();
   };
 
+  const totalCategoryBudgets = categoryBudgets.reduce((sum, cat) => sum + cat.budget, 0);
+  const budgetDifference = totalBudget - totalCategoryBudgets;
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper-white flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-paper-white dark:bg-ink-black flex flex-col items-center justify-center">
         <Loader2 size={32} className="text-ink-mid animate-spin mb-4" />
         <p className="text-body text-ink-mid">지난 3개월을 돌아볼게요</p>
       </div>
@@ -126,15 +148,23 @@ export function BudgetWizardPage() {
   const hasData = recommendation && recommendation.dataMonths > 0;
 
   return (
-    <div className="min-h-screen bg-paper-white flex flex-col">
+    <div className="fixed inset-0 bg-paper-white dark:bg-ink-black flex flex-col pb-nav z-[55]">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark flex-shrink-0">
         <button onClick={handleBack} className="w-10 h-10 flex items-center justify-center">
           <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <span className="text-sub text-ink-mid">{step} / 4</span>
+        <span className="text-sub text-ink-mid">{step} / 5</span>
         <div className="w-10" />
       </header>
+
+      {/* Progress Bar */}
+      <div className="h-1 bg-paper-mid dark:bg-ink-dark flex-shrink-0">
+        <div
+          className="h-full bg-ink-black dark:bg-paper-white transition-all"
+          style={{ width: `${(step / 5) * 100}%` }}
+        />
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
@@ -152,7 +182,7 @@ export function BudgetWizardPage() {
                 </p>
                 <p className="text-title text-ink-black text-center mb-8">을 사용했어요</p>
 
-                <div className="border-t border-paper-mid pt-6 space-y-4">
+                <div className="border-t border-paper-mid dark:border-ink-dark pt-6 space-y-4">
                   <div className="flex justify-between">
                     <span className="text-body text-ink-mid">월 평균</span>
                     <span className="text-body text-ink-black">
@@ -216,7 +246,7 @@ export function BudgetWizardPage() {
                       </div>
                       <span className="text-sub text-ink-mid">{Math.round(cat.percentage)}%</span>
                     </div>
-                    <div className="h-1.5 bg-paper-mid rounded-full overflow-hidden mb-1">
+                    <div className="h-1.5 bg-paper-mid dark:bg-ink-dark rounded-full overflow-hidden mb-1">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -261,11 +291,12 @@ export function BudgetWizardPage() {
                 step={50000}
                 value={totalBudget}
                 onChange={(e) => handleTotalBudgetChange(parseInt(e.target.value))}
-                className="w-full h-2 bg-paper-mid rounded-full appearance-none cursor-pointer
+                className="w-full h-2 bg-paper-mid dark:bg-ink-dark rounded-full appearance-none cursor-pointer
                   [&::-webkit-slider-thumb]:appearance-none
                   [&::-webkit-slider-thumb]:w-6
                   [&::-webkit-slider-thumb]:h-6
                   [&::-webkit-slider-thumb]:bg-ink-black
+                  [&::-webkit-slider-thumb]:dark:bg-paper-white
                   [&::-webkit-slider-thumb]:rounded-full
                   [&::-webkit-slider-thumb]:cursor-pointer"
               />
@@ -280,7 +311,7 @@ export function BudgetWizardPage() {
               <div className="flex gap-2 mt-8">
                 <button
                   onClick={() => handleBudgetPreset('tight')}
-                  className="flex-1 py-3 bg-paper-light rounded-md"
+                  className="flex-1 py-3 bg-paper-light dark:bg-ink-dark/50 rounded-md"
                 >
                   <p className="text-sub text-ink-mid">절약</p>
                   <p className="text-body text-ink-black">
@@ -289,7 +320,7 @@ export function BudgetWizardPage() {
                 </button>
                 <button
                   onClick={() => handleBudgetPreset('normal')}
-                  className="flex-1 py-3 bg-paper-light rounded-md border-2 border-ink-black"
+                  className="flex-1 py-3 bg-paper-light dark:bg-ink-dark/50 rounded-md border-2 border-ink-black dark:border-paper-white"
                 >
                   <p className="text-sub text-ink-mid">유지</p>
                   <p className="text-body text-ink-black">
@@ -298,7 +329,7 @@ export function BudgetWizardPage() {
                 </button>
                 <button
                   onClick={() => handleBudgetPreset('relaxed')}
-                  className="flex-1 py-3 bg-paper-light rounded-md"
+                  className="flex-1 py-3 bg-paper-light dark:bg-ink-dark/50 rounded-md"
                 >
                   <p className="text-sub text-ink-mid">여유</p>
                   <p className="text-body text-ink-black">
@@ -310,23 +341,185 @@ export function BudgetWizardPage() {
           </div>
         )}
 
-        {/* Step 4: 카테고리별 배분 / 완료 */}
-        {step === 4 && !isSaving && (
+        {/* Step 4: 카테고리별 예산 배분 */}
+        {step === 4 && (
+          <div className="px-6 py-8">
+            <h1 className="text-title text-ink-black text-center mb-2">
+              카테고리별 예산을 정해요
+            </h1>
+            <p className="text-sub text-ink-mid text-center mb-6">
+              각 카테고리에 얼마를 쓸지 조절해보세요
+            </p>
+
+            {/* Budget Summary */}
+            <div className="bg-paper-light dark:bg-ink-dark/50 rounded-lg p-4 mb-6">
+              <div className="flex justify-between mb-2">
+                <span className="text-body text-ink-mid">총 예산</span>
+                <span className="text-body text-ink-black font-medium">
+                  {formatCurrency(totalBudget)}
+                </span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="text-body text-ink-mid">배분된 금액</span>
+                <span className="text-body text-ink-black">{formatCurrency(totalCategoryBudgets)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">
+                  {budgetDifference >= 0 ? '여유 금액' : '초과 금액'}
+                </span>
+                <span
+                  className={`text-body font-medium ${
+                    budgetDifference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'
+                  }`}
+                >
+                  {budgetDifference >= 0 ? '+' : ''}
+                  {formatCurrency(budgetDifference)}
+                </span>
+              </div>
+            </div>
+
+            {/* Auto distribute toggle */}
+            <div className="flex items-center justify-between py-3 mb-4 border-b border-paper-mid dark:border-ink-dark">
+              <div className="flex items-center gap-2">
+                <span className="text-sub text-ink-black">자동 배분</span>
+                <Info size={14} className="text-ink-light" />
+              </div>
+              <button
+                onClick={() => {
+                  setIsAutoDistribute(!isAutoDistribute);
+                  if (!isAutoDistribute) {
+                    redistributeBudgets(totalBudget);
+                  }
+                }}
+                className={`w-12 h-6 rounded-full transition-colors ${
+                  isAutoDistribute ? 'bg-ink-black dark:bg-paper-white' : 'bg-paper-mid dark:bg-ink-dark'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 bg-paper-white dark:bg-ink-black rounded-full transition-transform ${
+                    isAutoDistribute ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Category List */}
+            <div className="space-y-3">
+              {categoryBudgets.map((cat) => (
+                <div
+                  key={cat.categoryId}
+                  className="bg-paper-light dark:bg-ink-dark/30 rounded-lg overflow-hidden"
+                >
+                  <button
+                    onClick={() => toggleCategoryExpanded(cat.categoryId)}
+                    className="w-full flex items-center justify-between p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: cat.categoryColor + '20' }}
+                      >
+                        <Icon name={cat.categoryIcon} size={16} style={{ color: cat.categoryColor }} />
+                      </div>
+                      <span className="text-body text-ink-black">{cat.categoryName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-body text-ink-black font-medium">
+                        {formatCurrency(cat.budget)}
+                      </span>
+                      {cat.isExpanded ? (
+                        <ChevronUp size={20} className="text-ink-mid" />
+                      ) : (
+                        <ChevronDown size={20} className="text-ink-mid" />
+                      )}
+                    </div>
+                  </button>
+
+                  {cat.isExpanded && (
+                    <div className="px-3 pb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-caption text-ink-light">
+                          월 평균 {formatCurrency(cat.avgAmount)}
+                        </span>
+                        <span className="text-caption text-ink-light">•</span>
+                        <span className="text-caption text-ink-light">{Math.round(cat.percentage)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={totalBudget}
+                        step={10000}
+                        value={cat.budget}
+                        onChange={(e) =>
+                          handleCategoryBudgetChange(cat.categoryId, parseInt(e.target.value))
+                        }
+                        className="w-full h-2 bg-paper-mid dark:bg-ink-dark rounded-full appearance-none cursor-pointer
+                          [&::-webkit-slider-thumb]:appearance-none
+                          [&::-webkit-slider-thumb]:w-5
+                          [&::-webkit-slider-thumb]:h-5
+                          [&::-webkit-slider-thumb]:rounded-full
+                          [&::-webkit-slider-thumb]:cursor-pointer"
+                        style={{
+                          // @ts-ignore
+                          '--thumb-color': cat.categoryColor,
+                        }}
+                      />
+                      <div className="flex justify-between mt-1">
+                        <span className="text-caption text-ink-light">0</span>
+                        <input
+                          type="number"
+                          value={cat.budget}
+                          onChange={(e) =>
+                            handleCategoryBudgetChange(cat.categoryId, parseInt(e.target.value) || 0)
+                          }
+                          className="w-24 text-right text-sub text-ink-black bg-transparent outline-none"
+                        />
+                        <span className="text-caption text-ink-light">원</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: 완료 */}
+        {step === 5 && !isSaving && (
           <div className="px-6 py-8 text-center">
-            <div className="w-16 h-16 bg-ink-black rounded-full flex items-center justify-center mx-auto mb-6">
-              <Check size={32} className="text-paper-white" />
+            <div className="w-16 h-16 bg-ink-black dark:bg-paper-white rounded-full flex items-center justify-center mx-auto mb-6">
+              <Check size={32} className="text-paper-white dark:text-ink-black" />
             </div>
 
             <h1 className="text-title text-ink-black mb-2">예산 설정이 완료됐어요</h1>
+            <p className="text-sub text-ink-mid mb-8">이제 예산 관리를 시작해볼까요?</p>
 
-            <div className="mt-8 p-4 bg-paper-light rounded-md">
-              <div className="flex justify-between mb-2">
+            <div className="bg-paper-light dark:bg-ink-dark/50 rounded-lg p-4 text-left">
+              <div className="flex justify-between mb-3">
                 <span className="text-body text-ink-mid">월 예산</span>
-                <span className="text-body text-ink-black">{formatCurrency(totalBudget)}</span>
+                <span className="text-body text-ink-black font-medium">
+                  {formatCurrency(totalBudget)}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-body text-ink-mid">카테고리</span>
+              <div className="flex justify-between mb-3">
+                <span className="text-body text-ink-mid">카테고리별 예산</span>
                 <span className="text-body text-ink-black">{categoryBudgets.length}개 설정</span>
+              </div>
+              <div className="border-t border-paper-mid dark:border-ink-dark pt-3 mt-3">
+                {categoryBudgets.slice(0, 3).map((cat) => (
+                  <div key={cat.categoryId} className="flex justify-between py-1">
+                    <div className="flex items-center gap-2">
+                      <Icon name={cat.categoryIcon} size={14} style={{ color: cat.categoryColor }} />
+                      <span className="text-sub text-ink-mid">{cat.categoryName}</span>
+                    </div>
+                    <span className="text-sub text-ink-black">{formatCurrency(cat.budget)}</span>
+                  </div>
+                ))}
+                {categoryBudgets.length > 3 && (
+                  <p className="text-caption text-ink-light mt-2">
+                    +{categoryBudgets.length - 3}개 더
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -334,50 +527,31 @@ export function BudgetWizardPage() {
       </div>
 
       {/* Footer Buttons */}
-      <div className="p-6 border-t border-paper-mid">
-        {step < 3 && (
+      <div className="flex-shrink-0 p-6 border-t border-paper-mid dark:border-ink-dark">
+        {step < 4 && (
           <button
             onClick={handleNext}
-            className="w-full py-4 bg-ink-black text-paper-white rounded-md text-body"
+            className="w-full py-4 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body"
           >
             다음
           </button>
         )}
 
-        {step === 3 && (
-          <div className="space-y-3">
-            {/* Auto distribute toggle */}
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sub text-ink-mid">과거 비율대로 자동 배분</span>
-              <button
-                onClick={() => setIsAutoDistribute(!isAutoDistribute)}
-                className={`w-12 h-6 rounded-full transition-colors ${
-                  isAutoDistribute ? 'bg-ink-black' : 'bg-paper-mid'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 bg-paper-white rounded-full transition-transform ${
-                    isAutoDistribute ? 'translate-x-6' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <button
-              onClick={handleComplete}
-              disabled={isSaving}
-              className="w-full py-4 bg-ink-black text-paper-white rounded-md text-body disabled:opacity-50"
-            >
-              {isSaving ? '저장 중...' : '예산 설정 완료'}
-            </button>
-          </div>
+        {step === 4 && (
+          <button
+            onClick={handleComplete}
+            disabled={isSaving}
+            className="w-full py-4 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body disabled:opacity-50"
+          >
+            {isSaving ? '저장 중...' : '예산 설정 완료'}
+          </button>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="space-y-3">
             <button
               onClick={() => navigate('/')}
-              className="w-full py-4 bg-ink-black text-paper-white rounded-md text-body"
+              className="w-full py-4 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body"
             >
               홈으로 가기
             </button>

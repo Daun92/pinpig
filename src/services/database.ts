@@ -5,6 +5,7 @@ import type {
   PaymentMethod,
   Settings,
   AnnualExpensePattern,
+  RecurringTransaction,
 } from '@/types';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
@@ -19,6 +20,7 @@ class PinPigDatabase extends Dexie {
   paymentMethods!: Table<PaymentMethod>;
   settings!: Table<Settings>;
   annualExpenses!: Table<AnnualExpensePattern>;
+  recurringTransactions!: Table<RecurringTransaction>;
 
   constructor() {
     super('PinPigDB');
@@ -39,13 +41,32 @@ class PinPigDatabase extends Dexie {
       settings: 'id',
       annualExpenses: 'id, categoryId, month, year, isEnabled',
     });
+
+    // Schema v3: Add recurring transactions table
+    this.version(3).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, date, [date+type], [categoryId+date], createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
+      recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
+    });
   }
 }
 
 export const db = new PinPigDatabase();
 
 export function generateId(): string {
-  return crypto.randomUUID();
+  // crypto.randomUUID 지원 여부 확인 (구형 브라우저/HTTP 환경 대응)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // 폴백: 랜덤 UUID v4 생성
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 export async function initializeDatabase(): Promise<void> {

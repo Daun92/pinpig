@@ -1,20 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart } from 'lucide-react';
+import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart, Sun, Moon, Monitor, Repeat } from 'lucide-react';
 import { getSettings, updateSettings, resetDatabase } from '@/services/database';
-import { importTransactionsFromJSON, clearAllTransactions, getImportStatus } from '@/services/importData';
-import type { Settings } from '@/types';
+import { getImportStatus, clearAllTransactions } from '@/services/excelImport';
+import { useTheme } from '@/hooks/useTheme';
+import { SegmentedControl } from '@/components/common';
+import type { Settings, ThemeMode } from '@/types';
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [, setSettings] = useState<Settings | null>(null);
   const [budget, setBudget] = useState('');
+
+  const themeOptions: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
+    { value: 'light', label: '라이트', icon: <Sun size={16} /> },
+    { value: 'dark', label: '다크', icon: <Moon size={16} /> },
+    { value: 'system', label: '시스템', icon: <Monitor size={16} /> },
+  ];
   const [importStatus, setImportStatus] = useState<{
     totalTransactions: number;
+    totalCategories: number;
+    totalPaymentMethods: number;
     oldestDate: Date | null;
     newestDate: Date | null;
   } | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
 
   useEffect(() => {
@@ -37,29 +47,6 @@ export function SettingsPage() {
     const newBudget = parseInt(budget) || 0;
     await updateSettings({ monthlyBudget: newBudget });
     setSettings((prev) => (prev ? { ...prev, monthlyBudget: newBudget } : null));
-  };
-
-  const handleImportData = async () => {
-    if (isImporting) return;
-
-    const confirmed = window.confirm(
-      '기존 데이터에 추가로 가져옵니다. 계속하시겠습니까?'
-    );
-    if (!confirmed) return;
-
-    setIsImporting(true);
-    setImportMessage('데이터를 가져오는 중...');
-
-    try {
-      const count = await importTransactionsFromJSON('/import-data.json');
-      setImportMessage(`${count.toLocaleString()}개의 거래를 가져왔습니다.`);
-      await refreshImportStatus();
-    } catch (error) {
-      console.error('Import failed:', error);
-      setImportMessage('가져오기 실패: ' + (error as Error).message);
-    } finally {
-      setIsImporting(false);
-    }
   };
 
   const handleClearData = async () => {
@@ -105,7 +92,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-paper-white pb-20">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
       <header className="h-14 flex items-center px-6 border-b border-paper-mid">
         <h1 className="text-title text-ink-black">설정</h1>
@@ -167,6 +154,35 @@ export function SettingsPage() {
             <ChevronRight size={20} className="text-ink-light" />
           </button>
         </div>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => navigate('/settings/recurring')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <Repeat size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">반복 거래 관리</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+      </section>
+
+      {/* Theme Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">테마</h2>
+        <div className="py-4">
+          <SegmentedControl
+            options={themeOptions}
+            value={theme}
+            onChange={setTheme}
+          />
+          <p className="text-caption text-ink-light mt-3">
+            {theme === 'system' && '기기 설정에 따라 자동으로 변경됩니다'}
+            {theme === 'light' && '항상 라이트 모드를 사용합니다'}
+            {theme === 'dark' && '항상 다크 모드를 사용합니다'}
+          </p>
+        </div>
       </section>
 
       {/* Category & Payment Section */}
@@ -203,15 +219,12 @@ export function SettingsPage() {
         <h2 className="text-sub text-ink-light mb-2">데이터</h2>
         <div className="border-b border-paper-mid">
           <button
-            onClick={handleImportData}
-            disabled={isImporting}
+            onClick={() => navigate('/settings/import')}
             className="w-full flex items-center justify-between py-4"
           >
             <div className="flex items-center gap-3">
               <Upload size={20} className="text-ink-mid" />
-              <span className="text-body text-ink-black">
-                {isImporting ? '가져오는 중...' : '데이터 가져오기'}
-              </span>
+              <span className="text-body text-ink-black">데이터 가져오기 (Excel)</span>
             </div>
             <ChevronRight size={20} className="text-ink-light" />
           </button>
@@ -274,7 +287,7 @@ export function SettingsPage() {
       </section>
 
       {/* App Info Section */}
-      <section className="px-6 pt-6">
+      <section className="px-6 pt-6 pb-20">
         <h2 className="text-sub text-ink-light mb-2">정보</h2>
         <div className="border-b border-paper-mid">
           <div className="flex items-center justify-between py-4">

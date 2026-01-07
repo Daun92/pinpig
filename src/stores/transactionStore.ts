@@ -10,6 +10,7 @@ import {
   getAnnualTrend,
   getCategoryTrend,
   exportTransactionsToCSV,
+  searchTransactions,
 } from '@/services/queries';
 import type {
   Transaction,
@@ -40,6 +41,7 @@ interface TransactionActions {
   // CRUD
   fetchTransactions: (month?: Date) => Promise<void>;
   fetchRecentTransactions: (limit?: number) => Promise<void>;
+  searchAllTransactions: (query: string) => Promise<Transaction[]>;
   addTransaction: (input: CreateTransactionInput) => Promise<Transaction>;
   updateTransaction: (id: string, input: UpdateTransactionInput) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
@@ -99,6 +101,16 @@ export const useTransactionStore = create<TransactionStore>()(
         } catch (error) {
           console.error('Failed to fetch recent transactions:', error);
           set({ error: '최근 거래를 불러오는데 실패했습니다.', isLoading: false });
+        }
+      },
+
+      searchAllTransactions: async (query: string) => {
+        try {
+          const results = await searchTransactions(query);
+          return results;
+        } catch (error) {
+          console.error('Failed to search transactions:', error);
+          return [];
         }
       },
 

@@ -5,7 +5,11 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git reset:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(node scripts/analyze-excel.js:*)",
+      "Bash(move scriptsanalyze-excel.js scriptsanalyze-excel.cjs)",
+      "Bash(node scripts/analyze-excel.cjs:*)",
+      "Bash(npm run type-check:*)"
     ]
   }
 }

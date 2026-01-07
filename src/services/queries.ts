@@ -1,5 +1,5 @@
 import { db, generateId } from './database';
-import { endOfMonth, subMonths, startOfYear, endOfYear, format } from 'date-fns';
+import { endOfMonth, subMonths, startOfYear, endOfYear, format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay } from 'date-fns';
 import type {
   Transaction,
   MonthSummary,
@@ -15,6 +15,12 @@ import type {
   MonthlyReview,
   ReviewInsight,
   CategoryComparison,
+  RecurringTransaction,
+  CreateRecurringTransactionInput,
+  ProjectedTransaction,
+  MonthlyBudgetStructure,
+  CategoryBudgetSummary,
+  RecurrenceFrequency,
 } from '@/types';
 
 /**
@@ -669,4 +675,380 @@ export async function generateMonthlyReview(
     insights,
     categoryComparison,
   };
+}
+
+// =========================================
+// Recurring Transaction Queries (반복 거래)
+// =========================================
+
+/**
+ * Get all recurring transactions
+ */
+export async function getRecurringTransactions(): Promise<RecurringTransaction[]> {
+  return db.recurringTransactions.orderBy('nextExecutionDate').toArray();
+}
+
+/**
+ * Get active recurring transactions
+ */
+export async function getActiveRecurringTransactions(): Promise<RecurringTransaction[]> {
+  return db.recurringTransactions.where('isActive').equals(1).toArray();
+}
+
+/**
+ * Get recurring transactions by type
+ */
+export async function getRecurringTransactionsByType(
+  type: 'income' | 'expense'
+): Promise<RecurringTransaction[]> {
+  return db.recurringTransactions
+    .where('type')
+    .equals(type)
+    .filter((rt) => rt.isActive)
+    .toArray();
+}
+
+/**
+ * Create a recurring transaction
+ */
+export async function createRecurringTransaction(
+  input: CreateRecurringTransactionInput
+): Promise<RecurringTransaction> {
+  const now = new Date();
+  const recurring: RecurringTransaction = {
+    ...input,
+    id: generateId(),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await db.recurringTransactions.add(recurring);
+  return recurring;
+}
+
+/**
+ * Update a recurring transaction
+ */
+export async function updateRecurringTransaction(
+  id: string,
+  updates: Partial<RecurringTransaction>
+): Promise<void> {
+  await db.recurringTransactions.update(id, {
+    ...updates,
+    updatedAt: new Date(),
+  });
+}
+
+/**
+ * Delete a recurring transaction
+ */
+export async function deleteRecurringTransaction(id: string): Promise<void> {
+  await db.recurringTransactions.delete(id);
+}
+
+/**
+ * Calculate next execution date based on frequency
+ */
+export function calculateNextExecutionDate(
+  frequency: RecurrenceFrequency,
+  currentDate: Date,
+  dayOfMonth?: number,
+  _dayOfWeek?: number
+): Date {
+  switch (frequency) {
+    case 'daily':
+      return addDays(currentDate, 1);
+
+    case 'weekly':
+      return addWeeks(currentDate, 1);
+
+    case 'biweekly':
+      return addWeeks(currentDate, 2);
+
+    case 'monthly': {
+      const nextMonth = addMonths(currentDate, 1);
+      const targetDay = dayOfMonth || currentDate.getDate();
+      const lastDayOfMonth = endOfMonth(nextMonth).getDate();
+      const day = Math.min(targetDay, lastDayOfMonth);
+      return new Date(nextMonth.getFullYear(), nextMonth.getMonth(), day);
+    }
+
+    case 'yearly':
+      return addYears(currentDate, 1);
+
+    default:
+      return addMonths(currentDate, 1);
+  }
+}
+
+/**
+ * Get projected transactions for a date range
+ * Generates virtual transactions based on recurring patterns
+ */
+export async function getProjectedTransactions(
+  startDate: Date,
+  endDate: Date
+): Promise<ProjectedTransaction[]> {
+  const recurringList = await getActiveRecurringTransactions();
+  const categories = await db.categories.toArray();
+  const categoryMap = new Map(categories.map((c) => [c.id, c]));
+
+  const projections: ProjectedTransaction[] = [];
+
+  for (const recurring of recurringList) {
+    const category = categoryMap.get(recurring.categoryId);
+    if (!category) continue;
+
+    let currentDate = new Date(recurring.nextExecutionDate);
+
+    // Generate projections within the date range
+    while (isBefore(currentDate, endDate) || isSameDay(currentDate, endDate)) {
+      // Skip if before start date
+      if (isBefore(currentDate, startDate) && !isSameDay(currentDate, startDate)) {
+        currentDate = calculateNextExecutionDate(
+          recurring.frequency,
+          currentDate,
+          recurring.dayOfMonth,
+          recurring.dayOfWeek
+        );
+        continue;
+      }
+
+      // Skip if after end date for recurring
+      if (recurring.endDate && isAfter(currentDate, recurring.endDate)) {
+        break;
+      }
+
+      projections.push({
+        id: `recurring-${recurring.id}-${format(currentDate, 'yyyy-MM-dd')}`,
+        recurringId: recurring.id,
+        type: recurring.type,
+        amount: recurring.amount,
+        categoryId: recurring.categoryId,
+        categoryName: category.name,
+        categoryIcon: category.icon,
+        categoryColor: category.color,
+        paymentMethodId: recurring.paymentMethodId,
+        description: recurring.description,
+        scheduledDate: new Date(currentDate),
+        isProjected: true,
+      });
+
+      // Move to next occurrence
+      currentDate = calculateNextExecutionDate(
+        recurring.frequency,
+        currentDate,
+        recurring.dayOfMonth,
+        recurring.dayOfWeek
+      );
+    }
+  }
+
+  // Sort by date
+  projections.sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime());
+
+  return projections;
+}
+
+/**
+ * Get projected transactions for current month
+ */
+export async function getMonthlyProjectedTransactions(
+  year: number,
+  month: number
+): Promise<ProjectedTransaction[]> {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = endOfMonth(startDate);
+  return getProjectedTransactions(startDate, endDate);
+}
+
+// =========================================
+// Budget Structure Queries (예산 구조)
+// =========================================
+
+/**
+ * Get monthly budget structure with projections
+ */
+export async function getMonthlyBudgetStructure(
+  year: number,
+  month: number
+): Promise<MonthlyBudgetStructure> {
+  const settings = await db.settings.get('default');
+  const totalBudget = settings?.monthlyBudget || 0;
+
+  // Get actual transactions
+  const transactions = await getTransactionsByMonth(year, month);
+  const categories = await db.categories.where('type').equals('expense').toArray();
+
+  // Get projected transactions for remaining month
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+  const isCurrentMonth = year === currentYear && month === currentMonth;
+
+  let projectedTransactions: ProjectedTransaction[] = [];
+
+  if (isCurrentMonth) {
+    // Only get projections from tomorrow onwards
+    const tomorrow = addDays(today, 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const monthEnd = endOfMonth(new Date(year, month - 1, 1));
+    projectedTransactions = await getProjectedTransactions(tomorrow, monthEnd);
+  }
+
+  // Calculate fixed expenses (from recurring transactions)
+  const fixedExpenseProjections = projectedTransactions.filter((p) => p.type === 'expense');
+  const fixedExpenses = fixedExpenseProjections.reduce((sum, p) => sum + p.amount, 0);
+
+  // Calculate expected income (from recurring transactions)
+  const incomeProjections = projectedTransactions.filter((p) => p.type === 'income');
+  const expectedIncome = incomeProjections.reduce((sum, p) => sum + p.amount, 0);
+
+  // Calculate current spending by category
+  const categorySpending = new Map<string, number>();
+  for (const tx of transactions.filter((t) => t.type === 'expense')) {
+    const current = categorySpending.get(tx.categoryId) || 0;
+    categorySpending.set(tx.categoryId, current + tx.amount);
+  }
+
+  // Calculate projected spending by category
+  const categoryProjected = new Map<string, number>();
+  for (const proj of fixedExpenseProjections) {
+    const current = categoryProjected.get(proj.categoryId) || 0;
+    categoryProjected.set(proj.categoryId, current + proj.amount);
+  }
+
+  // Build category budget summaries
+  const categoryBudgets: CategoryBudgetSummary[] = categories.map((cat) => {
+    const currentSpent = categorySpending.get(cat.id) || 0;
+    const projectedSpent = (categoryProjected.get(cat.id) || 0) + currentSpent;
+    const budgetAmount = cat.budget || 0;
+    const remainingBudget = budgetAmount - projectedSpent;
+    const percentUsed = budgetAmount > 0 ? Math.round((projectedSpent / budgetAmount) * 100) : 0;
+
+    return {
+      categoryId: cat.id,
+      categoryName: cat.name,
+      categoryIcon: cat.icon,
+      categoryColor: cat.color,
+      budgetAmount,
+      currentSpent,
+      projectedSpent,
+      remainingBudget,
+      percentUsed,
+    };
+  });
+
+  // Calculate totals
+  const actualExpense = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const actualIncome = transactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const variableBudget = totalBudget - fixedExpenses;
+  const projectedBalance = actualIncome + expectedIncome - actualExpense - fixedExpenses;
+
+  return {
+    totalBudget,
+    fixedExpenses,
+    expectedIncome,
+    variableBudget,
+    projectedBalance,
+    categoryBudgets,
+  };
+}
+
+/**
+ * Get upcoming recurring transactions (next N days)
+ */
+export async function getUpcomingRecurringTransactions(
+  daysAhead: number = 7
+): Promise<RecurringTransaction[]> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const futureDate = addDays(today, daysAhead);
+
+  const recurring = await getActiveRecurringTransactions();
+
+  return recurring.filter((rt) => {
+    const nextDate = new Date(rt.nextExecutionDate);
+    return (
+      (isAfter(nextDate, today) || isSameDay(nextDate, today)) &&
+      (isBefore(nextDate, futureDate) || isSameDay(nextDate, futureDate))
+    );
+  });
+}
+
+/**
+ * Execute a recurring transaction (create actual transaction from recurring)
+ */
+export async function executeRecurringTransaction(
+  recurringId: string
+): Promise<Transaction | null> {
+  const recurring = await db.recurringTransactions.get(recurringId);
+  if (!recurring || !recurring.isActive) return null;
+
+  const now = new Date();
+  const transaction: Transaction = {
+    id: generateId(),
+    type: recurring.type,
+    amount: recurring.amount,
+    categoryId: recurring.categoryId,
+    paymentMethodId: recurring.paymentMethodId,
+    description: recurring.description,
+    memo: recurring.memo,
+    date: now,
+    time: format(now, 'HH:mm'),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // Add transaction
+  await db.transactions.add(transaction);
+
+  // Update recurring transaction's next execution date
+  const nextDate = calculateNextExecutionDate(
+    recurring.frequency,
+    now,
+    recurring.dayOfMonth,
+    recurring.dayOfWeek
+  );
+
+  await db.recurringTransactions.update(recurringId, {
+    lastExecutedDate: now,
+    nextExecutionDate: nextDate,
+    updatedAt: now,
+  });
+
+  return transaction;
+}
+
+/**
+ * Get recent unique memos for tag suggestions
+ * Returns unique non-empty memos from recent transactions, most recent first
+ */
+export async function getRecentMemos(limit: number = 10): Promise<string[]> {
+  const transactions = await db.transactions
+    .orderBy('createdAt')
+    .reverse()
+    .limit(200) // Scan recent 200 transactions
+    .toArray();
+
+  const memoSet = new Set<string>();
+  const result: string[] = [];
+
+  for (const tx of transactions) {
+    // Check both memo and description fields for backward compatibility
+    const memoText = tx.memo || tx.description;
+    if (memoText && !memoSet.has(memoText)) {
+      memoSet.add(memoText);
+      result.push(memoText);
+      if (result.length >= limit) break;
+    }
+  }
+
+  return result;
 }

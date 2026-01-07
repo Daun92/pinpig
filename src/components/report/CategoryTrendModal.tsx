@@ -55,15 +55,15 @@ export function CategoryTrendModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-ink-black/30"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-md bg-paper-white rounded-t-xl safe-bottom animate-slide-up max-h-[85vh] overflow-y-auto pb-20">
+      <div className="relative w-full max-w-md bg-paper-white rounded-xl animate-fade-in max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-paper-white flex items-center justify-between px-6 py-4 border-b border-paper-mid z-10">
           <div className="flex items-center gap-3">
@@ -115,7 +115,7 @@ export function CategoryTrendModal({
 
         {/* TOP5 Transactions */}
         {topTransactions.length > 0 && (
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-4">
             <h4 className="text-sub text-ink-mid mb-3">
               {targetMonth}월 {type === 'income' ? '수입' : '지출'} TOP5
             </h4>

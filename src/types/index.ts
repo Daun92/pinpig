@@ -245,3 +245,82 @@ export interface CategoryComparison {
   percentChange: number;
   isOverBudget: boolean;
 }
+
+// =========================================
+// Recurring Transaction Types (반복 거래)
+// =========================================
+
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+
+export interface RecurringTransaction {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  categoryId: string;
+  paymentMethodId?: string;
+  description: string;                // 거래 설명 (예: "넷플릭스", "월급")
+  memo?: string;
+
+  // Recurrence settings
+  frequency: RecurrenceFrequency;     // 반복 주기
+  dayOfMonth?: number;                // monthly일 때 매월 몇 일 (1-31)
+  dayOfWeek?: number;                 // weekly일 때 무슨 요일 (0-6, 일요일=0)
+  startDate: Date;                    // 시작일
+  endDate?: Date;                     // 종료일 (없으면 무기한)
+  isActive: boolean;                  // 활성화 여부
+
+  // Tracking
+  lastExecutedDate?: Date;            // 마지막으로 실행된 날짜
+  nextExecutionDate: Date;            // 다음 실행 예정일
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type CreateRecurringTransactionInput = Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt' | 'lastExecutedDate'>;
+
+// =========================================
+// Projected Transaction Types (예상 거래)
+// =========================================
+
+export interface ProjectedTransaction {
+  id: string;                         // 'recurring-{recurringId}-{date}' 형태
+  recurringId: string;                // 원본 반복 거래 ID
+  type: TransactionType;
+  amount: number;
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  paymentMethodId?: string;
+  description: string;
+  scheduledDate: Date;                // 예정일
+  isProjected: true;                  // 항상 true (실제 거래와 구분)
+}
+
+// =========================================
+// Budget Structure Types (예산 구조)
+// =========================================
+
+export interface MonthlyBudgetStructure {
+  totalBudget: number;                // 총 예산
+  fixedExpenses: number;              // 고정 지출 (반복 거래 기반)
+  expectedIncome: number;             // 예상 수입 (반복 거래 기반)
+  variableBudget: number;             // 가변 예산 (totalBudget - fixedExpenses)
+  projectedBalance: number;           // 예상 잔액
+
+  // By category
+  categoryBudgets: CategoryBudgetSummary[];
+}
+
+export interface CategoryBudgetSummary {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  budgetAmount: number;               // 설정된 예산
+  currentSpent: number;               // 현재 지출
+  projectedSpent: number;             // 예상 지출 (남은 반복 거래 포함)
+  remainingBudget: number;            // 남은 예산
+  percentUsed: number;                // 사용 비율
+}

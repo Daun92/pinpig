@@ -238,7 +238,7 @@ export function DateTimePicker({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40"
@@ -246,7 +246,7 @@ export function DateTimePicker({
       />
 
       {/* Modal */}
-      <div className="relative bg-paper-white rounded-t-2xl w-full max-w-lg safe-bottom animate-slide-up">
+      <div className="relative bg-paper-white rounded-2xl w-full max-w-lg animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-paper-mid">
           <button onClick={onClose} className="p-2">

@@ -1,30 +1,55 @@
 import { Routes, Route } from 'react-router-dom';
 import { HomePage } from '@/pages/HomePage';
 import { AddPage } from '@/pages/AddPage';
+import { EditTransactionPage } from '@/pages/EditTransactionPage';
+import { TransactionDetailPage } from '@/pages/TransactionDetailPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { StatsPage } from '@/pages/StatsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { CategoryManagePage } from '@/pages/CategoryManagePage';
+import { CategoryEditPage } from '@/pages/CategoryEditPage';
 import { PaymentMethodManagePage } from '@/pages/PaymentMethodManagePage';
+import { PaymentMethodEditPage } from '@/pages/PaymentMethodEditPage';
 import { BudgetWizardPage } from '@/pages/BudgetWizardPage';
 import { AnnualExpensesPage } from '@/pages/AnnualExpensesPage';
 import { MonthlyReviewPage } from '@/pages/MonthlyReviewPage';
+import { ImportDataPage } from '@/pages/ImportDataPage';
+import { RecurringTransactionPage } from '@/pages/RecurringTransactionPage';
+import { RecurringTransactionEditPage } from '@/pages/RecurringTransactionEditPage';
 import { TabBar } from '@/components/layout/TabBar';
+import { useTheme } from '@/hooks/useTheme';
+import { useSwipeBack } from '@/hooks/useSwipeBack';
 
 export default function App() {
+  // Initialize theme management
+  useTheme();
+
+  // Enable swipe-back navigation (left edge → right swipe)
+  useSwipeBack();
+
   return (
     <div className="min-h-screen bg-paper-white text-ink-black">
-      <main className="pb-20">
+      <main className="pb-nav">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/add" element={<AddPage />} />
+          <Route path="/transaction/:id" element={<TransactionDetailPage />} />
+          <Route path="/transaction/:id/edit" element={<EditTransactionPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/categories" element={<CategoryManagePage />} />
+          <Route path="/settings/categories/new" element={<CategoryEditPage />} />
+          <Route path="/settings/categories/:id/edit" element={<CategoryEditPage />} />
           <Route path="/settings/payment-methods" element={<PaymentMethodManagePage />} />
+          <Route path="/settings/payment-methods/new" element={<PaymentMethodEditPage />} />
+          <Route path="/settings/payment-methods/:id/edit" element={<PaymentMethodEditPage />} />
           <Route path="/settings/budget-wizard" element={<BudgetWizardPage />} />
           <Route path="/settings/annual-expenses" element={<AnnualExpensesPage />} />
+          <Route path="/settings/import" element={<ImportDataPage />} />
+          <Route path="/settings/recurring" element={<RecurringTransactionPage />} />
+          <Route path="/settings/recurring/new" element={<RecurringTransactionEditPage />} />
+          <Route path="/settings/recurring/:id/edit" element={<RecurringTransactionEditPage />} />
           <Route path="/review" element={<MonthlyReviewPage />} />
         </Routes>
       </main>

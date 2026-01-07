@@ -14,6 +14,7 @@ interface PaymentMethodActions {
   addPaymentMethod: (input: CreatePaymentMethodInput) => Promise<PaymentMethod>;
   updatePaymentMethod: (id: string, updates: Partial<PaymentMethod>) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
+  reorderPaymentMethods: (reorderedMethods: PaymentMethod[]) => Promise<void>;
   clearError: () => void;
 }
 
@@ -106,6 +107,31 @@ export const usePaymentMethodStore = create<PaymentMethodStore>()(
             error: error instanceof Error ? error.message : '결제수단 삭제에 실패했습니다.',
             isLoading: false,
           });
+          throw error;
+        }
+      },
+
+      reorderPaymentMethods: async (reorderedMethods: PaymentMethod[]) => {
+        set({ isLoading: true, error: null });
+        try {
+          const now = new Date();
+          const updates = reorderedMethods.map((pm, index) => ({
+            ...pm,
+            order: index,
+            updatedAt: now,
+          }));
+
+          // Batch update in database
+          await db.transaction('rw', db.paymentMethods, async () => {
+            for (const pm of updates) {
+              await db.paymentMethods.update(pm.id, { order: pm.order, updatedAt: pm.updatedAt });
+            }
+          });
+
+          set({ paymentMethods: updates, isLoading: false });
+        } catch (error) {
+          console.error('Failed to reorder payment methods:', error);
+          set({ error: '순서 변경에 실패했습니다.', isLoading: false });
           throw error;
         }
       },
