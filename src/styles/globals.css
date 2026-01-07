@@ -7,7 +7,7 @@
   :root {
     /* Navigation height (TabBar h-16 = 64px + FAB offset 16px + safe area) */
     --nav-height: 64px;
-    --nav-safe-height: calc(80px + env(safe-area-inset-bottom));
+    --nav-safe-height: calc(70px + env(safe-area-inset-bottom) * 0.5);
 
     /* Paper (Backgrounds) - Warm tones */
     --color-paper-white: #FAF9F7;
