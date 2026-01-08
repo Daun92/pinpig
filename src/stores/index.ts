@@ -18,6 +18,15 @@ export {
   selectCategoryMap,
 } from './categoryStore';
 
+// Payment Method Store
+export {
+  usePaymentMethodStore,
+  selectPaymentMethods,
+  selectDefaultPaymentMethod,
+  selectPaymentMethodById,
+  selectPaymentMethodMap,
+} from './paymentMethodStore';
+
 // Settings Store
 export {
   useSettingsStore,
@@ -28,3 +37,6 @@ export {
   selectTheme,
   selectCurrency,
 } from './settingsStore';
+
+// FAB Store
+export { useFabStore } from './fabStore';

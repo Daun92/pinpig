@@ -140,7 +140,6 @@ export function HistoryPage() {
   const [activeGroupLabel, setActiveGroupLabel] = useState<string | null>(null);
   const [activeGroupTotal, setActiveGroupTotal] = useState<number>(0);
   const dateGroupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
   // URL query params
   const [searchParams, setSearchParams] = useSearchParams();
@@ -222,57 +221,67 @@ export function HistoryPage() {
     return monthGroups.flatMap(mg => mg.dateGroups);
   }, [monthGroups]);
 
-  // Intersection Observer for floating header - detect which date group is at top
-  useEffect(() => {
-    if (searchQuery.trim()) return; // Disable in search mode
+  // Scroll-based floating header - detect which date group is at top
+  const updateActiveGroup = useCallback(() => {
+    if (searchQuery.trim() || !scrollContainerRef.current) return;
 
     const hasSearchInfo = selectedCategoryIds.length > 0;
-    // Floating header position: after header (56px) + filter bar (52px) + optional search info (28px)
     const headerOffset = hasSearchInfo ? 136 : 108;
 
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        // Find the topmost visible group
-        const visibleEntries = entries.filter(entry => entry.isIntersecting);
+    // Find the date group that's currently at the header position
+    let activeGroup: { label: string; total: number } | null = null;
 
-        if (visibleEntries.length > 0) {
-          // Sort by position - find the one closest to top
-          const sortedEntries = visibleEntries.sort((a, b) => {
-            return a.boundingClientRect.top - b.boundingClientRect.top;
-          });
-
-          const topEntry = sortedEntries[0];
-          const groupKey = topEntry.target.getAttribute('data-group-key');
-          const groupLabel = topEntry.target.getAttribute('data-group-label');
-          const groupTotal = topEntry.target.getAttribute('data-group-total');
-
-          if (groupLabel && groupKey) {
-            setActiveGroupLabel(groupLabel);
-            setActiveGroupTotal(Number(groupTotal) || 0);
-          }
-        }
-      },
-      {
-        root: scrollContainerRef.current,
-        // Observe when element enters the zone right below the sticky header
-        rootMargin: `-${headerOffset}px 0px -80% 0px`,
-        threshold: 0,
-      }
-    );
-
-    // Observe all date groups
     dateGroupRefs.current.forEach((element) => {
-      if (observerRef.current) {
-        observerRef.current.observe(element);
+      const rect = element.getBoundingClientRect();
+      // Element is "active" if its top is at or above the header line
+      // and its bottom is still below the header (so we're still in this group)
+      if (rect.top <= headerOffset + 10 && rect.bottom > headerOffset) {
+        const label = element.getAttribute('data-group-label');
+        const total = element.getAttribute('data-group-total');
+        if (label) {
+          activeGroup = { label, total: Number(total) || 0 };
+        }
       }
     });
 
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
+    // If no group found at header position, find the first visible one
+    if (!activeGroup) {
+      let firstVisibleTop = Infinity;
+      let firstVisibleLabel: string | null = null;
+      let firstVisibleTotal = 0;
+
+      dateGroupRefs.current.forEach((element) => {
+        const rect = element.getBoundingClientRect();
+        if (rect.top >= headerOffset && rect.top < window.innerHeight && rect.top < firstVisibleTop) {
+          const label = element.getAttribute('data-group-label');
+          const total = element.getAttribute('data-group-total');
+          if (label) {
+            firstVisibleTop = rect.top;
+            firstVisibleLabel = label;
+            firstVisibleTotal = Number(total) || 0;
+          }
+        }
+      });
+
+      if (firstVisibleLabel) {
+        activeGroup = { label: firstVisibleLabel, total: firstVisibleTotal };
       }
-    };
-  }, [allDateGroups, searchQuery, selectedCategoryIds]);
+    }
+
+    if (activeGroup) {
+      setActiveGroupLabel(activeGroup.label);
+      setActiveGroupTotal(activeGroup.total);
+    }
+  }, [searchQuery, selectedCategoryIds]);
+
+  // Initialize active group on mount and data change
+  useEffect(() => {
+    if (allDateGroups.length > 0 && !searchQuery.trim()) {
+      // Small delay to ensure refs are set
+      const timer = setTimeout(updateActiveGroup, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [allDateGroups, searchQuery, updateActiveGroup]);
 
   // Pull-to-load previous month
   const [isPulling, setIsPulling] = useState(false);
@@ -282,13 +291,16 @@ export function HistoryPage() {
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current || searchQuery.trim()) return;
 
+    // Update floating header based on scroll position
+    updateActiveGroup();
+
     const { scrollTop } = scrollContainerRef.current;
 
     // When at the very top and trying to scroll up more
     if (scrollTop <= 0 && !isPulling) {
       // User is at top - ready for pull gesture
     }
-  }, [searchQuery, isPulling]);
+  }, [searchQuery, isPulling, updateActiveGroup]);
 
   const handleTouchStart = useCallback(() => {
     if (!scrollContainerRef.current || searchQuery.trim()) return;

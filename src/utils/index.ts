@@ -6,6 +6,8 @@ export {
   formatDate,
   formatDateShort,
   formatTime,
+  getDateLabel,
+  getMonthLabel,
 } from './format';
 
 // Calculation utilities

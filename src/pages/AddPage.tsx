@@ -4,7 +4,7 @@ import { X, ChevronDown, ChevronUp, Calendar, CreditCard, Tag, MessageSquare, Pl
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
-import { useAddPageStore } from '@/stores/addPageStore';
+import { useFabStore } from '@/stores/fabStore';
 import { Icon, DateTimePicker } from '@/components/common';
 import { getTagSuggestions } from '@/services/queries';
 import type { TransactionType } from '@/types';
@@ -29,7 +29,7 @@ export function AddPage() {
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const { fetchCategories } = useCategoryStore();
   const { fetchPaymentMethods } = usePaymentMethodStore();
-  const { setSubmitHandler, setCanSubmit } = useAddPageStore();
+  const { setSubmitHandler, setCanSubmit } = useFabStore();
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
   const paymentMethods = usePaymentMethodStore(selectPaymentMethods);

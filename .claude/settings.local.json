@@ -25,7 +25,8 @@
       "Bash(git restore:*)",
       "Bash(node scripts/update-worklog.js:*)",
       "Bash(git worktree:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(findstr:*)"
     ]
   }
 }

@@ -85,10 +85,19 @@ export function TabBar() {
             );
           }
 
+          const handleTabClick = () => {
+            // 탭 이동 시 메인 콘텐츠 영역을 최상단으로 스크롤
+            const mainContent = document.querySelector('main');
+            if (mainContent) {
+              mainContent.scrollTo({ top: 0, behavior: 'instant' });
+            }
+          };
+
           return (
             <NavLink
               key={to}
               to={to}
+              onClick={handleTabClick}
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center min-w-touch min-h-touch ${
                   isActive ? 'text-ink-black' : 'text-ink-light'

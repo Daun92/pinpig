@@ -1,3 +1,6 @@
+import { isToday, isYesterday, format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+
 /**
  * 금액을 한국 원화 형식으로 포맷팅
  * @example formatCurrency(847000) => "847,000원"
@@ -52,4 +55,29 @@ export function formatTime(date: Date): string {
     minute: '2-digit',
     hour12: false,
   });
+}
+
+/**
+ * 날짜를 상대적인 라벨로 변환
+ * @example getDateLabel(today) => "오늘"
+ * @example getDateLabel(yesterday) => "어제"
+ * @example getDateLabel(someDate) => "7일 (화)"
+ */
+export function getDateLabel(date: Date): string {
+  if (isToday(date)) return '오늘';
+  if (isYesterday(date)) return '어제';
+  return format(date, 'd일 (E)', { locale: ko });
+}
+
+/**
+ * 월을 라벨로 변환 (올해면 월만, 다른 해면 연월)
+ * @example getMonthLabel(2025, 0) => "1월" (현재 2025년)
+ * @example getMonthLabel(2024, 11) => "2024년 12월" (현재 2025년)
+ */
+export function getMonthLabel(year: number, month: number): string {
+  const currentYear = new Date().getFullYear();
+  if (year === currentYear) {
+    return `${month + 1}월`;
+  }
+  return `${year}년 ${month + 1}월`;
 }

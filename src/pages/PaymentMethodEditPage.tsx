@@ -148,7 +148,7 @@ export function PaymentMethodEditPage() {
               value={formData.budget}
               onChange={handleBudgetChange}
               placeholder="0"
-              className="w-full px-4 py-3 pr-10 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none border border-transparent focus:border-ink-mid dark:focus:border-paper-mid"
+              className="w-full px-4 py-3 pr-10 bg-paper-light rounded-md text-body text-ink-black outline-none border border-transparent focus:border-ink-mid dark:focus:border-paper-mid"
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-body text-ink-mid">원</span>
           </div>

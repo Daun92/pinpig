@@ -150,3 +150,6 @@ export const selectPaymentMethodById = (id: string) => (state: PaymentMethodStor
 
 export const selectDefaultPaymentMethod = (state: PaymentMethodStore) =>
   state.paymentMethods.find((p) => p.isDefault) || state.paymentMethods[0];
+
+export const selectPaymentMethodMap = (state: PaymentMethodStore) =>
+  new Map(state.paymentMethods.map((p) => [p.id, p]));
