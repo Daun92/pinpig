@@ -31,7 +31,9 @@
       "Bash(timeout:*)",
       "Bash(npx vercel --prod)",
       "Bash(powershell -c \"\\(Get-Item ''D:\\\\claude\\\\pinpig\\\\WORKLOG.md''\\).Length\")",
-      "Bash(npm version:*)"
+      "Bash(npm version:*)",
+      "Bash(node scripts/generate-seed-csv.js:*)",
+      "Bash(node scripts/generate-seed-csv.cjs:*)"
     ]
   }
 }

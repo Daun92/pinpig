@@ -306,92 +306,294 @@ function generatePaymentMethodsCSV() {
   return '\uFEFF' + csv;
 }
 
-function generateTransactionsCSV(monthsOfData = 6, transactionsPerMonth = 40) {
+// 결제수단 선택 (카테고리에 따라 다른 가중치)
+function selectPaymentMethod(categoryName) {
+  const methods = PAYMENT_METHODS;
+  let weights;
+
+  switch (categoryName) {
+    case '식비':
+      // 카페/식당: 카드, 카카오페이 위주
+      weights = [5, 40, 25, 25, 5]; // 현금, 신한, 삼성, 카카오페이, 계좌이체
+      break;
+    case '교통':
+      // 택시: 카카오페이, 카드
+      weights = [5, 30, 20, 40, 5];
+      break;
+    case '쇼핑':
+      // 온라인쇼핑: 카드 위주
+      weights = [5, 45, 30, 15, 5];
+      break;
+    case '문화/여가':
+      weights = [5, 40, 30, 20, 5];
+      break;
+    case '주거/통신':
+      // 자동이체: 계좌이체, 카드
+      weights = [0, 30, 20, 0, 50];
+      break;
+    case '의료/건강':
+      weights = [10, 40, 30, 15, 5];
+      break;
+    default:
+      weights = [15, 35, 25, 15, 10];
+  }
+
+  return weightedRandomItem(methods, weights);
+}
+
+// 페르소나 기반 거래 생성 (2025년 7월 ~ 12월)
+function generateTransactionsCSV() {
   const transactions = [];
-  const now = new Date();
 
-  for (let monthOffset = 0; monthOffset < monthsOfData; monthOffset++) {
-    const targetDate = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
-    const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+  // 기간: 2025년 7월 1일 ~ 2025년 12월 31일
+  const startDate = new Date(2025, 6, 1);  // 7월 1일
+  const endDate = new Date(2025, 11, 31);  // 12월 31일
 
-    // 월급 추가 (매월 25일)
-    const salaryCategory = INCOME_CATEGORIES.find(c => c.name === '급여');
-    const salaryDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 25);
-    if (salaryDate <= now) {
+  // 카테고리 ID 맵
+  const catMap = {};
+  [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].forEach(c => {
+    catMap[c.name] = c;
+  });
+
+  // 날짜별 순회
+  let currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const day = currentDate.getDate();
+    const dayOfWeek = currentDate.getDay(); // 0=일, 6=토
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // ========== 수입 ==========
+
+    // 월급 (매월 25일)
+    if (day === 25) {
+      const salaryInfo = INCOME_DESCRIPTIONS['급여'][0];
       transactions.push({
         id: generateId(),
         type: 'income',
-        amount: randomInt(2800000, 3200000),
-        categoryId: salaryCategory.id,
-        categoryName: salaryCategory.name,
-        paymentMethodId: '',
-        paymentMethodName: '',
-        description: '월급',
-        memo: '',
-        date: formatDate(salaryDate),
+        amount: salaryInfo.min,
+        categoryId: catMap['급여'].id,
+        categoryName: '급여',
+        paymentMethodId: PAYMENT_METHODS.find(p => p.name === '계좌이체').id,
+        paymentMethodName: '계좌이체',
+        description: salaryInfo.desc,
+        memo: `${month + 1}월 급여`,
+        date: formatDate(currentDate),
         time: '09:00',
       });
     }
 
-    // 일반 지출 거래 생성
-    const txCount = randomInt(transactionsPerMonth - 10, transactionsPerMonth + 10);
-    for (let i = 0; i < txCount; i++) {
-      const day = randomInt(1, Math.min(daysInMonth, now.getDate() + (monthOffset === 0 ? 0 : 31)));
-      const txDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), day);
+    // 추가 수입 (가끔)
+    if (day === 15 && Math.random() < 0.3) {
+      const incomeType = Math.random() < 0.5 ? '용돈' : '기타수입';
+      const incomeItems = INCOME_DESCRIPTIONS[incomeType];
+      const weights = incomeItems.map(i => i.weight);
+      const selected = weightedRandomItem(incomeItems, weights);
 
-      if (txDate > now) continue;
+      transactions.push({
+        id: generateId(),
+        type: 'income',
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap[incomeType].id,
+        categoryName: incomeType,
+        paymentMethodId: PAYMENT_METHODS.find(p => p.name === '계좌이체').id,
+        paymentMethodName: '계좌이체',
+        description: selected.desc,
+        memo: '',
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(10, 18), randomInt(0, 59)),
+      });
+    }
 
-      const category = randomItem(EXPENSE_CATEGORIES);
-      const descriptions = EXPENSE_DESCRIPTIONS[category.name] || EXPENSE_DESCRIPTIONS['기타'];
-      const paymentMethod = randomItem(PAYMENT_METHODS);
+    // ========== 고정 지출 (주거/통신) ==========
+    const housingItems = EXPENSE_DESCRIPTIONS['주거/통신'].items;
+    housingItems.forEach(item => {
+      if (item.isFixed && day === item.day) {
+        const amount = item.min === item.max ? item.min : randomInt(item.min, item.max);
+        transactions.push({
+          id: generateId(),
+          type: 'expense',
+          amount: amount,
+          categoryId: catMap['주거/통신'].id,
+          categoryName: '주거/통신',
+          paymentMethodId: PAYMENT_METHODS.find(p => p.name === '계좌이체').id,
+          paymentMethodName: '계좌이체',
+          description: item.desc,
+          memo: '자동이체',
+          date: formatDate(currentDate),
+          time: '08:00',
+        });
+      }
+    });
 
-      const range = AMOUNT_RANGES[category.name] || [1000, 50000];
-      const amount = Math.round(randomInt(range[0], range[1]) / 100) * 100;
+    // ========== 구독 서비스 (문화/여가) ==========
+    const cultureItems = EXPENSE_DESCRIPTIONS['문화/여가'].items;
+    cultureItems.forEach(item => {
+      if (item.isSubscription && day === item.day) {
+        transactions.push({
+          id: generateId(),
+          type: 'expense',
+          amount: item.min,
+          categoryId: catMap['문화/여가'].id,
+          categoryName: '문화/여가',
+          paymentMethodId: PAYMENT_METHODS.find(p => p.name === '신한카드').id,
+          paymentMethodName: '신한카드',
+          description: item.desc,
+          memo: '월정액',
+          date: formatDate(currentDate),
+          time: '00:00',
+        });
+      }
+    });
 
-      const hours = randomInt(7, 23);
-      const minutes = randomInt(0, 59);
+    // ========== 일상 지출 ==========
+
+    // 식비: 평일 2-4회, 주말 1-3회
+    const foodCount = isWeekend ? randomInt(1, 3) : randomInt(2, 4);
+    const foodItems = EXPENSE_DESCRIPTIONS['식비'].items;
+    const foodWeights = foodItems.map(i => i.weight);
+
+    for (let i = 0; i < foodCount; i++) {
+      const selected = weightedRandomItem(foodItems, foodWeights);
+      const payMethod = selectPaymentMethod('식비');
 
       transactions.push({
         id: generateId(),
         type: 'expense',
-        amount,
-        categoryId: category.id,
-        categoryName: category.name,
-        paymentMethodId: paymentMethod.id,
-        paymentMethodName: paymentMethod.name,
-        description: randomItem(descriptions),
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap['식비'].id,
+        categoryName: '식비',
+        paymentMethodId: payMethod.id,
+        paymentMethodName: payMethod.name,
+        description: selected.desc,
         memo: '',
-        date: formatDate(txDate),
-        time: formatTime(hours, minutes),
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(7, 22), randomInt(0, 59)),
       });
     }
 
-    // 가끔 추가 수입
-    if (Math.random() > 0.6) {
-      const otherIncomeCategory = randomItem(INCOME_CATEGORIES.filter(c => c.name !== '급여'));
-      const descriptions = INCOME_DESCRIPTIONS[otherIncomeCategory.name] || ['기타수입'];
-      const incomeDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), randomInt(1, daysInMonth));
+    // 교통: 평일 70% 확률
+    if (!isWeekend && Math.random() < 0.7) {
+      const transItems = EXPENSE_DESCRIPTIONS['교통'].items;
+      const transWeights = transItems.map(i => i.weight);
+      const selected = weightedRandomItem(transItems, transWeights);
+      const payMethod = selectPaymentMethod('교통');
 
-      if (incomeDate <= now) {
-        transactions.push({
-          id: generateId(),
-          type: 'income',
-          amount: randomInt(50000, 500000),
-          categoryId: otherIncomeCategory.id,
-          categoryName: otherIncomeCategory.name,
-          paymentMethodId: '',
-          paymentMethodName: '',
-          description: randomItem(descriptions),
-          memo: '',
-          date: formatDate(incomeDate),
-          time: formatTime(randomInt(10, 18), randomInt(0, 59)),
-        });
-      }
+      transactions.push({
+        id: generateId(),
+        type: 'expense',
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap['교통'].id,
+        categoryName: '교통',
+        paymentMethodId: payMethod.id,
+        paymentMethodName: payMethod.name,
+        description: selected.desc,
+        memo: '',
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(7, 22), randomInt(0, 59)),
+      });
     }
+
+    // 쇼핑: 주말 40%, 평일 15%
+    if ((isWeekend && Math.random() < 0.4) || (!isWeekend && Math.random() < 0.15)) {
+      const shopItems = EXPENSE_DESCRIPTIONS['쇼핑'].items;
+      const shopWeights = shopItems.map(i => i.weight);
+      const selected = weightedRandomItem(shopItems, shopWeights);
+      const payMethod = selectPaymentMethod('쇼핑');
+
+      transactions.push({
+        id: generateId(),
+        type: 'expense',
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap['쇼핑'].id,
+        categoryName: '쇼핑',
+        paymentMethodId: payMethod.id,
+        paymentMethodName: payMethod.name,
+        description: selected.desc,
+        memo: '',
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(10, 21), randomInt(0, 59)),
+      });
+    }
+
+    // 문화/여가: 주말 50%, 평일 10%
+    if ((isWeekend && Math.random() < 0.5) || (!isWeekend && Math.random() < 0.1)) {
+      const cultureRegular = cultureItems.filter(i => !i.isSubscription && i.weight > 0);
+      const cultureWeights = cultureRegular.map(i => i.weight);
+      const selected = weightedRandomItem(cultureRegular, cultureWeights);
+      const payMethod = selectPaymentMethod('문화/여가');
+
+      transactions.push({
+        id: generateId(),
+        type: 'expense',
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap['문화/여가'].id,
+        categoryName: '문화/여가',
+        paymentMethodId: payMethod.id,
+        paymentMethodName: payMethod.name,
+        description: selected.desc,
+        memo: '',
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(10, 21), randomInt(0, 59)),
+      });
+    }
+
+    // 의료/건강: 8% 확률
+    if (Math.random() < 0.08) {
+      const healthItems = EXPENSE_DESCRIPTIONS['의료/건강'].items;
+      const healthWeights = healthItems.map(i => i.weight);
+      const selected = weightedRandomItem(healthItems, healthWeights);
+      const payMethod = selectPaymentMethod('의료/건강');
+
+      transactions.push({
+        id: generateId(),
+        type: 'expense',
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap['의료/건강'].id,
+        categoryName: '의료/건강',
+        paymentMethodId: payMethod.id,
+        paymentMethodName: payMethod.name,
+        description: selected.desc,
+        memo: '',
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(10, 18), randomInt(0, 59)),
+      });
+    }
+
+    // 기타: 10% 확률
+    if (Math.random() < 0.1) {
+      const etcItems = EXPENSE_DESCRIPTIONS['기타'].items;
+      const etcWeights = etcItems.map(i => i.weight);
+      const selected = weightedRandomItem(etcItems, etcWeights);
+      const payMethod = selectPaymentMethod('기타');
+
+      transactions.push({
+        id: generateId(),
+        type: 'expense',
+        amount: randomInt(selected.min, selected.max),
+        categoryId: catMap['기타'].id,
+        categoryName: '기타',
+        paymentMethodId: payMethod.id,
+        paymentMethodName: payMethod.name,
+        description: selected.desc,
+        memo: '',
+        date: formatDate(currentDate),
+        time: formatTime(randomInt(10, 20), randomInt(0, 59)),
+      });
+    }
+
+    // 다음 날로 이동
+    currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  // 날짜순 정렬
-  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+  // 날짜+시간 순 정렬
+  transactions.sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date);
+    if (dateCompare !== 0) return dateCompare;
+    return a.time.localeCompare(b.time);
+  });
 
   const headers = ['id', 'type', 'amount', 'categoryId', 'categoryName', 'paymentMethodId', 'paymentMethodName', 'description', 'memo', 'date', 'time'];
 
@@ -410,85 +612,18 @@ function generateTransactionsCSV(monthsOfData = 6, transactionsPerMonth = 40) {
   ]);
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  return { csv: '\uFEFF' + csv, count: transactions.length };
+  return { csv: '\uFEFF' + csv, count: transactions.length, transactions };
 }
 
 // 앱에서 가져올 수 있는 간단한 형식의 CSV (날짜, 유형, 카테고리, 금액, 설명)
-function generateSimpleTransactionsCSV(monthsOfData = 6, transactionsPerMonth = 40) {
-  const transactions = [];
-  const now = new Date();
-
-  for (let monthOffset = 0; monthOffset < monthsOfData; monthOffset++) {
-    const targetDate = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
-    const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
-
-    // 월급
-    const salaryDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 25);
-    if (salaryDate <= now) {
-      transactions.push({
-        type: '수입',
-        amount: randomInt(2800000, 3200000),
-        categoryName: '급여',
-        paymentMethodName: '',
-        description: '월급',
-        date: formatDate(salaryDate),
-        time: '09:00',
-      });
-    }
-
-    // 지출
-    const txCount = randomInt(transactionsPerMonth - 10, transactionsPerMonth + 10);
-    for (let i = 0; i < txCount; i++) {
-      const day = randomInt(1, Math.min(daysInMonth, now.getDate() + (monthOffset === 0 ? 0 : 31)));
-      const txDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), day);
-      if (txDate > now) continue;
-
-      const category = randomItem(EXPENSE_CATEGORIES);
-      const descriptions = EXPENSE_DESCRIPTIONS[category.name] || EXPENSE_DESCRIPTIONS['기타'];
-      const paymentMethod = randomItem(PAYMENT_METHODS);
-
-      const range = AMOUNT_RANGES[category.name] || [1000, 50000];
-      const amount = Math.round(randomInt(range[0], range[1]) / 100) * 100;
-
-      transactions.push({
-        type: '지출',
-        amount,
-        categoryName: category.name,
-        paymentMethodName: paymentMethod.name,
-        description: randomItem(descriptions),
-        date: formatDate(txDate),
-        time: formatTime(randomInt(7, 23), randomInt(0, 59)),
-      });
-    }
-
-    // 추가 수입
-    if (Math.random() > 0.6) {
-      const otherIncomeCategory = randomItem(INCOME_CATEGORIES.filter(c => c.name !== '급여'));
-      const descriptions = INCOME_DESCRIPTIONS[otherIncomeCategory.name] || ['기타수입'];
-      const incomeDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), randomInt(1, daysInMonth));
-      if (incomeDate <= now) {
-        transactions.push({
-          type: '수입',
-          amount: randomInt(50000, 500000),
-          categoryName: otherIncomeCategory.name,
-          paymentMethodName: '',
-          description: randomItem(descriptions),
-          date: formatDate(incomeDate),
-          time: formatTime(randomInt(10, 18), randomInt(0, 59)),
-        });
-      }
-    }
-  }
-
-  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
+function generateSimpleTransactionsCSV(transactions) {
   // 앱의 가져오기 형식에 맞춤
   const headers = ['날짜', '시간', '유형', '카테고리', '결제수단', '금액', '메모'];
 
   const rows = transactions.map(t => [
     t.date,
     t.time,
-    t.type,
+    t.type === 'income' ? '수입' : '지출',
     t.categoryName,
     t.paymentMethodName,
     t.amount,
@@ -496,42 +631,88 @@ function generateSimpleTransactionsCSV(monthsOfData = 6, transactionsPerMonth = 
   ]);
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  return { csv: '\uFEFF' + csv, count: transactions.length };
+  return '\uFEFF' + csv;
+}
+
+// 통계 계산
+function calculateStats(transactions) {
+  const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+  const categoryStats = {};
+  transactions.filter(t => t.type === 'expense').forEach(t => {
+    if (!categoryStats[t.categoryName]) {
+      categoryStats[t.categoryName] = { count: 0, total: 0 };
+    }
+    categoryStats[t.categoryName].count++;
+    categoryStats[t.categoryName].total += t.amount;
+  });
+
+  return { income, expense, categoryStats };
 }
 
 // =========================================
 // 실행
 // =========================================
 
-console.log('🌱 Generating seed CSV files...\n');
+console.log('='.repeat(60));
+console.log('PinPig 모의 데이터 생성');
+console.log('='.repeat(60));
+console.log('\n📋 페르소나: 서울 거주 30대 여성 직장인');
+console.log('   - 이름: 김지연 (가상)');
+console.log('   - 나이: 32세');
+console.log('   - 직업: IT 기업 마케팅 매니저');
+console.log('   - 월급: 세후 350만원 (매월 25일)');
+console.log('   - 거주: 서울 마포구 원룸 (월세 65만원)');
+console.log('   - 특징: 카페/디저트 좋아함, 자기계발 관심\n');
+console.log('📅 기간: 2025년 7월 ~ 2025년 12월 (6개월)\n');
 
 // 카테고리 CSV
 const categoriesCSV = generateCategoriesCSV();
 fs.writeFileSync(path.join(dataDir, 'seed-categories.csv'), categoriesCSV, 'utf8');
-console.log('✅ seed-categories.csv generated');
+console.log('✓ seed-categories.csv 생성 완료');
 
 // 결제수단 CSV
 const paymentMethodsCSV = generatePaymentMethodsCSV();
 fs.writeFileSync(path.join(dataDir, 'seed-payment-methods.csv'), paymentMethodsCSV, 'utf8');
-console.log('✅ seed-payment-methods.csv generated');
+console.log('✓ seed-payment-methods.csv 생성 완료');
 
 // 상세 거래 CSV (ID 포함)
-const { csv: transactionsCSV, count: txCount } = generateTransactionsCSV(6, 40);
+const { csv: transactionsCSV, count: txCount, transactions } = generateTransactionsCSV();
 fs.writeFileSync(path.join(dataDir, 'seed-transactions.csv'), transactionsCSV, 'utf8');
-console.log(`✅ seed-transactions.csv generated (${txCount} transactions)`);
+console.log(`✓ seed-transactions.csv 생성 완료 (${txCount}건)`);
 
 // 간단한 거래 CSV (앱 가져오기용)
-const { csv: simpleCSV, count: simpleCount } = generateSimpleTransactionsCSV(6, 40);
+const simpleCSV = generateSimpleTransactionsCSV(transactions);
 fs.writeFileSync(path.join(dataDir, 'seed-transactions-import.csv'), simpleCSV, 'utf8');
-console.log(`✅ seed-transactions-import.csv generated (${simpleCount} transactions)`);
+console.log(`✓ seed-transactions-import.csv 생성 완료 (앱 가져오기용)`);
+
+// 통계 출력
+const stats = calculateStats(transactions);
+console.log('\n' + '='.repeat(60));
+console.log('📊 생성 통계');
+console.log('='.repeat(60));
+console.log(`총 거래 수: ${txCount.toLocaleString()}건`);
+console.log(`총 수입: ${stats.income.toLocaleString()}원`);
+console.log(`총 지출: ${stats.expense.toLocaleString()}원`);
+console.log(`순 잔액: ${(stats.income - stats.expense).toLocaleString()}원`);
+console.log(`월평균 지출: ${Math.round(stats.expense / 6).toLocaleString()}원`);
+
+console.log('\n📂 카테고리별 지출:');
+Object.entries(stats.categoryStats)
+  .sort((a, b) => b[1].total - a[1].total)
+  .forEach(([cat, data]) => {
+    const percent = ((data.total / stats.expense) * 100).toFixed(1);
+    console.log(`   ${cat}: ${data.total.toLocaleString()}원 (${percent}%, ${data.count}건)`);
+  });
 
 console.log(`
-📁 Generated files in /data folder:
-   - seed-categories.csv      (카테고리 정의)
-   - seed-payment-methods.csv (결제수단 정의)
-   - seed-transactions.csv    (상세 거래 데이터, ID 포함)
+📁 생성된 파일 (data 폴더):
+   - seed-categories.csv        (카테고리 정의)
+   - seed-payment-methods.csv   (결제수단 정의)
+   - seed-transactions.csv      (상세 거래 데이터, ID 포함)
    - seed-transactions-import.csv (앱 가져오기용 간단 형식)
 
-💡 Usage:
+💡 사용법:
    앱에서 설정 > 가져오기로 seed-transactions-import.csv 파일을 가져올 수 있습니다.
 `);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, Lightbulb, X } from 'lucide-react';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -220,6 +220,70 @@ export function StatsPage() {
 
   const insights = generateInsights();
 
+  // Tab swipe navigation
+  const tabs: Array<'category' | 'paymentMethod' | 'trend'> = ['category', 'paymentMethod', 'trend'];
+  const tabContentRef = useRef<HTMLDivElement>(null);
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [isHorizontalSwipe, setIsHorizontalSwipe] = useState<boolean | null>(null);
+  const [swipeDistance, setSwipeDistance] = useState(0);
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const swipeThreshold = 60;
+
+  const handleTabTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    setTouchStartX(touch.clientX);
+    setTouchStartY(touch.clientY);
+    setIsHorizontalSwipe(null);
+    setSwipeDistance(0);
+    setSwipeDirection(null);
+  }, []);
+
+  const handleTabTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+
+    // Determine swipe direction on first significant move
+    if (isHorizontalSwipe === null) {
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      if (absX > 10 || absY > 10) {
+        setIsHorizontalSwipe(absX > absY * 1.5);
+      }
+      return;
+    }
+
+    if (!isHorizontalSwipe) return;
+
+    const currentIdx = tabs.indexOf(activeTab);
+
+    if (deltaX < 0 && currentIdx < tabs.length - 1) {
+      // Swiping left = next tab
+      setSwipeDirection('left');
+      setSwipeDistance(Math.min(Math.abs(deltaX), swipeThreshold * 1.5));
+    } else if (deltaX > 0 && currentIdx > 0) {
+      // Swiping right = previous tab
+      setSwipeDirection('right');
+      setSwipeDistance(Math.min(deltaX, swipeThreshold * 1.5));
+    }
+  }, [touchStartX, touchStartY, isHorizontalSwipe, activeTab, tabs]);
+
+  const handleTabTouchEnd = useCallback(() => {
+    if (swipeDistance >= swipeThreshold && swipeDirection) {
+      const currentIdx = tabs.indexOf(activeTab);
+
+      if (swipeDirection === 'left' && currentIdx < tabs.length - 1) {
+        setActiveTab(tabs[currentIdx + 1]);
+      } else if (swipeDirection === 'right' && currentIdx > 0) {
+        setActiveTab(tabs[currentIdx - 1]);
+      }
+    }
+    setSwipeDirection(null);
+    setSwipeDistance(0);
+    setIsHorizontalSwipe(null);
+  }, [swipeDistance, swipeDirection, activeTab, tabs]);
+
   if (isLoading && !monthSummary) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -356,8 +420,35 @@ export function StatsPage() {
         </button>
       </div>
 
-      {/* Category Breakdown */}
-      {activeTab === 'category' && (
+      {/* Tab Content with Swipe */}
+      <div
+        ref={tabContentRef}
+        onTouchStart={handleTabTouchStart}
+        onTouchMove={handleTabTouchMove}
+        onTouchEnd={handleTabTouchEnd}
+        className="relative"
+      >
+        {/* Swipe indicator */}
+        {swipeDirection && swipeDistance > 0 && (
+          <div
+            className={`fixed top-1/2 -translate-y-1/2 z-30 flex items-center gap-2 px-3 py-2 bg-ink-black/80 text-paper-white rounded-lg transition-opacity ${
+              swipeDirection === 'left' ? 'right-4' : 'left-4'
+            }`}
+            style={{
+              opacity: Math.min(swipeDistance / swipeThreshold, 1),
+            }}
+          >
+            <span className="text-sub">
+              {swipeDirection === 'left'
+                ? (activeTab === 'category' ? '수단별' : '월별 추이')
+                : (activeTab === 'trend' ? '수단별' : '카테고리별')
+              }
+            </span>
+          </div>
+        )}
+
+        {/* Category Breakdown */}
+        {activeTab === 'category' && (
         <section className="px-6 py-4">
           {categoryBreakdown.length === 0 ? (
             <div className="py-12 text-center">
@@ -573,6 +664,7 @@ export function StatsPage() {
           )}
         </section>
       )}
+      </div>
 
       {/* Insights Section */}
       <section className="px-6 py-4 pb-20">
