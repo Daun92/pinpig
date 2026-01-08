@@ -1175,6 +1175,76 @@
   - 예산 설정된 수단은 "예산의 N%" 표시, 초과 시 강조
 - **결과**: 타입체크 통과, 지출 수단별 예산 관리 기능 구현 완료
 
+### #66 다크모드 CSS 변수 충돌 해결 (근본 원인 분석)
+- **요청**: 설정 탭 하위 메뉴들 다크모드 미적용 문제 해결 및 원인 문서화
+- **근본 원인 분석**:
+  - **문제**: 다크모드에서 배경이 여전히 밝게 표시됨
+  - **원인**: CSS 변수 시스템과 Tailwind `dark:` 프리픽스의 이중 적용 충돌
+  - **CSS 변수 동작 원리** (`src/styles/globals.css`):
+    ```css
+    :root {
+      --color-paper-white: #FAF9F7;  /* 라이트 모드: 밝은 배경 */
+      --color-ink-black: #1C1B1A;    /* 라이트 모드: 어두운 텍스트 */
+    }
+    .dark {
+      --color-paper-white: #0D0F12;  /* 다크 모드: 어두운 배경 (자동 반전!) */
+      --color-ink-black: #F0F2F5;    /* 다크 모드: 밝은 텍스트 (자동 반전!) */
+    }
+    ```
+  - **잘못된 패턴**: `bg-paper-white dark:bg-ink-black`
+    - 다크 모드에서 `ink-black` = `#F0F2F5` (밝은 색!) → 밝은 배경 적용됨
+  - **올바른 패턴**: `bg-paper-white`
+    - CSS 변수가 자동으로 다크 모드 값(`#0D0F12`)으로 전환됨
+- **변경**: 12개 설정 관련 페이지에서 잘못된 `dark:` 프리픽스 제거
+  - `SettingsPage.tsx`, `ExportDataPage.tsx`, `ImportDataPage.tsx`
+  - `CategoryManagePage.tsx`, `CategoryEditPage.tsx`
+  - `PaymentMethodManagePage.tsx`, `PaymentMethodEditPage.tsx`
+  - `RecurringTransactionPage.tsx`, `RecurringTransactionEditPage.tsx`
+  - `BudgetWizardPage.tsx`, `AnnualExpensesPage.tsx`, `MonthlyReviewPage.tsx`
+- **제거한 패턴**:
+  | 잘못된 패턴 | 이유 |
+  |-------------|------|
+  | `dark:bg-ink-black` | 다크 모드에서 밝은 색(#F0F2F5) 적용됨 |
+  | `dark:text-paper-white` | 다크 모드에서 어두운 색(#0D0F12) 적용됨 |
+  | `dark:border-ink-dark` | CSS 변수가 이미 처리 |
+  | `dark:bg-ink-dark` | CSS 변수가 이미 처리 |
+- **유지한 패턴**:
+  | 올바른 패턴 | 이유 |
+  |-------------|------|
+  | `dark:bg-pig-pink` | 비CSS변수 색상, 명시적 오버라이드 필요 |
+  | `dark:ring-paper-white` | 포커스 링 스타일링 |
+- **핵심 교훈**: CSS 변수 기반 색상 토큰을 사용할 때는 `dark:` 프리픽스가 **이중 반전**을 유발함. CSS 변수가 이미 다크 모드를 처리하므로 추가 `dark:` 프리픽스 불필요.
+- **결과**: 타입체크 통과, 다크모드 정상 작동 확인
+
+### #67 하단 네비게이션 탭 이동 시 스크롤 초기화
+- **요청**: 탭 이동 시 해당 페이지의 최상단 위치를 기본값으로 지정
+- **변경**: `src/components/layout/TabBar.tsx`
+  - NavLink에 `onClick` 핸들러 추가
+  - `main` 요소를 찾아 `scrollTo({ top: 0, behavior: 'instant' })` 호출
+- **결과**: 타입체크 통과, 탭 전환 시 항상 페이지 최상단으로 이동
+
+---
+
+## 2026-01-08
+
+### #68 기록 탭 에스컬레이터 스크롤 UX + 월 단위 합계
+- **요청**: 기록 탭에서 스크롤 시 일자별 에스컬레이터 식 UX 경험 제공, 월 단위 합계 추가
+- **변경**:
+  - `src/types/index.ts`: `DateGroup`, `MonthGroup` 타입 추가
+  - `src/components/history/MonthSummaryCard.tsx`: 월 합계 카드 컴포넌트 생성
+  - `src/components/history/index.ts`: 배럴 export 파일
+  - `src/pages/HistoryPage.tsx`:
+    - `groupTransactionsByMonth()` 함수 추가 (월 단위 그룹핑)
+    - Nested sticky 헤더 구조: 월 헤더 → 일자 헤더 계층화
+    - 검색 모드/단일 월 모드에 따른 동적 sticky 위치 계산
+    - 월 합계 카드 조건부 렌더링 (검색 시 또는 다중 월 시)
+  - `src/styles/globals.css`: `.month-group` 스타일 추가
+- **결과**:
+  - 단일 월 보기: 일자 헤더만 sticky로 표시
+  - 검색/다중 월: 월 헤더 + 일자 헤더 이중 sticky 에스컬레이터 효과
+  - 월 말미에 지출/수입/순액 합계 카드 표시
+  - 빌드 및 타입체크 통과
+
 ---
 
 ## 진행 예정

@@ -91,6 +91,30 @@ export interface MonthSummary {
   transactionCount: number;
 }
 
+// =========================================
+// History Page Grouping Types
+// =========================================
+
+export interface DateGroup {
+  label: string;
+  date: Date;
+  transactions: Transaction[];
+  dailyTotal: number;
+}
+
+export interface MonthGroup {
+  year: number;
+  month: number;
+  label: string;              // "2025년 1월" 또는 "1월" (현재년도)
+  dateGroups: DateGroup[];
+  summary: {
+    income: number;
+    expense: number;
+    net: number;
+    transactionCount: number;
+  };
+}
+
 export interface PaymentMethodSummary {
   paymentMethodId: string;
   paymentMethodName: string;

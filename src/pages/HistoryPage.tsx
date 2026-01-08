@@ -1,25 +1,27 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, ChevronDown, ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
-import { isFuture, startOfDay } from 'date-fns';
+import { isFuture, startOfDay, getYear, getMonth } from 'date-fns';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectCategoryMap, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { Icon } from '@/components/common';
+import { MonthSummaryCard } from '@/components/history';
 import { isToday, isYesterday, format, subMonths, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import type { Transaction } from '@/types';
-
-interface DateGroup {
-  label: string;
-  date: Date;
-  transactions: Transaction[];
-  dailyTotal: number;
-}
+import type { Transaction, DateGroup, MonthGroup } from '@/types';
 
 function getDateLabel(date: Date): string {
   if (isToday(date)) return '오늘';
   if (isYesterday(date)) return '어제';
-  return format(date, 'M월 d일', { locale: ko });
+  return format(date, 'd일 (E)', { locale: ko });
+}
+
+function getMonthLabel(year: number, month: number): string {
+  const currentYear = new Date().getFullYear();
+  if (year === currentYear) {
+    return `${month + 1}월`;
+  }
+  return `${year}년 ${month + 1}월`;
 }
 
 function groupTransactionsByDate(transactions: Transaction[]): DateGroup[] {
@@ -45,6 +47,64 @@ function groupTransactionsByDate(transactions: Transaction[]): DateGroup[] {
   return Array.from(groups.values()).sort(
     (a, b) => b.date.getTime() - a.date.getTime()
   );
+}
+
+function groupTransactionsByMonth(transactions: Transaction[]): MonthGroup[] {
+  const monthMap: Map<string, MonthGroup> = new Map();
+
+  for (const tx of transactions) {
+    const year = getYear(tx.date);
+    const month = getMonth(tx.date);
+    const monthKey = `${year}-${month}`;
+
+    if (!monthMap.has(monthKey)) {
+      monthMap.set(monthKey, {
+        year,
+        month,
+        label: getMonthLabel(year, month),
+        dateGroups: [],
+        summary: {
+          income: 0,
+          expense: 0,
+          net: 0,
+          transactionCount: 0,
+        },
+      });
+    }
+
+    const monthGroup = monthMap.get(monthKey)!;
+    if (tx.type === 'income') {
+      monthGroup.summary.income += tx.amount;
+    } else {
+      monthGroup.summary.expense += tx.amount;
+    }
+    monthGroup.summary.transactionCount += 1;
+  }
+
+  // Calculate net for each month
+  for (const group of monthMap.values()) {
+    group.summary.net = group.summary.income - group.summary.expense;
+  }
+
+  // Group transactions by date first
+  const dateGroups = groupTransactionsByDate(transactions);
+
+  // Assign date groups to their respective months
+  for (const dateGroup of dateGroups) {
+    const year = getYear(dateGroup.date);
+    const month = getMonth(dateGroup.date);
+    const monthKey = `${year}-${month}`;
+    const monthGroup = monthMap.get(monthKey);
+    if (monthGroup) {
+      monthGroup.dateGroups.push(dateGroup);
+    }
+  }
+
+  // Sort months descending (newest first)
+  return Array.from(monthMap.values()).sort((a, b) => {
+    if (a.year !== b.year) return b.year - a.year;
+    return b.month - a.month;
+  });
 }
 
 export function HistoryPage() {
@@ -139,12 +199,26 @@ export function HistoryPage() {
     return result;
   }, [transactions, searchResults, searchQuery, selectedCategoryIds]);
 
-  const dateGroups = groupTransactionsByDate(filteredTransactions);
+  // Use month grouping for search (multiple months), date grouping for single month view
+  const monthGroups = useMemo(() => {
+    if (searchQuery.trim()) {
+      // Search mode: group by months
+      return groupTransactionsByMonth(filteredTransactions);
+    }
+    // Single month view: still use month grouping for consistency
+    return groupTransactionsByMonth(filteredTransactions);
+  }, [filteredTransactions, searchQuery]);
+
   const currentMonthLabel = format(currentMonth, 'M월', { locale: ko });
+
+  // Flatten all date groups for scroll target detection
+  const allDateGroups = useMemo(() => {
+    return monthGroups.flatMap(mg => mg.dateGroups);
+  }, [monthGroups]);
 
   // Auto scroll to target when data loads (only once)
   useEffect(() => {
-    if (!hasScrolledToTarget && dateGroups.length > 0 && !searchQuery) {
+    if (!hasScrolledToTarget && allDateGroups.length > 0 && !searchQuery) {
       // Determine target ref based on scrollToTarget param
       let targetRef = todayGroupRef;
       if (scrollToTarget === 'yesterday') {
@@ -157,7 +231,7 @@ export function HistoryPage() {
       const timer = setTimeout(() => scrollToGroup(targetRef), 100);
       return () => clearTimeout(timer);
     }
-  }, [dateGroups.length, hasScrolledToTarget, searchQuery, scrollToTarget, scrollToGroup]);
+  }, [allDateGroups.length, hasScrolledToTarget, searchQuery, scrollToTarget, scrollToGroup]);
 
   // Quick month navigation (without modal)
   const handlePrevMonth = () => {
@@ -346,7 +420,7 @@ export function HistoryPage() {
       )}
 
       {/* Transaction List */}
-      {dateGroups.length === 0 ? (
+      {monthGroups.length === 0 ? (
         <div className="py-16 pb-20 text-center">
           <p className="text-body text-ink-light">
             {searchQuery || selectedCategoryIds.length > 0
@@ -361,80 +435,116 @@ export function HistoryPage() {
         </div>
       ) : (
         <div className="pb-20">
-          {dateGroups.map((group, index) => {
-            const isTodayGroup = isToday(group.date);
-            const isYesterdayGroup = isYesterday(group.date);
-            const isFutureGroup = isFuture(startOfDay(group.date));
-
-            // Determine ref for this group
-            // For future: use the LAST future group in array (closest to today, since array is sorted descending)
-            // For yesterday: use the yesterday group
-            const isClosestFuture = isFutureGroup && !dateGroups.slice(index + 1).some(g => isFuture(startOfDay(g.date)));
-            let groupRef: React.RefObject<HTMLDivElement> | undefined;
-            if (isTodayGroup) {
-              groupRef = todayGroupRef;
-            } else if (isYesterdayGroup) {
-              groupRef = yesterdayGroupRef;
-            } else if (isClosestFuture) {
-              groupRef = futureGroupRef;
-            }
+          {monthGroups.map((monthGroup) => {
+            // Show month header only in search mode or when multiple months exist
+            const showMonthHeader = searchQuery.trim() || monthGroups.length > 1;
+            // Calculate sticky positions based on context
+            // Header: 56px, Filter bar: ~52px = 108px base
+            // When search result info is shown, add ~32px more
+            const hasSearchInfo = searchQuery || selectedCategoryIds.length > 0;
+            const monthHeaderTop = hasSearchInfo ? 'top-[136px]' : 'top-[108px]';
+            const dateHeaderTop = showMonthHeader
+              ? (hasSearchInfo ? 'top-[176px]' : 'top-[148px]')
+              : (hasSearchInfo ? 'top-[136px]' : 'top-[108px]');
 
             return (
-            <div
-              key={group.label}
-              ref={groupRef}
-              className="snap-start"
-            >
-              {/* Date Group Header */}
-              <div className="flex justify-between items-center px-4 py-3 bg-paper-light sticky top-[104px] z-10">
-                <span className="text-sub text-ink-dark">{group.label}</span>
-                <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
-                  {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원
-                </span>
-              </div>
+            <div key={`${monthGroup.year}-${monthGroup.month}`} className="month-group">
+              {/* Month Header - sticky at top, shows when scrolling through this month */}
+              {showMonthHeader && (
+                <div className={`sticky ${monthHeaderTop} z-[15] bg-paper-white border-b border-paper-mid shadow-sm`}>
+                  <div className="flex justify-between items-center px-4 py-2">
+                    <span className="text-body font-medium text-ink-black">{monthGroup.label}</span>
+                    <span className={`text-sub ${monthGroup.summary.net >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
+                      {monthGroup.summary.net >= 0 ? '+' : ''}{monthGroup.summary.net.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              )}
 
-              {/* Transactions */}
-              <ul>
-                {group.transactions.map((tx) => {
-                  const category = categoryMap.get(tx.categoryId);
-                  return (
-                    <li
-                      key={tx.id}
-                      onClick={() => navigate(`/transaction/${tx.id}`)}
-                      className="px-4 py-4 border-b border-paper-mid cursor-pointer active:bg-paper-light transition-colors"
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* Icon */}
-                        <div className="text-ink-mid mt-0.5">
-                          <Icon name={category?.icon || 'MoreHorizontal'} size={20} />
-                        </div>
+              {/* Date Groups within this month */}
+              {monthGroup.dateGroups.map((group) => {
+                const isTodayGroup = isToday(group.date);
+                const isYesterdayGroup = isYesterday(group.date);
+                const isFutureGroup = isFuture(startOfDay(group.date));
 
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-baseline">
-                            <span className="text-body text-ink-black truncate">
-                              {tx.description || category?.name || '거래'}
-                            </span>
-                            <span className="text-caption text-ink-light ml-2 whitespace-nowrap">
-                              {tx.time}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-baseline mt-1">
-                            <span className="text-sub text-ink-mid">
-                              {category?.name || '기타'}
-                            </span>
-                            <span className={`text-amount whitespace-nowrap ${
-                              tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
-                            }`}>
-                              {tx.type === 'income' ? '+ ' : ''}{tx.amount.toLocaleString()}원
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                // Determine ref for this group
+                const isClosestFuture = isFutureGroup && !allDateGroups.slice(
+                  allDateGroups.findIndex(g => g === group) + 1
+                ).some(g => isFuture(startOfDay(g.date)));
+
+                let groupRef: React.RefObject<HTMLDivElement> | undefined;
+                if (isTodayGroup) {
+                  groupRef = todayGroupRef;
+                } else if (isYesterdayGroup) {
+                  groupRef = yesterdayGroupRef;
+                } else if (isClosestFuture) {
+                  groupRef = futureGroupRef;
+                }
+
+                return (
+                  <div
+                    key={`${monthGroup.year}-${monthGroup.month}-${group.label}`}
+                    ref={groupRef}
+                    className="snap-start"
+                  >
+                    {/* Date Group Header - sticky below month header */}
+                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light sticky ${dateHeaderTop} z-10 border-b border-paper-mid/50`}>
+                      <span className="text-sub text-ink-dark">{group.label}</span>
+                      <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
+                        {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원
+                      </span>
+                    </div>
+
+                    {/* Transactions */}
+                    <ul>
+                      {group.transactions.map((tx) => {
+                        const category = categoryMap.get(tx.categoryId);
+                        return (
+                          <li
+                            key={tx.id}
+                            onClick={() => navigate(`/transaction/${tx.id}`)}
+                            className="px-4 py-4 border-b border-paper-mid cursor-pointer active:bg-paper-light transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Icon */}
+                              <div className="text-ink-mid mt-0.5">
+                                <Icon name={category?.icon || 'MoreHorizontal'} size={20} />
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-baseline">
+                                  <span className="text-body text-ink-black truncate">
+                                    {tx.description || category?.name || '거래'}
+                                  </span>
+                                  <span className="text-caption text-ink-light ml-2 whitespace-nowrap">
+                                    {tx.time}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-baseline mt-1">
+                                  <span className="text-sub text-ink-mid">
+                                    {category?.name || '기타'}
+                                  </span>
+                                  <span className={`text-amount whitespace-nowrap ${
+                                    tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
+                                  }`}>
+                                    {tx.type === 'income' ? '+ ' : ''}{tx.amount.toLocaleString()}원
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+
+              {/* Month Summary Card - shown at the end of each month (for search mode or past months) */}
+              {(searchQuery.trim() || monthGroups.length > 1) && (
+                <MonthSummaryCard monthGroup={monthGroup} />
+              )}
             </div>
             );
           })}

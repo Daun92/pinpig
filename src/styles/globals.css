@@ -94,4 +94,20 @@
   .touch-target {
     @apply min-h-touch min-w-touch;
   }
+
+  /* Escalator sticky header transitions */
+  .month-group {
+    /* Create stacking context for nested sticky */
+    position: relative;
+  }
+
+  /* Month header shadow when stacked */
+  .month-group > .sticky {
+    transition: box-shadow 0.15s ease-out;
+  }
+
+  /* Subtle shadow on scroll for depth */
+  .month-group > .sticky[style*="position: sticky"] {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
 }
