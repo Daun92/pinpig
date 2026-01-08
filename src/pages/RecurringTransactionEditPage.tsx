@@ -314,7 +314,7 @@ export function RecurringTransactionEditPage() {
                 onClick={() => setFormCategoryId(cat.id)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-colors ${
                   formCategoryId === cat.id
-                    ? 'border-ink-black dark:border-paper-white bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black'
+                    ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
                     : 'border-paper-mid dark:border-ink-dark text-ink-mid'
                 }`}
               >
@@ -336,7 +336,7 @@ export function RecurringTransactionEditPage() {
                   onClick={() => setFormPaymentMethodId(method.id)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-colors ${
                     formPaymentMethodId === method.id
-                      ? 'border-ink-black dark:border-paper-white bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black'
+                      ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
                       : 'border-paper-mid dark:border-ink-dark text-ink-mid'
                   }`}
                 >
@@ -358,7 +358,7 @@ export function RecurringTransactionEditPage() {
                 onClick={() => setFormFrequency(opt.value)}
                 className={`px-4 py-2 rounded-full border transition-colors ${
                   formFrequency === opt.value
-                    ? 'border-ink-black dark:border-paper-white bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black'
+                    ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
                     : 'border-paper-mid dark:border-ink-dark text-ink-mid'
                 }`}
               >

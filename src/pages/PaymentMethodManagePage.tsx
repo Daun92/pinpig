@@ -178,7 +178,7 @@ export function PaymentMethodManagePage() {
             <p className="text-body text-ink-light">등록된 결제수단이 없습니다</p>
             <button
               onClick={goToAdd}
-              className="mt-4 px-4 py-2 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body"
+              className="mt-4 px-4 py-2 bg-ink-black dark:bg-pig-pink text-paper-white rounded-md text-body"
             >
               결제수단 추가
             </button>

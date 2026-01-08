@@ -28,8 +28,8 @@ export default function App() {
   useSwipeBack();
 
   return (
-    <div className="min-h-screen bg-paper-white text-ink-black">
-      <main className="pb-nav">
+    <div className="flex flex-col h-full bg-paper-white text-ink-black">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/add" element={<AddPage />} />

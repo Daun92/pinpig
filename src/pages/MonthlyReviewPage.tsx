@@ -75,7 +75,7 @@ export function MonthlyReviewPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper-white flex items-center justify-center">
+      <div className="min-h-screen bg-paper-white dark:bg-ink-black flex items-center justify-center">
         <Loader2 size={32} className="text-ink-mid animate-spin" />
       </div>
     );
@@ -84,17 +84,17 @@ export function MonthlyReviewPage() {
   const canGoNext = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1) < new Date();
 
   return (
-    <div className="min-h-screen bg-paper-white pb-nav">
+    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black" />
+          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
         </button>
         <div className="flex items-center gap-2">
           <button onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center">
             <ChevronLeft size={20} className="text-ink-mid" />
           </button>
-          <span className="text-body text-ink-black min-w-20 text-center">
+          <span className="text-body text-ink-black dark:text-paper-white min-w-20 text-center">
             {format(currentDate, 'yyyy년 M월', { locale: ko })}
           </span>
           <button
@@ -102,7 +102,7 @@ export function MonthlyReviewPage() {
             disabled={!canGoNext}
             className="w-8 h-8 flex items-center justify-center"
           >
-            <ChevronRight size={20} className={canGoNext ? 'text-ink-mid' : 'text-paper-mid'} />
+            <ChevronRight size={20} className={canGoNext ? 'text-ink-mid' : 'text-paper-mid dark:text-ink-dark'} />
           </button>
         </div>
         <div className="w-10" />
@@ -111,16 +111,16 @@ export function MonthlyReviewPage() {
       {review && (
         <>
           {/* Summary */}
-          <section className="px-6 py-6 text-center border-b border-paper-mid">
-            <p className="text-hero text-ink-black">{formatCurrency(review.totalExpense)}</p>
+          <section className="px-6 py-6 text-center border-b border-paper-mid dark:border-ink-dark">
+            <p className="text-hero text-ink-black dark:text-paper-white">{formatCurrency(review.totalExpense)}</p>
             <p className="text-sub text-ink-mid mt-2">지출했어요</p>
 
             {review.budgetUsedPercent > 0 && (
               <div className="mt-6">
-                <div className="h-2 bg-paper-mid rounded-full overflow-hidden">
+                <div className="h-2 bg-paper-mid dark:bg-ink-dark rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      review.budgetUsedPercent > 100 ? 'bg-red-500' : 'bg-ink-black'
+                      review.budgetUsedPercent > 100 ? 'bg-red-500' : 'bg-ink-black dark:bg-pig-pink'
                     }`}
                     style={{ width: `${Math.min(review.budgetUsedPercent, 100)}%` }}
                   />
@@ -132,16 +132,16 @@ export function MonthlyReviewPage() {
 
           {/* Insights */}
           {review.insights.length > 0 && (
-            <section className="px-6 py-4 border-b border-paper-mid">
+            <section className="px-6 py-4 border-b border-paper-mid dark:border-ink-dark">
               <h2 className="text-sub text-ink-mid mb-4">발견한 점</h2>
               <div className="space-y-3">
                 {review.insights.map((insight, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-3 p-3 bg-paper-light rounded-md"
+                    className="flex items-start gap-3 p-3 bg-paper-light dark:bg-ink-dark rounded-md"
                   >
                     {getInsightIcon(insight.type)}
-                    <p className="text-body text-ink-dark flex-1">{insight.message}</p>
+                    <p className="text-body text-ink-dark dark:text-paper-mid flex-1">{insight.message}</p>
                   </div>
                 ))}
               </div>
@@ -159,19 +159,19 @@ export function MonthlyReviewPage() {
             ) : (
               <div className="space-y-4">
                 {review.categoryComparison.map((cat) => (
-                  <div key={cat.categoryId} className="p-4 bg-paper-light rounded-md">
+                  <div key={cat.categoryId} className="p-4 bg-paper-light dark:bg-ink-dark rounded-md">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: cat.categoryColor + '20' }}
                         >
-                          <Icon name={cat.categoryIcon} size={16} className="text-ink-dark" />
+                          <Icon name={cat.categoryIcon} size={16} className="text-ink-dark dark:text-paper-mid" />
                         </div>
-                        <span className="text-body text-ink-dark">{cat.categoryName}</span>
+                        <span className="text-body text-ink-dark dark:text-paper-mid">{cat.categoryName}</span>
                       </div>
                       <div className="text-right">
-                        <p className="text-body text-ink-black">
+                        <p className="text-body text-ink-black dark:text-paper-white">
                           {formatCurrency(cat.currentAmount)}
                         </p>
                         {cat.previousAmount > 0 && (
@@ -190,10 +190,10 @@ export function MonthlyReviewPage() {
                     {/* Budget bar */}
                     {cat.budgetAmount && cat.budgetAmount > 0 && (
                       <div className="mt-2">
-                        <div className="h-1.5 bg-paper-mid rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-paper-mid dark:bg-ink-black rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              cat.isOverBudget ? 'bg-red-500' : 'bg-ink-black'
+                              cat.isOverBudget ? 'bg-red-500' : 'bg-ink-black dark:bg-pig-pink'
                             }`}
                             style={{
                               width: `${Math.min((cat.currentAmount / cat.budgetAmount) * 100, 100)}%`,
@@ -228,13 +228,13 @@ export function MonthlyReviewPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => navigate('/settings')}
-                className="flex-1 py-3 bg-paper-light rounded-md text-body text-ink-mid"
+                className="flex-1 py-3 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-mid"
               >
                 유지하기
               </button>
               <button
                 onClick={() => navigate('/settings/budget-wizard')}
-                className="flex-1 py-3 bg-ink-black rounded-md text-body text-paper-white"
+                className="flex-1 py-3 bg-ink-black dark:bg-pig-pink rounded-md text-body text-paper-white"
               >
                 조정하기
               </button>

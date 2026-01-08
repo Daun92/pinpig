@@ -105,10 +105,10 @@ export function DateTimePicker({
                   disabled={disabled}
                   className={`py-3 rounded-lg text-body transition-colors ${
                     isSelected
-                      ? 'bg-ink-black text-paper-white'
+                      ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
                       : disabled
-                      ? 'text-paper-mid cursor-not-allowed'
-                      : 'bg-paper-light text-ink-dark hover:bg-paper-mid'
+                      ? 'text-paper-mid dark:text-ink-dark cursor-not-allowed'
+                      : 'bg-paper-light dark:bg-ink-dark text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
                   }`}
                 >
                   {year}
@@ -131,10 +131,10 @@ export function DateTimePicker({
                   disabled={disabled}
                   className={`py-3 rounded-lg text-body transition-colors ${
                     isSelected
-                      ? 'bg-ink-black text-paper-white'
+                      ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
                       : disabled
-                      ? 'text-paper-mid cursor-not-allowed'
-                      : 'bg-paper-light text-ink-dark hover:bg-paper-mid'
+                      ? 'text-paper-mid dark:text-ink-dark cursor-not-allowed'
+                      : 'bg-paper-light dark:bg-ink-dark text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
                   }`}
                 >
                   {month}월
@@ -162,14 +162,14 @@ export function DateTimePicker({
                   disabled={disabled}
                   className={`py-2 rounded-lg text-body transition-colors ${
                     isSelected
-                      ? 'bg-ink-black text-paper-white'
+                      ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
                       : disabled
-                      ? 'text-paper-mid cursor-not-allowed'
+                      ? 'text-paper-mid dark:text-ink-dark cursor-not-allowed'
                       : isSunday
-                      ? 'text-red-400 hover:bg-paper-mid'
+                      ? 'text-red-400 hover:bg-paper-mid dark:hover:bg-ink-mid'
                       : isSaturday
-                      ? 'text-blue-400 hover:bg-paper-mid'
-                      : 'text-ink-dark hover:bg-paper-mid'
+                      ? 'text-blue-400 hover:bg-paper-mid dark:hover:bg-ink-mid'
+                      : 'text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
                   }`}
                 >
                   {day}
@@ -195,8 +195,8 @@ export function DateTimePicker({
                         onClick={() => setTempHour(hour)}
                         className={`py-2 rounded-lg text-body transition-colors ${
                           isSelected
-                            ? 'bg-ink-black text-paper-white'
-                            : 'text-ink-dark hover:bg-paper-mid'
+                            ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                            : 'text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
                         }`}
                       >
                         {hour.toString().padStart(2, '0')}
@@ -218,8 +218,8 @@ export function DateTimePicker({
                         onClick={() => setTempMinute(minute)}
                         className={`py-2 rounded-lg text-body transition-colors ${
                           isSelected
-                            ? 'bg-ink-black text-paper-white'
-                            : 'text-ink-dark hover:bg-paper-mid'
+                            ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                            : 'text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
                         }`}
                       >
                         {minute.toString().padStart(2, '0')}
@@ -246,16 +246,16 @@ export function DateTimePicker({
       />
 
       {/* Modal */}
-      <div className="relative bg-paper-white rounded-2xl w-full max-w-lg animate-fade-in">
+      <div className="relative bg-paper-white dark:bg-ink-black rounded-2xl w-full max-w-lg animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-paper-mid">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-paper-mid dark:border-ink-dark">
           <button onClick={onClose} className="p-2">
             <X size={20} className="text-ink-mid" />
           </button>
-          <h3 className="text-body text-ink-black font-medium">날짜 및 시간</h3>
+          <h3 className="text-body text-ink-black dark:text-paper-white font-medium">날짜 및 시간</h3>
           <button
             onClick={handleConfirm}
-            className="text-body text-ink-black font-medium px-2"
+            className="text-body text-ink-black dark:text-paper-white font-medium px-2"
           >
             확인
           </button>
@@ -267,8 +267,8 @@ export function DateTimePicker({
             onClick={() => handleSegmentClick('year')}
             className={`flex-1 py-3 px-2 rounded-lg text-body font-medium transition-colors ${
               activeSegment === 'year'
-                ? 'bg-ink-black text-paper-white'
-                : 'bg-paper-light text-ink-dark'
+                ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                : 'bg-paper-light dark:bg-ink-dark text-ink-dark dark:text-paper-mid'
             }`}
           >
             {tempYear}년
@@ -277,8 +277,8 @@ export function DateTimePicker({
             onClick={() => handleSegmentClick('month')}
             className={`flex-1 py-3 px-2 rounded-lg text-body font-medium transition-colors ${
               activeSegment === 'month'
-                ? 'bg-ink-black text-paper-white'
-                : 'bg-paper-light text-ink-dark'
+                ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                : 'bg-paper-light dark:bg-ink-dark text-ink-dark dark:text-paper-mid'
             }`}
           >
             {tempMonth}월
@@ -287,8 +287,8 @@ export function DateTimePicker({
             onClick={() => handleSegmentClick('day')}
             className={`flex-1 py-3 px-2 rounded-lg text-body font-medium transition-colors ${
               activeSegment === 'day'
-                ? 'bg-ink-black text-paper-white'
-                : 'bg-paper-light text-ink-dark'
+                ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                : 'bg-paper-light dark:bg-ink-dark text-ink-dark dark:text-paper-mid'
             }`}
           >
             {tempDay}일
@@ -297,8 +297,8 @@ export function DateTimePicker({
             onClick={() => handleSegmentClick('time')}
             className={`flex-1 py-3 px-2 rounded-lg text-body font-medium transition-colors ${
               activeSegment === 'time'
-                ? 'bg-ink-black text-paper-white'
-                : 'bg-paper-light text-ink-dark'
+                ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                : 'bg-paper-light dark:bg-ink-dark text-ink-dark dark:text-paper-mid'
             }`}
           >
             {tempHour.toString().padStart(2, '0')}:{tempMinute.toString().padStart(2, '0')}
@@ -306,7 +306,7 @@ export function DateTimePicker({
         </div>
 
         {/* Segment Content */}
-        <div className="min-h-[200px] border-t border-paper-mid">
+        <div className="min-h-[200px] border-t border-paper-mid dark:border-ink-dark">
           {activeSegment ? (
             renderSegmentSelector()
           ) : (

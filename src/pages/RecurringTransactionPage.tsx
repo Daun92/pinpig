@@ -250,7 +250,7 @@ export function RecurringTransactionPage() {
               </p>
               <button
                 onClick={goToAdd}
-                className="px-6 py-3 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-lg text-body"
+                className="px-6 py-3 bg-ink-black dark:bg-pig-pink text-paper-white rounded-lg text-body"
               >
                 반복 거래 추가
               </button>

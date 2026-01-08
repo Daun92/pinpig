@@ -131,7 +131,7 @@ export function PaymentMethodEditPage() {
                 onClick={() => setFormData((prev) => ({ ...prev, icon: iconName }))}
                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                   formData.icon === iconName
-                    ? 'bg-ink-black dark:bg-paper-white'
+                    ? 'bg-ink-black dark:bg-pig-pink'
                     : 'bg-paper-light dark:bg-ink-dark'
                 }`}
               >
@@ -139,7 +139,7 @@ export function PaymentMethodEditPage() {
                   name={iconName}
                   size={24}
                   className={formData.icon === iconName
-                    ? 'text-paper-white dark:text-ink-black'
+                    ? 'text-paper-white'
                     : 'text-ink-mid'
                   }
                 />
