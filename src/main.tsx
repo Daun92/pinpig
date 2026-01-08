@@ -5,6 +5,21 @@ import App from './App';
 import './styles/globals.css';
 import { initializeDatabase } from '@/services/database';
 
+// Development: Expose seed functions to window for console access
+if (import.meta.env.DEV) {
+  import('@/services/seedDatabase').then(({ seedDatabase, seedEmptyDatabase, seedRecentTransactions }) => {
+    (window as any).seedDatabase = seedDatabase;
+    (window as any).seedEmptyDatabase = seedEmptyDatabase;
+    (window as any).seedRecentTransactions = seedRecentTransactions;
+    console.log(`
+🌱 PinPig Dev Tools:
+   seedDatabase()           - 6개월치 풀 테스트 데이터
+   seedEmptyDatabase()      - 온보딩 테스트용 빈 DB
+   seedRecentTransactions() - 최근 거래만 추가
+    `);
+  });
+}
+
 // Request persistent storage (prevents iOS Safari from deleting IndexedDB)
 async function requestPersistentStorage() {
   if (navigator.storage && navigator.storage.persist) {
