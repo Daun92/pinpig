@@ -939,6 +939,127 @@
   3. Safari에서 열기 선택
 - **결과**: 타입체크 통과, iOS 단축어 및 PWA shortcuts 지원
 
+### #58 결제수단 선택 후 메모 입력창 자동 오픈
+- **요청**: 결제수단 선택 후 자동으로 메모 입력창 오픈 및 커서 포커스
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - `handlePaymentSelect()`: 결제수단 선택 후 `setExpandedSection('extra')` + `memoInputRef.focus()`
+    - `handleCategorySelect()`: 수입일 때도 카테고리 선택 후 메모 입력창 자동 열기
+  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
+- **UX 플로우 개선**:
+  - 지출: 금액 → 카테고리 → 결제수단 → **메모 자동 열림 + 커서**
+  - 수입: 금액 → 카테고리 → **메모 자동 열림 + 커서**
+- **결과**: 타입체크 통과, 자연스러운 입력 흐름 완성
+
+### #59 멀티태그 시스템 개선 - 단어 기반 + 카테고리별 제안
+- **요청**:
+  1. 기존 전체 메모 문자열 제안 → 단어/구문 단위 태그 분리
+  2. 카테고리별 관련 태그 우선 제안
+  3. 메모 칩이 하나의 아이콘으로 표시되어 실제와 다르게 인지되는 문제 해결
+- **변경**:
+  - `src/services/queries.ts`:
+    - `extractTagsFromMemo()`: 메모에서 개별 단어 추출 (2자 이상, 조사 제외)
+    - `getRecentTags()`: 빈도 기반 전체 태그 목록 (자주 사용 순)
+    - `getTagsByCategory()`: 특정 카테고리에서 자주 사용된 태그
+    - `getTagSuggestions()`: 카테고리별 + 전체 태그 조합 반환
+  - `src/pages/AddPage.tsx`:
+    - `getRecentMemos` → `getTagSuggestions` 교체
+    - `categoryTags`, `recentTags` state 분리
+    - 카테고리 변경 시 태그 제안 자동 업데이트
+    - 메모 섹션 UI:
+      - "선택됨": 선택한 태그들 (삭제 가능)
+      - "{카테고리명} 관련": 파란색 배경, 카테고리별 태그
+      - "자주 사용": 회색 배경, 전체 빈도 기반 태그
+      - "직접 입력": 커스텀 메모
+  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
+- **태그 추출 규칙**:
+  - 2글자 이상 단어만 태그로 인식
+  - 조사 제외: 의, 를, 을, 이, 가, 에서, 에게, 으로, 로, 와, 과, 도, 만, 까지, 부터, 에, 은, 는
+  - 순수 숫자 제외
+- **UX 개선**:
+  - 카테고리 선택 시 맥락에 맞는 태그 우선 노출
+  - 미니멀 칩: 태그별로 개별 칩 표시 (기존 이미 적용됨)
+- **결과**: 타입체크 통과, 단어 단위 태그 + 카테고리별 맞춤 제안 작동
+
+### #58 메모 자동 포커스 버그 수정 (2차)
+- **요청**: 결제수단/카테고리 선택 후 메모 입력창 자동 열림 + 커서 포커스가 여전히 작동하지 않음
+- **원인 분석**:
+  - 기존 setTimeout만으로는 React 렌더링 주기와 타이밍 불일치
+  - DOM이 완전히 업데이트되기 전에 focus 시도
+- **변경**:
+  - `src/pages/AddPage.tsx`, `src/pages/TransactionDetailPage.tsx`:
+    - `requestAnimationFrame` + `setTimeout` 조합으로 변경
+    - RAF가 다음 페인트를 보장한 후 setTimeout으로 안전하게 focus
+- **결과**: 타입체크 통과, DOM 렌더링 완료 후 안정적으로 포커스
+
+### #58 메모 자동 포커스 버그 수정 (1차)
+- **요청**: 결제수단/카테고리 선택 후 메모 입력창 자동 열림 + 커서 포커스가 작동하지 않음
+- **원인 분석**:
+  - 기존: 중첩 setTimeout (150ms → 100ms)으로 포커스 시도
+  - 문제: React 렌더링 주기와 타이밍 불일치로 ref가 null일 수 있음
+  - 조건부 렌더링 (`expandedSection === 'extra'`)이 완료되기 전에 focus 시도
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - `shouldFocusMemo` state 추가
+    - `useEffect`로 `shouldFocusMemo && expandedSection === 'extra'` 조건에서 포커스
+    - `handleCategorySelect`, `handlePaymentSelect`, `handleMemoToggle`에서 `setShouldFocusMemo(true)` 호출
+  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
+- **결과**: 타입체크 통과, 1차 시도 (이후 2차 수정 필요)
+
+### #57 메모 멀티 태그 시스템 및 닫기 버튼 추가
+- **요청**:
+  1. 메모 섹션 닫기 방법 필요
+  2. 단일 태그 → 멀티 태그 형태로 변경
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - `memo` state → `tags[]` + `customMemo` 분리
+    - `combinedMemo`: 태그 + 커스텀 메모 합침 (저장 시 사용)
+    - `hasMemoContent`: 내용 존재 여부 판단
+    - `handleTagSelect()`: 토글 방식 (이미 선택된 태그 클릭 시 제거)
+    - `handleTagRemove()`: X 버튼으로 태그 개별 삭제
+    - `handleMemoClose()`: 확인 버튼으로 섹션 닫기
+    - ChevronUp/ChevronDown 아이콘 토글
+    - 미니 칩 영역: 태그별 개별 칩 표시
+    - 펼침 영역:
+      - "선택됨" 섹션: 선택된 태그 (X 버튼 포함)
+      - "최근" 섹션: 선택 가능한 태그 제안 (최대 8개)
+      - "직접 입력" 섹션: 커스텀 메모 입력
+      - "확인" 버튼: 섹션 닫기
+  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
+    - 기존 memo 데이터는 customMemo로 로드 (호환성 유지)
+- **UX 플로우**:
+  1. 메모 추가 탭 → 섹션 펼침
+  2. 최근 태그 탭 → 선택됨 섹션에 추가
+  3. 선택된 태그의 X 탭 → 제거
+  4. 확인 버튼 → 섹션 닫기
+- **결과**: 타입체크 통과, 멀티 태그 선택 및 확인 버튼으로 닫기 가능
+
+### #56 데이터 내보내기 기능 추가
+- **요청**: 데이터 내보내기 기능 개발
+- **변경**:
+  - `src/services/exportData.ts`: 내보내기 서비스 생성
+    - `exportTransactionsToCSV()`: 거래 내역 CSV 내보내기
+    - `exportCategoriesToCSV()`: 카테고리 CSV 내보내기
+    - `exportPaymentMethodsToCSV()`: 결제수단 CSV 내보내기
+    - `exportAllDataToJSON()`: 전체 데이터 JSON 백업
+    - `getExportPreview()`: 내보내기 미리보기 (최근 10건)
+    - BOM 추가로 Excel 한글 깨짐 방지
+  - `src/pages/ExportDataPage.tsx`: 내보내기 UI 페이지 생성
+    - 4가지 내보내기 옵션 (거래내역/카테고리/결제수단/전체백업)
+    - 선택형 카드 UI (라디오 버튼 스타일)
+    - 미리보기 섹션 (거래 샘플, 날짜 범위, 건수)
+    - 내보내기 결과 피드백 표시
+  - `src/pages/SettingsPage.tsx`: 내보내기 버튼에 navigate 연동
+  - `src/App.tsx`: `/settings/export` 라우트 추가
+- **내보내기 형식**:
+  | 데이터 | 형식 | 포함 필드 |
+  |--------|------|-----------|
+  | 거래 내역 | CSV | 날짜, 시간, 유형, 카테고리, 결제수단, 금액, 메모 |
+  | 카테고리 | CSV | 이름, 유형, 아이콘, 색상, 예산, 순서 |
+  | 결제수단 | CSV | 이름, 아이콘, 색상, 순서 |
+  | 전체 백업 | JSON | 모든 테이블 (거래, 카테고리, 결제수단, 설정, 반복거래) |
+- **결과**: 타입체크 통과, 설정 > 데이터 내보내기에서 CSV/JSON 내보내기 가능
+
 ### #55 iOS Safari 데이터 지속성 문제 해결
 - **요청**: 모바일 Safari에서 앱을 닫았다 열 때마다 데이터가 초기화되는 문제
 - **원인 분석**:
@@ -956,6 +1077,23 @@
   | 홈화면 웹앱 | ✅ 영구 저장 |
   | 개인정보 보호 모드 | ❌ 세션 종료 시 삭제 |
 - **결과**: 타입체크 통과, Storage Persistence API 적용
+
+### #60 메모 태그 입력 방식 전면 개편
+- **요청**: 기존 스페이스바 자동 분리가 직관적이지 않아 전면 개편 요청
+- **변경 방향**: 스페이스바 → **엔터키 또는 '+' 버튼**으로 명시적 태그 추가
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - `handleMemoInputChange()` → `handleAddTag()` + `handleMemoKeyDown()` 교체
+    - 엔터키 입력 시 태그 추가
+    - '+' 버튼 추가 (입력 필드 우측, 터치 친화적)
+    - placeholder: "메모 입력 후 엔터 또는 +"
+    - Plus 아이콘 import 추가
+  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
+- **UI 변경**:
+  - 입력 필드 우측에 '+' 버튼 (w-11 h-11, 검정 배경)
+  - 입력값 없으면 버튼 비활성화 (회색)
+  - 1자 이상 입력 시 태그로 추가 가능
+- **결과**: 타입체크 통과, 명확한 태그 추가 UX
 
 ---
 

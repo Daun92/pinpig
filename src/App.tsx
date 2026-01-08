@@ -14,6 +14,7 @@ import { BudgetWizardPage } from '@/pages/BudgetWizardPage';
 import { AnnualExpensesPage } from '@/pages/AnnualExpensesPage';
 import { MonthlyReviewPage } from '@/pages/MonthlyReviewPage';
 import { ImportDataPage } from '@/pages/ImportDataPage';
+import { ExportDataPage } from '@/pages/ExportDataPage';
 import { RecurringTransactionPage } from '@/pages/RecurringTransactionPage';
 import { RecurringTransactionEditPage } from '@/pages/RecurringTransactionEditPage';
 import { TabBar } from '@/components/layout/TabBar';
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/settings/budget-wizard" element={<BudgetWizardPage />} />
           <Route path="/settings/annual-expenses" element={<AnnualExpensesPage />} />
           <Route path="/settings/import" element={<ImportDataPage />} />
+          <Route path="/settings/export" element={<ExportDataPage />} />
           <Route path="/settings/recurring" element={<RecurringTransactionPage />} />
           <Route path="/settings/recurring/new" element={<RecurringTransactionEditPage />} />
           <Route path="/settings/recurring/:id/edit" element={<RecurringTransactionEditPage />} />

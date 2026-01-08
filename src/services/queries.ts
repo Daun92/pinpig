@@ -1052,3 +1052,116 @@ export async function getRecentMemos(limit: number = 10): Promise<string[]> {
 
   return result;
 }
+
+/**
+ * Extract individual words/tags from memo text
+ * Filters out short words and common particles
+ */
+function extractTagsFromMemo(memoText: string): string[] {
+  if (!memoText) return [];
+
+  // Split by whitespace and filter
+  const words = memoText.split(/\s+/).filter(word => {
+    // At least 2 characters
+    if (word.length < 2) return false;
+    // Skip common Korean particles and numbers-only
+    const skipWords = ['의', '를', '을', '이', '가', '에서', '에게', '으로', '로', '와', '과', '도', '만', '까지', '부터', '에', '은', '는'];
+    if (skipWords.includes(word)) return false;
+    // Skip pure numbers
+    if (/^\d+$/.test(word)) return false;
+    return true;
+  });
+
+  return words;
+}
+
+/**
+ * Get recent tags (individual words) from memos with frequency
+ * Returns unique tags sorted by frequency, most used first
+ */
+export async function getRecentTags(limit: number = 15): Promise<string[]> {
+  const transactions = await db.transactions
+    .orderBy('createdAt')
+    .reverse()
+    .limit(300) // Scan more transactions for better tag extraction
+    .toArray();
+
+  const tagFrequency = new Map<string, number>();
+
+  for (const tx of transactions) {
+    const memoText = tx.memo || tx.description;
+    const tags = extractTagsFromMemo(memoText);
+
+    for (const tag of tags) {
+      const count = tagFrequency.get(tag) || 0;
+      tagFrequency.set(tag, count + 1);
+    }
+  }
+
+  // Sort by frequency and return top tags
+  const sortedTags = Array.from(tagFrequency.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([tag]) => tag);
+
+  return sortedTags;
+}
+
+/**
+ * Get tags specific to a category (most used in that category)
+ * Returns tags sorted by frequency within the category
+ */
+export async function getTagsByCategory(
+  categoryId: string,
+  limit: number = 8
+): Promise<string[]> {
+  const transactions = await db.transactions
+    .where('categoryId')
+    .equals(categoryId)
+    .reverse()
+    .sortBy('createdAt');
+
+  const tagFrequency = new Map<string, number>();
+
+  for (const tx of transactions.slice(0, 100)) {
+    const memoText = tx.memo || tx.description;
+    const tags = extractTagsFromMemo(memoText);
+
+    for (const tag of tags) {
+      const count = tagFrequency.get(tag) || 0;
+      tagFrequency.set(tag, count + 1);
+    }
+  }
+
+  // Sort by frequency and return top tags
+  const sortedTags = Array.from(tagFrequency.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([tag]) => tag);
+
+  return sortedTags;
+}
+
+/**
+ * Get combined tag suggestions: category-specific first, then general
+ * Removes duplicates and prioritizes category-specific tags
+ */
+export async function getTagSuggestions(
+  categoryId: string | null,
+  limit: number = 12
+): Promise<{ categoryTags: string[]; recentTags: string[] }> {
+  // Get category-specific tags if category is selected
+  const categoryTags = categoryId
+    ? await getTagsByCategory(categoryId, 6)
+    : [];
+
+  // Get general recent tags
+  const allRecentTags = await getRecentTags(limit);
+
+  // Filter out tags already in categoryTags
+  const recentTags = allRecentTags
+    .filter(tag => !categoryTags.includes(tag))
+    .slice(0, limit - categoryTags.length);
+
+  return { categoryTags, recentTags };
+}

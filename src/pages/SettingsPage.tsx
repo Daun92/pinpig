@@ -230,10 +230,13 @@ export function SettingsPage() {
           </button>
         </div>
         <div className="border-b border-paper-mid">
-          <button className="w-full flex items-center justify-between py-4">
+          <button
+            onClick={() => navigate('/settings/export')}
+            className="w-full flex items-center justify-between py-4"
+          >
             <div className="flex items-center gap-3">
               <Download size={20} className="text-ink-mid" />
-              <span className="text-body text-ink-black">데이터 내보내기 (CSV)</span>
+              <span className="text-body text-ink-black">데이터 내보내기</span>
             </div>
             <ChevronRight size={20} className="text-ink-light" />
           </button>

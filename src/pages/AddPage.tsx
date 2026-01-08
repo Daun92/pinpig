@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, ChevronDown, Calendar, CreditCard, Tag, MessageSquare } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Calendar, CreditCard, Tag, MessageSquare, Plus } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
 import { useAddPageStore } from '@/stores/addPageStore';
 import { Icon, DateTimePicker } from '@/components/common';
-import { getRecentMemos } from '@/services/queries';
+import { getTagSuggestions } from '@/services/queries';
 import type { TransactionType } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -41,7 +41,8 @@ export function AddPage() {
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
-  const [memo, setMemo] = useState('');
+  const [tags, setTags] = useState<string[]>([]); // 멀티 태그 배열
+  const [customMemo, setCustomMemo] = useState(''); // 직접 입력 메모
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -50,8 +51,9 @@ export function AddPage() {
   // 사용자가 직접 선택했는지 추적 (첫 선택 후 미니멀 칩으로 전환)
   const [hasUserSelectedCategory, setHasUserSelectedCategory] = useState(false);
   const [hasUserSelectedPayment, setHasUserSelectedPayment] = useState(false);
-  // 최근 사용 메모 (태그 제안용)
-  const [recentMemos, setRecentMemos] = useState<string[]>([]);
+  // 태그 제안 (카테고리별 + 전체)
+  const [categoryTags, setCategoryTags] = useState<string[]>([]);
+  const [recentTags, setRecentTags] = useState<string[]>([]);
 
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
   const selectedCategory = currentCategories.find(c => c.id === selectedCategoryId);
@@ -60,9 +62,17 @@ export function AddPage() {
   useEffect(() => {
     fetchCategories();
     fetchPaymentMethods();
-    // 최근 메모 불러오기
-    getRecentMemos(8).then(setRecentMemos);
   }, [fetchCategories, fetchPaymentMethods]);
+
+  // 카테고리 변경 시 태그 제안 업데이트
+  useEffect(() => {
+    const loadTags = async () => {
+      const suggestions = await getTagSuggestions(selectedCategoryId || null);
+      setCategoryTags(suggestions.categoryTags);
+      setRecentTags(suggestions.recentTags);
+    };
+    loadTags();
+  }, [selectedCategoryId]);
 
   useEffect(() => {
     if (amountInputRef.current) {
@@ -104,6 +114,27 @@ export function AddPage() {
     }
   }, [defaultPaymentMethod, selectedPaymentMethodId]);
 
+  // 메모 섹션이 열릴 때 자동 포커스 (useEffect로 안정적 처리)
+  const [shouldFocusMemo, setShouldFocusMemo] = useState(false);
+  useEffect(() => {
+    if (shouldFocusMemo && expandedSection === 'extra') {
+      // DOM 업데이트 후 포커스 (requestAnimationFrame + setTimeout 조합)
+      const rafId = requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (memoInputRef.current) {
+            memoInputRef.current.focus();
+          }
+          setShouldFocusMemo(false);
+        }, 100);
+      });
+      return () => cancelAnimationFrame(rafId);
+    }
+  }, [shouldFocusMemo, expandedSection]);
+
+  // 태그 + 커스텀 메모를 합쳐서 최종 메모 생성
+  const combinedMemo = [...tags, customMemo].filter(Boolean).join(' ');
+  const hasMemoContent = tags.length > 0 || customMemo.trim().length > 0;
+
   const handleSubmit = useCallback(async () => {
     if (!amount || parseInt(amount) <= 0 || !selectedCategoryId) return;
 
@@ -113,13 +144,13 @@ export function AddPage() {
       categoryId: selectedCategoryId,
       paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
       description: '', // deprecated, kept for backward compatibility
-      memo: memo || '',
+      memo: combinedMemo || '',
       date,
       time,
     });
 
     navigate('/');
-  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, memo, date, time, addTransaction, navigate]);
+  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, combinedMemo, date, time, addTransaction, navigate]);
 
   useEffect(() => {
     setSubmitHandler(handleSubmit);
@@ -158,12 +189,15 @@ export function AddPage() {
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setHasUserSelectedCategory(true);
-    // 선택 후 결제수단으로 이동 (지출일 때) 또는 접기
+    // 선택 후 다음 단계로 이동
     setTimeout(() => {
       if (type === 'expense' && !hasUserSelectedPayment) {
+        // 지출: 결제수단 선택으로 이동
         setExpandedSection('payment');
       } else {
-        setExpandedSection('none');
+        // 수입: 메모 입력창 자동 열기 + 커서 포커스
+        setExpandedSection('extra');
+        setShouldFocusMemo(true);
       }
     }, 150);
   };
@@ -171,8 +205,11 @@ export function AddPage() {
   const handlePaymentSelect = (paymentId: string) => {
     setSelectedPaymentMethodId(paymentId);
     setHasUserSelectedPayment(true);
-    // 선택 후 자동으로 접기
-    setTimeout(() => setExpandedSection('none'), 150);
+    // 선택 후 메모 입력창 자동 열기 + 커서 포커스
+    setTimeout(() => {
+      setExpandedSection('extra');
+      setShouldFocusMemo(true);
+    }, 150);
   };
 
   const handleMemoToggle = () => {
@@ -180,21 +217,47 @@ export function AddPage() {
     toggleSection('extra');
     // 메모 펼칠 때 자동 포커스
     if (willExpand) {
-      setTimeout(() => {
-        memoInputRef.current?.focus();
-      }, 100);
+      setShouldFocusMemo(true);
     }
+  };
+
+  const handleMemoClose = () => {
+    setExpandedSection('none');
   };
 
   const handleTagSelect = (tag: string) => {
-    // 이미 있으면 무시, 없으면 추가
-    if (!memo.includes(tag)) {
-      setMemo(memo ? `${memo} ${tag}` : tag);
+    // 이미 선택된 태그면 제거, 아니면 추가
+    if (tags.includes(tag)) {
+      setTags(tags.filter(t => t !== tag));
+    } else {
+      setTags([...tags, tag]);
     }
   };
 
-  // 현재 입력과 겹치지 않는 태그만 필터링
-  const availableTags = recentMemos.filter(tag => !memo.includes(tag));
+  const handleTagRemove = (tag: string) => {
+    setTags(tags.filter(t => t !== tag));
+  };
+
+  // 태그 추가 함수 (엔터키 또는 + 버튼)
+  const handleAddTag = () => {
+    const newTag = customMemo.trim();
+    if (newTag.length >= 1 && !tags.includes(newTag)) {
+      setTags([...tags, newTag]);
+      setCustomMemo('');
+    }
+  };
+
+  // 엔터키로 태그 추가
+  const handleMemoKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
+  // 현재 선택되지 않은 태그만 제안 (카테고리별 + 일반)
+  const availableCategoryTags = categoryTags.filter(tag => !tags.includes(tag));
+  const availableRecentTags = recentTags.filter(tag => !tags.includes(tag));
 
   // 미니멀 칩 vs 풀 버튼 결정
   const showCategoryAsChip = hasUserSelectedCategory && expandedSection !== 'category';
@@ -276,7 +339,7 @@ export function AddPage() {
           </div>
 
           {/* 미니멀 칩 영역 - 선택 완료된 항목들 */}
-          {(showCategoryAsChip || showPaymentAsChip || (memo && expandedSection !== 'extra')) && (
+          {(showCategoryAsChip || showPaymentAsChip || (hasMemoContent && expandedSection !== 'extra')) && (
             <div className="flex flex-wrap items-center justify-center gap-1.5 mt-[27px]">
               {/* 카테고리 미니 칩 */}
               {showCategoryAsChip && selectedCategory && (
@@ -300,15 +363,28 @@ export function AddPage() {
                 </button>
               )}
 
-              {/* 메모 미니 칩 */}
-              {memo && expandedSection !== 'extra' && (
-                <button
-                  onClick={handleMemoToggle}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-paper-light text-caption text-ink-mid max-w-[120px]"
-                >
-                  <MessageSquare size={12} />
-                  <span className="truncate">{memo}</span>
-                </button>
+              {/* 메모/태그 미니 칩들 */}
+              {hasMemoContent && expandedSection !== 'extra' && (
+                <>
+                  {tags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={handleMemoToggle}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-paper-light text-caption text-ink-mid"
+                    >
+                      <span>{tag}</span>
+                    </button>
+                  ))}
+                  {customMemo && (
+                    <button
+                      onClick={handleMemoToggle}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-paper-light text-caption text-ink-mid max-w-[120px]"
+                    >
+                      <MessageSquare size={12} />
+                      <span className="truncate">{customMemo}</span>
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -455,9 +531,9 @@ export function AddPage() {
         </div>
 
         {/* ========================== */}
-        {/* 4. 메모 (선택) - 태그 시스템 */}
+        {/* 4. 메모 (선택) - 멀티 태그 시스템 */}
         {/* ========================== */}
-        {(!memo || expandedSection === 'extra') && (
+        {(!hasMemoContent || expandedSection === 'extra') && (
           <div className="mt-3">
             <button
               onClick={handleMemoToggle}
@@ -467,29 +543,67 @@ export function AddPage() {
             >
               <MessageSquare size={18} className="text-ink-light" />
               <span className="text-body text-ink-light flex-1 text-left">
-                {memo ? (
-                  <span className="text-ink-dark">{memo}</span>
+                {hasMemoContent ? (
+                  <span className="text-ink-dark truncate">{combinedMemo}</span>
                 ) : (
                   '메모 추가'
                 )}
               </span>
-              <ChevronDown
-                size={16}
-                className={`text-ink-light transition-transform ${
-                  expandedSection === 'extra' ? 'rotate-180' : ''
-                }`}
-              />
+              {expandedSection === 'extra' ? (
+                <ChevronUp size={16} className="text-ink-light" />
+              ) : (
+                <ChevronDown size={16} className="text-ink-light" />
+              )}
             </button>
 
-            {/* 메모 입력 (펼침) - 태그 칩 + 단일 입력 */}
+            {/* 메모 입력 (펼침) - 멀티 태그 + 직접 입력 */}
             {expandedSection === 'extra' && (
-              <div className="mt-1.5 p-3 bg-paper-light rounded-xl animate-fade-in space-y-2.5">
-                {/* 최근 사용 태그 칩 */}
-                {availableTags.length > 0 && (
+              <div className="mt-1.5 p-3 bg-paper-light rounded-xl animate-fade-in space-y-3">
+                {/* 선택된 태그 (삭제 가능) */}
+                {tags.length > 0 && (
                   <div>
-                    <label className="text-caption text-ink-light mb-1.5 block">최근</label>
+                    <label className="text-caption text-ink-light mb-1.5 block">선택됨</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {availableTags.slice(0, 6).map((tag) => (
+                      {tags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => handleTagRemove(tag)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-ink-black text-paper-white text-sub transition-colors"
+                        >
+                          <span>{tag}</span>
+                          <X size={12} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 카테고리 관련 태그 (선택 가능) */}
+                {availableCategoryTags.length > 0 && (
+                  <div>
+                    <label className="text-caption text-ink-light mb-1.5 block">
+                      {selectedCategory?.name || '카테고리'} 관련
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableCategoryTags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => handleTagSelect(tag)}
+                          className="px-2.5 py-1.5 rounded-full bg-accent-blue/10 text-sub text-accent-blue hover:bg-accent-blue/20 transition-colors"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 최근 사용 태그 (선택 가능) */}
+                {availableRecentTags.length > 0 && (
+                  <div>
+                    <label className="text-caption text-ink-light mb-1.5 block">자주 사용</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableRecentTags.slice(0, 8).map((tag) => (
                         <button
                           key={tag}
                           onClick={() => handleTagSelect(tag)}
@@ -501,17 +615,38 @@ export function AddPage() {
                     </div>
                   </div>
                 )}
-                {/* 메모 입력 필드 */}
+
+                {/* 직접 메모 입력 필드 + 추가 버튼 */}
                 <div>
-                  <input
-                    ref={memoInputRef}
-                    type="text"
-                    value={memo}
-                    onChange={(e) => setMemo(e.target.value)}
-                    placeholder="메모 입력..."
-                    className="w-full px-3 py-2.5 rounded-lg bg-paper-white text-body text-ink-dark outline-none focus:ring-2 focus:ring-ink-light placeholder:text-ink-light"
-                  />
+                  <label className="text-caption text-ink-light mb-1.5 block">직접 입력</label>
+                  <div className="flex gap-2">
+                    <input
+                      ref={memoInputRef}
+                      type="text"
+                      value={customMemo}
+                      onChange={(e) => setCustomMemo(e.target.value)}
+                      onKeyDown={handleMemoKeyDown}
+                      placeholder="메모 입력 후 엔터 또는 +"
+                      className="flex-1 px-3 py-2.5 rounded-lg bg-paper-white text-body text-ink-dark outline-none focus:ring-2 focus:ring-ink-light placeholder:text-ink-light"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddTag}
+                      disabled={!customMemo.trim()}
+                      className="w-11 h-11 flex items-center justify-center rounded-lg bg-ink-black text-paper-white disabled:bg-paper-mid disabled:text-ink-light transition-colors"
+                    >
+                      <Plus size={20} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* 닫기 버튼 */}
+                <button
+                  onClick={handleMemoClose}
+                  className="w-full py-2.5 rounded-lg bg-paper-white text-sub text-ink-mid hover:bg-paper-mid transition-colors"
+                >
+                  확인
+                </button>
               </div>
             )}
           </div>
