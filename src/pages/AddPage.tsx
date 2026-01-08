@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, ChevronDown, Calendar, CreditCard, Tag, MessageSquare } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
@@ -23,6 +23,7 @@ type ExpandedSection = 'none' | 'category' | 'payment' | 'extra';
 
 export function AddPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const amountInputRef = useRef<HTMLInputElement>(null);
   const memoInputRef = useRef<HTMLInputElement>(null);
   const addTransaction = useTransactionStore((state) => state.addTransaction);
@@ -34,7 +35,9 @@ export function AddPage() {
   const paymentMethods = usePaymentMethodStore(selectPaymentMethods);
   const defaultPaymentMethod = usePaymentMethodStore(selectDefaultPaymentMethod);
 
-  const [type, setType] = useState<TransactionType>('expense');
+  // URL 파라미터에서 type 읽기 (iOS 단축어 딥링크 지원)
+  const initialType = searchParams.get('type') === 'income' ? 'income' : 'expense';
+  const [type, setType] = useState<TransactionType>(initialType);
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');

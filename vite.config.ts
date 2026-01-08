@@ -31,6 +31,21 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
+          },        ],
+        shortcuts: [
+          {
+            name: '지출 추가',
+            short_name: '지출',
+            description: '새로운 지출 기록하기',
+            url: '/?action=add',
+            icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
+          },
+          {
+            name: '수입 추가',
+            short_name: '수입',
+            description: '새로운 수입 기록하기',
+            url: '/?action=add-income',
+            icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
           },
         ],
       },

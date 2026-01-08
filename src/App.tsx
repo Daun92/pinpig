@@ -19,6 +19,7 @@ import { RecurringTransactionEditPage } from '@/pages/RecurringTransactionEditPa
 import { TabBar } from '@/components/layout/TabBar';
 import { useTheme } from '@/hooks/useTheme';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
+import { useDeepLink } from '@/hooks/useDeepLink';
 
 export default function App() {
   // Initialize theme management
@@ -26,6 +27,9 @@ export default function App() {
 
   // Enable swipe-back navigation (left edge → right swipe)
   useSwipeBack();
+
+  // Handle deep link URL parameters (iOS Shortcuts support)
+  useDeepLink();
 
   return (
     <div className="min-h-screen bg-paper-white text-ink-black">

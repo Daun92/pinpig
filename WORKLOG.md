@@ -917,6 +917,48 @@
 
 ---
 
+## 2026-01-08
+
+### #54 iOS 단축어 딥링크 지원
+- **요청**: iOS 단축어로 PWA 특정 화면(지출 작성)으로 바로 진입 가능하게
+- **변경**:
+  - `src/hooks/useDeepLink.ts`: URL 파라미터 처리 훅 생성
+    - `?action=add` → /add (지출 작성)
+    - `?action=add-income` → /add?type=income (수입 작성)
+    - `?action=history|stats|settings` → 각 탭 이동
+    - `?goto=/path` → 직접 경로 지정
+  - `src/App.tsx`: useDeepLink 훅 연동
+  - `src/pages/AddPage.tsx`: URL 쿼리 type 파라미터 처리
+    - `useSearchParams` 추가
+    - `/add?type=income` 접근 시 수입 모드로 시작
+  - `vite.config.ts`: PWA manifest shortcuts 추가
+    - 홈화면 롱프레스 시 "지출 추가", "수입 추가" 빠른 액션
+- **iOS 단축어 설정 방법**:
+  1. 단축어 앱 → 새 단축어 → "URL 열기" 액션
+  2. URL: `https://도메인/?action=add` (지출) 또는 `?action=add-income` (수입)
+  3. Safari에서 열기 선택
+- **결과**: 타입체크 통과, iOS 단축어 및 PWA shortcuts 지원
+
+### #55 iOS Safari 데이터 지속성 문제 해결
+- **요청**: 모바일 Safari에서 앱을 닫았다 열 때마다 데이터가 초기화되는 문제
+- **원인 분석**:
+  - IndexedDB (Dexie.js) 사용 중 - 영구 저장소이나 iOS Safari 정책 문제
+  - Safari 탭에서 사용 시 임시 저장소로 취급 (7일 미사용 시 삭제)
+  - 홈화면 PWA로 추가해야만 영구 저장소 보장
+- **변경**:
+  - `src/main.tsx`: Storage Persistence API 추가
+    - `navigator.storage.persist()` 호출하여 영구 저장소 요청
+    - 앱 초기화 시 자동 실행
+- **iOS 데이터 지속성 조건**:
+  | 실행 방식 | 데이터 지속성 |
+  |-----------|--------------|
+  | Safari 탭 | ❌ 삭제될 수 있음 |
+  | 홈화면 웹앱 | ✅ 영구 저장 |
+  | 개인정보 보호 모드 | ❌ 세션 종료 시 삭제 |
+- **결과**: 타입체크 통과, Storage Persistence API 적용
+
+---
+
 ## 진행 예정
 - 온보딩 플로우 구현
 - PWA 푸시 알림 연동
