@@ -4,6 +4,7 @@ import type {
   Transaction,
   MonthSummary,
   CategorySummary,
+  PaymentMethodSummary,
   MonthlyTrend,
   AnnualTrend,
   CategoryTrend,
@@ -114,6 +115,56 @@ export async function getCategoryBreakdown(
         amount: data.amount,
         percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
         count: data.count,
+      };
+    })
+    .filter((summary) => summary.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Get payment method breakdown for a month
+ */
+export async function getPaymentMethodBreakdown(
+  year: number,
+  month: number,
+  type: 'income' | 'expense' = 'expense'
+): Promise<PaymentMethodSummary[]> {
+  const transactions = await getTransactionsByMonth(year, month);
+  const paymentMethods = await db.paymentMethods.orderBy('order').toArray();
+
+  // Filter by type and group by payment method
+  const typeTransactions = transactions.filter((tx) => tx.type === type);
+  const totalAmount = typeTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+  const methodMap = new Map<string, { amount: number; count: number }>();
+
+  for (const tx of typeTransactions) {
+    const pmId = tx.paymentMethodId || 'none';
+    const current = methodMap.get(pmId) || { amount: 0, count: 0 };
+    methodMap.set(pmId, {
+      amount: current.amount + tx.amount,
+      count: current.count + 1,
+    });
+  }
+
+  return paymentMethods
+    .map((pm) => {
+      const data = methodMap.get(pm.id) || { amount: 0, count: 0 };
+      const percentage = totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0;
+      const budgetPercent = pm.budget && pm.budget > 0
+        ? Math.round((data.amount / pm.budget) * 100)
+        : undefined;
+
+      return {
+        paymentMethodId: pm.id,
+        paymentMethodName: pm.name,
+        paymentMethodIcon: pm.icon,
+        paymentMethodColor: pm.color,
+        amount: data.amount,
+        percentage,
+        count: data.count,
+        budget: pm.budget,
+        budgetPercent,
       };
     })
     .filter((summary) => summary.amount > 0)

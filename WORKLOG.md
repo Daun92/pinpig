@@ -1099,6 +1099,26 @@
 
 ---
 
+## 2026-01-08
+
+### #62 지출 수단별 예산 관리 기능
+- **요청**: 지출 수단(결제수단)별로 월 예산 한도를 설정하고 분석 탭에서 사용현황 확인
+- **변경**:
+  - `src/types/index.ts`: `PaymentMethod.budget`, `PaymentMethodSummary` 타입 추가
+  - `src/services/database.ts`: v4 스키마 마이그레이션
+  - `src/services/queries.ts`: `getPaymentMethodBreakdown()` 쿼리 추가
+  - `src/pages/PaymentMethodEditPage.tsx`: 월 예산 한도 입력 필드 추가
+  - `src/components/report/PaymentMethodDonutChart.tsx`: 수단별 도넛 차트 컴포넌트
+  - `src/components/report/index.ts`: 컴포넌트 export 추가
+  - `src/pages/StatsPage.tsx`: "수단별" 탭 추가 (카테고리별 / 수단별 / 월별 추이)
+- **UX 개선**:
+  - 설정 > 결제수단 > 편집에서 "월 예산 한도" 입력 (선택)
+  - 분석 탭에서 수단별 지출 비율 도넛 차트 표시
+  - 예산 설정된 수단은 "예산의 N%" 표시, 초과 시 강조
+- **결과**: 타입체크 통과, 지출 수단별 예산 관리 기능 구현 완료
+
+---
+
 ## 진행 예정
 - 온보딩 플로우 구현
 - PWA 푸시 알림 연동

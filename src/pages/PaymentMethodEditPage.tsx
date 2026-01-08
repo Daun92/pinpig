@@ -27,6 +27,7 @@ export function PaymentMethodEditPage() {
     name: '',
     icon: 'CreditCard',
     color: '#2196F3',
+    budget: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,6 +44,7 @@ export function PaymentMethodEditPage() {
           name: method.name,
           icon: method.icon,
           color: method.color,
+          budget: method.budget ? method.budget.toString() : '',
         });
       }
     }
@@ -53,11 +55,14 @@ export function PaymentMethodEditPage() {
 
     setIsSaving(true);
     try {
+      const budgetValue = formData.budget ? parseInt(formData.budget.replace(/,/g, ''), 10) : undefined;
+
       if (isEditing && id) {
         await updatePaymentMethod(id, {
           name: formData.name.trim(),
           icon: formData.icon,
           color: formData.color,
+          budget: budgetValue,
         });
       } else {
         await addPaymentMethod({
@@ -65,6 +70,7 @@ export function PaymentMethodEditPage() {
           icon: formData.icon,
           color: formData.color,
           order: paymentMethods.length,
+          budget: budgetValue,
         });
       }
       navigate(-1);
@@ -72,6 +78,17 @@ export function PaymentMethodEditPage() {
       setIsSaving(false);
     }
   }, [formData, isEditing, id, paymentMethods.length, updatePaymentMethod, addPaymentMethod, navigate, isSaving]);
+
+  // 예산 입력 핸들러 (숫자만 허용, 천단위 콤마)
+  const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^\d]/g, '');
+    if (value === '') {
+      setFormData((prev) => ({ ...prev, budget: '' }));
+    } else {
+      const numValue = parseInt(value, 10);
+      setFormData((prev) => ({ ...prev, budget: numValue.toLocaleString() }));
+    }
+  };
 
   const canSubmit = formData.name.trim().length > 0 && !isSaving;
 
@@ -119,6 +136,25 @@ export function PaymentMethodEditPage() {
             className="w-full px-4 py-3 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none border border-transparent focus:border-ink-mid dark:focus:border-paper-mid"
             autoFocus
           />
+        </div>
+
+        {/* Budget Input */}
+        <div>
+          <label className="text-sub text-ink-mid block mb-2">월 예산 한도 (선택)</label>
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={formData.budget}
+              onChange={handleBudgetChange}
+              placeholder="0"
+              className="w-full px-4 py-3 pr-10 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none border border-transparent focus:border-ink-mid dark:focus:border-paper-mid"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-body text-ink-mid">원</span>
+          </div>
+          <p className="text-caption text-ink-light mt-1.5">
+            설정하면 분석에서 사용현황을 확인할 수 있어요
+          </p>
         </div>
 
         {/* Icon Picker */}
