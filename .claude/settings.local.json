@@ -28,7 +28,10 @@
       "Bash(git merge:*)",
       "Bash(findstr:*)",
       "Bash(npm run lint)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npx vercel --prod)",
+      "Bash(powershell -c \"\\(Get-Item ''D:\\\\claude\\\\pinpig\\\\WORKLOG.md''\\).Length\")",
+      "Bash(npm version:*)"
     ]
   }
 }

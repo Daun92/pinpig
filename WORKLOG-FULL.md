@@ -1296,17 +1296,29 @@
   - `src/stores/paymentMethodStore.ts`: selectPaymentMethodMap 추가
   - `src/pages/AddPage.tsx`: import 경로 fabStore로 변경
   - `src/utils/format.ts`: getDateLabel, getMonthLabel 함수 추가
-  - `src/utils/index.ts`: 새 함수 export 추가
-  - `scripts/import-excel.ts`: eslint-disable 주석 추가
-  - `src/pages/BudgetWizardPage.tsx`: @ts-ignore → @ts-expect-error
-  - `src/services/queries.ts`: 미사용 변수 eslint-disable 처리
-- **결과**: 타입체크 통과, ESLint 에러 0개 (경고 5개는 의도적 설계)
+
+### #72 앱 기획 완성도 평가 및 문서화
+- **요청**: 앱 기획서 확인, 기획의도 완성도와 앱 완결성 평가 후 문서화
+- **분석**:
+  - 기획서: `MoneyMirror_PWA_개발기획서.md`, `moneymirror-design-system.md`, `docs/CONCEPT.md`, `docs/USER_JOURNEY.md`
+  - 현재 상태: 18개 페이지, 15개 컴포넌트, 6개 스토어
+- **평가 결과**: MVP 기준 92% 완성
+  | 항목 | 상태 |
+  |------|------|
+  | 핵심 철학 (비춰주는 거울) | ✅ 완벽 구현 |
+  | 1초 확인 / 3터치 기록 | ✅ 달성 |
+  | 디자인 시스템 | ✅ 일관됨 |
+  | 온보딩 | 🔴 미구현 |
+  | 확장 기능 | ✅ 기획서 초과 |
+- **변경**: `docs/COMPLETION_REPORT.md` 생성
+- **결과**: 완성도 평가 보고서 문서화 완료
 
 ---
 
 ## 진행 예정
-- 온보딩 플로우 구현
+- 온보딩 플로우 구현 (MVP 100% 완성 목표)
 - PWA 푸시 알림 연동
+- Phase 2: Capacitor iOS 전환 준비
 
 ---
 
@@ -1315,4 +1327,20 @@
 > **파일 분할 기준**: 2000줄 또는 100KB 초과 시 새 파일 생성
 > - `WORKLOG.md` - 현재 작업일지 (최신)
 > - `WORKLOG-2025.md` - 2025년 아카이브 (필요 시)
-> - 현재 상태: ~1150줄, 64KB (여유 있음)
+> - 현재 상태: ~1200줄, 67KB (여유 있음)
+
+### #73 작업일지 이원화 구조 적용
+- **요청**: 맥락 유지용 / 작업 관리용 분리
+- **변경**:
+  - `docs/CONTEXT.md` 생성 (맥락 유지용, 10K 토큰 이하)
+  - `WORKLOG.md` → `WORKLOG-FULL.md` 이동 (작업 관리용)
+  - `CLAUDE.md` 지침 수정 (이원화 구조 반영)
+- **결과**: 새 대화 시작 시 CONTEXT.md로 빠른 맥락 파악 가능
+
+### #74 설정 페이지 버전 동적 로드
+- **요청**: 앱 설정 탭 버전을 package.json에서 동적으로 가져오기
+- **변경**:
+  - `vite.config.ts`: `__APP_VERSION__` define 추가 (package.json에서 읽기)
+  - `src/vite-env.d.ts`: `__APP_VERSION__` 타입 선언 추가
+  - `src/pages/SettingsPage.tsx`: 하드코딩 `0.1.0` → `{__APP_VERSION__}` 변경
+- **결과**: 타입체크/빌드 통과, 배포 시 버전 자동 동기화

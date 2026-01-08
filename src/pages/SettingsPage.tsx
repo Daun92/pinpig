@@ -295,7 +295,7 @@ export function SettingsPage() {
         <div className="border-b border-paper-mid">
           <div className="flex items-center justify-between py-4">
             <span className="text-body text-ink-black">버전</span>
-            <span className="text-body text-ink-mid">0.1.0</span>
+            <span className="text-body text-ink-mid">{__APP_VERSION__}</span>
           </div>
         </div>
         <div className="border-b border-paper-mid">

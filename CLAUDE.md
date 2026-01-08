@@ -4,20 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## 최우선 지침: 작업일지 기록
+## 최우선 지침: 작업일지 관리
 
-> **모든 작업은 반드시 WORKLOG.md에 기록합니다.**
+> **이원화 구조**: 맥락 유지용 + 작업 관리용 분리
+
+### 파일 구조
+| 파일 | 용도 | 크기 제한 |
+|------|------|----------|
+| `docs/CONTEXT.md` | 맥락 유지 (새 대화 시작 시 읽기) | 10K 토큰 이하 |
+| `WORKLOG-FULL.md` | 전체 작업 히스토리 | 없음 (연도별 분할) |
 
 ### 작업 시작 전
-1. WORKLOG.md를 읽고 이전 작업 맥락 파악
-2. 새 작업 항목 생성 (요청사항, 작업 전 상태 기록)
+1. `docs/CONTEXT.md` 읽고 현재 상태 파악
+2. 필요 시 `WORKLOG-FULL.md` 상세 참조 (tail 또는 grep)
 
 ### 작업 완료 후
-1. 반영사항 기록 (변경 파일 목록 포함)
-2. 작업 후 상태 기록
-3. 피드백 대기 또는 후속 작업 명시
+1. `WORKLOG-FULL.md`에 상세 기록 (아래 형식)
+2. `docs/CONTEXT.md` 갱신 (최근 작업 5~10개 유지, 상태 업데이트)
 
-### 작업일지 형식
+### 작업일지 형식 (WORKLOG-FULL.md)
 ```markdown
 ### #N 작업 제목
 - **요청**: 한 줄 요약
@@ -25,6 +30,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **결과**: 완료 상태
 - **피드백**: 있을 경우 (→ 후속 작업 번호)
 ```
+
+### CONTEXT.md 갱신 기준
+- 최근 작업: 5~10개만 유지 (오래된 것 제거)
+- 현재 상태: 버전, 완성도, 배포 URL 등
+- 미완성/진행 예정: 우선순위별 정리
 
 ---
 
@@ -222,5 +232,10 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ## Reference Documents
 
+- `docs/CONTEXT.md` - Project context (read first)
+- `WORKLOG-FULL.md` - Full work history
+- `docs/COMPLETION_REPORT.md` - Completion assessment report
+- `docs/CONCEPT.md` - App concept
+- `docs/USER_JOURNEY.md` - User journey
 - `moneymirror-design-system.md` - Full design system spec
 - `MoneyMirror_PWA_개발기획서.md` - PWA development specification
