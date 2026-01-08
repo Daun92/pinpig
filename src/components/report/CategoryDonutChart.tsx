@@ -66,7 +66,7 @@ const renderCustomLabel = ({
         textAnchor={textAnchor}
         dominantBaseline="central"
         fontSize={11}
-        fill="#333"
+        fill="var(--color-ink-dark)"
       >
         {name} {Math.round(percent * 100)}%
       </text>
@@ -87,11 +87,15 @@ function groupCategories(categories: CategorySummary[]): CategorySummary[] {
   const otherPercentage = others.reduce((sum, c) => sum + c.percentage, 0);
   const otherCount = others.reduce((sum, c) => sum + c.count, 0);
 
+  // Get computed ink-light color for dark mode support
+  const computedInkLight = getComputedStyle(document.documentElement)
+    .getPropertyValue('--color-ink-light').trim() || '#9C9A96';
+
   const otherCategory: CategorySummary = {
     categoryId: 'other',
     categoryName: '기타',
     categoryIcon: 'MoreHorizontal',
-    categoryColor: '#9C9A96', // ink-light
+    categoryColor: computedInkLight,
     amount: otherAmount,
     percentage: otherPercentage,
     count: otherCount,

@@ -939,126 +939,126 @@
   3. Safari에서 열기 선택
 - **결과**: 타입체크 통과, iOS 단축어 및 PWA shortcuts 지원
 
-### #58 결제수단 선택 후 메모 입력창 자동 오픈
-- **요청**: 결제수단 선택 후 자동으로 메모 입력창 오픈 및 커서 포커스
-- **변경**:
-  - `src/pages/AddPage.tsx`:
-    - `handlePaymentSelect()`: 결제수단 선택 후 `setExpandedSection('extra')` + `memoInputRef.focus()`
-    - `handleCategorySelect()`: 수입일 때도 카테고리 선택 후 메모 입력창 자동 열기
-  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
-- **UX 플로우 개선**:
-  - 지출: 금액 → 카테고리 → 결제수단 → **메모 자동 열림 + 커서**
-  - 수입: 금액 → 카테고리 → **메모 자동 열림 + 커서**
-- **결과**: 타입체크 통과, 자연스러운 입력 흐름 완성
-
-### #59 멀티태그 시스템 개선 - 단어 기반 + 카테고리별 제안
+### #59 오늘 탭 레이아웃 및 감성 메시지 개선
 - **요청**:
-  1. 기존 전체 메모 문자열 제안 → 단어/구문 단위 태그 분리
-  2. 카테고리별 관련 태그 우선 제안
-  3. 메모 칩이 하나의 아이콘으로 표시되어 실제와 다르게 인지되는 문제 해결
+  1. Hero Zone을 화면 1/3 지점에 위치 (헤더 여백 추가)
+  2. 오늘 섹션을 화면 중앙에 위치
+  3. 미지출 상태일 때 감성적인 메시지 표시
 - **변경**:
-  - `src/services/queries.ts`:
-    - `extractTagsFromMemo()`: 메모에서 개별 단어 추출 (2자 이상, 조사 제외)
-    - `getRecentTags()`: 빈도 기반 전체 태그 목록 (자주 사용 순)
-    - `getTagsByCategory()`: 특정 카테고리에서 자주 사용된 태그
-    - `getTagSuggestions()`: 카테고리별 + 전체 태그 조합 반환
-  - `src/pages/AddPage.tsx`:
-    - `getRecentMemos` → `getTagSuggestions` 교체
-    - `categoryTags`, `recentTags` state 분리
-    - 카테고리 변경 시 태그 제안 자동 업데이트
-    - 메모 섹션 UI:
-      - "선택됨": 선택한 태그들 (삭제 가능)
-      - "{카테고리명} 관련": 파란색 배경, 카테고리별 태그
-      - "자주 사용": 회색 배경, 전체 빈도 기반 태그
-      - "직접 입력": 커스텀 메모
-  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
-- **태그 추출 규칙**:
-  - 2글자 이상 단어만 태그로 인식
-  - 조사 제외: 의, 를, 을, 이, 가, 에서, 에게, 으로, 로, 와, 과, 도, 만, 까지, 부터, 에, 은, 는
-  - 순수 숫자 제외
+  - `src/pages/HomePage.tsx`:
+    - 루트 `flex flex-col` 구조로 변경
+    - Hero Zone: `pt-16 pb-8` (상단 여백 확대)
+    - 오늘 섹션: `flex-1 flex flex-col` (중앙 차지)
+    - 하단 카드: `py-4` (pb-20 제거, 자연스러운 배치)
+    - `getEmptyTodayMessage()` 함수 추가:
+      - 시간대별 메시지 (아침/오후/저녁/밤)
+      - 요일별 특별 메시지 (월요일, 금요일, 주말)
+      - 랜덤 선택으로 다양성 확보
+- **감성 메시지 예시**:
+  | 시간대 | 메시지 |
+  |-------|--------|
+  | 아침 | "아직 조용한 아침이에요" / "새로운 하루가 시작됐어요" |
+  | 오후 | "지갑이 쉬고 있는 오후" / "여유로운 하루를 보내고 있네요" |
+  | 저녁 | "오늘은 차분한 하루였네요" / "지갑 없이도 충분한 하루" |
+  | 밤 | "오늘 하루 수고했어요" / "잔잔하게 마무리되는 하루" |
+  | 월요일 | "월요일, 아직 여유롭네요" |
+  | 금요일 | "금요일, 아직 차분한 하루" |
+  | 주말 | "느긋한 주말 오전" / "쉬어가는 주말" |
+- **결과**: 타입체크 통과, 레이아웃 개선 + 감성 메시지 완성
+
+### #58 오늘 탭 레이아웃 개선 - 하단 2컬럼 구조
+- **요청**: 상중하(예정→오늘→과거) 대신 상하 구조로 변경
+  - (상) 오늘 - 메인 영역
+  - (하) 어제|예정 - 2컬럼 분할
+- **변경**:
+  - `src/pages/HomePage.tsx`:
+    - 미래 요약 카드 상단 → 하단으로 이동
+    - 어제/예정 카드를 `flex gap-3`로 2컬럼 배치
+    - 한쪽만 있을 때 `max-w-[50%]`로 절반 폭 유지
+    - 디자인 시스템 준수: `rounded-md`, `bg-paper-light`, `text-ink-*`
+- **레이아웃 구조**:
+  ```
+  [Hero Zone]
+  [오늘] - 메인 섹션
+  [어제 | 예정] - 2컬럼 하단
+  ```
+- **시간 흐름**: 좌→우 (과거→미래) 직관적 배치
+- **결과**: 타입체크 통과, 오늘 중심 + 하단 2컬럼 완성
+
+### #57 오늘 탭 리디자인 - 오늘 중심 레이아웃
+- **요청**: "오늘"에 집중, 미래/과거는 요약 형태로 표시, 상세는 기록 탭에서 확인
+- **변경**:
+  - `src/pages/HomePage.tsx` 전면 재작성:
+    - 거래 분류 로직 추가: `todayTransactions`, `yesterdayTransactions`, `futureTransactions`
+    - 각 카테고리별 요약 계산 (건수, 수입, 지출, 합계)
+    - **Hero Zone**: 남은 예산, 진행률, 하루 예산 (유지)
+    - **미래 요약 카드**: 이번 달 예정 거래 요약 (건수, +수입/-지출)
+      - CalendarClock 아이콘, 파란색 배경
+      - 탭 → 기록 탭으로 이동
+    - **오늘 섹션**: 메인 영역, 전체 거래 리스트 표시
+      - 카테고리 컬러 아이콘
+      - 시간, 카테고리명, 금액 표시
+      - 오늘 합계 헤더에 표시
+      - 빈 상태: "오늘은 아직 거래가 없어요"
+    - **어제 요약 카드**: 어제 거래 요약 (건수, 합계)
+      - History 아이콘, 회색 배경
+      - 탭 → 기록 탭으로 이동
+    - 불필요한 섹션 제거: 예정된 거래(RecurringTransaction), 최근 거래
+- **레이아웃 구조**:
+  ```
+  [Hero Zone - 남은 예산]
+  [미래 요약 카드] → 기록 탭
+  [오늘] - 메인 섹션, 전체 리스트
+  [어제 요약 카드] → 기록 탭
+  ```
+- **결과**: 타입체크 통과, 오늘 중심 UX 완성
+
+### #56 기록 탭 UX 개선 - 오늘 위치 스크롤 및 Snap Scroll
+- **요청**:
+  1. 기록 화면 기본값이 '오늘(현시점)'이 되도록
+  2. 탭 이동시 스크롤 위치가 오늘로 세팅
+  3. 스크롤 이동시 일단위로 자연스럽게 걸치도록 (snap scroll)
+- **변경**:
+  - `src/pages/HistoryPage.tsx`:
+    - `scrollContainerRef`, `todayGroupRef` 추가
+    - `hasScrolledToToday` state로 최초 1회 스크롤 제어
+    - `scrollToToday()` 함수: 오늘 날짜 그룹으로 자동 스크롤
+    - 데이터 로드 후 100ms 딜레이로 오늘 위치로 스크롤
+    - 스크롤 컨테이너에 `snap-y snap-proximity` 적용
+    - 각 날짜 그룹에 `snap-start` 클래스 적용
+    - 헤더 `sticky top-0 z-20` (스크롤 시 고정)
+    - 필터바 `sticky top-14 z-20` (헤더 아래 고정)
+    - 날짜 그룹 헤더 `sticky top-[104px] z-10` (필터바 아래 고정)
 - **UX 개선**:
-  - 카테고리 선택 시 맥락에 맞는 태그 우선 노출
-  - 미니멀 칩: 태그별로 개별 칩 표시 (기존 이미 적용됨)
-- **결과**: 타입체크 통과, 단어 단위 태그 + 카테고리별 맞춤 제안 작동
+  - 탭 진입 시 → 자동으로 "오늘" 그룹으로 스크롤
+  - 스크롤 시 → 일단위로 자연스럽게 걸침 (snap scroll)
+  - 스크롤 중 → 현재 보고 있는 날짜 헤더가 상단에 고정
+- **결과**: 타입체크 통과, 오늘 위치 자동 스크롤 및 snap scroll 완료
 
-### #58 메모 자동 포커스 버그 수정 (2차)
-- **요청**: 결제수단/카테고리 선택 후 메모 입력창 자동 열림 + 커서 포커스가 여전히 작동하지 않음
-- **원인 분석**:
-  - 기존 setTimeout만으로는 React 렌더링 주기와 타이밍 불일치
-  - DOM이 완전히 업데이트되기 전에 focus 시도
+### #60 오늘 탭 → 기록 탭 스크롤 네비게이션
+- **요청**: 오늘 화면에서 어제/예정 카드 클릭 시 기록 탭의 해당 위치로 스크롤
 - **변경**:
-  - `src/pages/AddPage.tsx`, `src/pages/TransactionDetailPage.tsx`:
-    - `requestAnimationFrame` + `setTimeout` 조합으로 변경
-    - RAF가 다음 페인트를 보장한 후 setTimeout으로 안전하게 focus
-- **결과**: 타입체크 통과, DOM 렌더링 완료 후 안정적으로 포커스
-
-### #58 메모 자동 포커스 버그 수정 (1차)
-- **요청**: 결제수단/카테고리 선택 후 메모 입력창 자동 열림 + 커서 포커스가 작동하지 않음
-- **원인 분석**:
-  - 기존: 중첩 setTimeout (150ms → 100ms)으로 포커스 시도
-  - 문제: React 렌더링 주기와 타이밍 불일치로 ref가 null일 수 있음
-  - 조건부 렌더링 (`expandedSection === 'extra'`)이 완료되기 전에 focus 시도
-- **변경**:
-  - `src/pages/AddPage.tsx`:
-    - `shouldFocusMemo` state 추가
-    - `useEffect`로 `shouldFocusMemo && expandedSection === 'extra'` 조건에서 포커스
-    - `handleCategorySelect`, `handlePaymentSelect`, `handleMemoToggle`에서 `setShouldFocusMemo(true)` 호출
-  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
-- **결과**: 타입체크 통과, 1차 시도 (이후 2차 수정 필요)
-
-### #57 메모 멀티 태그 시스템 및 닫기 버튼 추가
-- **요청**:
-  1. 메모 섹션 닫기 방법 필요
-  2. 단일 태그 → 멀티 태그 형태로 변경
-- **변경**:
-  - `src/pages/AddPage.tsx`:
-    - `memo` state → `tags[]` + `customMemo` 분리
-    - `combinedMemo`: 태그 + 커스텀 메모 합침 (저장 시 사용)
-    - `hasMemoContent`: 내용 존재 여부 판단
-    - `handleTagSelect()`: 토글 방식 (이미 선택된 태그 클릭 시 제거)
-    - `handleTagRemove()`: X 버튼으로 태그 개별 삭제
-    - `handleMemoClose()`: 확인 버튼으로 섹션 닫기
-    - ChevronUp/ChevronDown 아이콘 토글
-    - 미니 칩 영역: 태그별 개별 칩 표시
-    - 펼침 영역:
-      - "선택됨" 섹션: 선택된 태그 (X 버튼 포함)
-      - "최근" 섹션: 선택 가능한 태그 제안 (최대 8개)
-      - "직접 입력" 섹션: 커스텀 메모 입력
-      - "확인" 버튼: 섹션 닫기
-  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
-    - 기존 memo 데이터는 customMemo로 로드 (호환성 유지)
+  - `src/pages/HomePage.tsx`:
+    - 어제 카드: `navigate('/history?scrollTo=yesterday')`
+    - 예정 카드: `navigate('/history?scrollTo=future')`
+  - `src/pages/HistoryPage.tsx`:
+    - `useSearchParams` 훅으로 URL 쿼리 파라미터 읽기
+    - `yesterdayGroupRef`, `futureGroupRef` ref 추가
+    - `scrollToGroup()` 함수 확장: 대상 ref 인자로 받아서 스크롤
+    - `scrollToTarget` 파라미터에 따라 대상 ref 결정:
+      - `'yesterday'` → 어제 그룹으로 스크롤
+      - `'future'` → 첫 번째 미래 그룹으로 스크롤
+      - 기본값 → 오늘 그룹으로 스크롤
+    - 날짜 그룹별 ref 할당 로직:
+      - `isToday()` → `todayGroupRef`
+      - `isYesterday()` → `yesterdayGroupRef`
+      - `isFuture()` 중 첫 번째 → `futureGroupRef`
+    - 스크롤 완료 후 쿼리 파라미터 제거 (`setSearchParams({}, { replace: true })`)
 - **UX 플로우**:
-  1. 메모 추가 탭 → 섹션 펼침
-  2. 최근 태그 탭 → 선택됨 섹션에 추가
-  3. 선택된 태그의 X 탭 → 제거
-  4. 확인 버튼 → 섹션 닫기
-- **결과**: 타입체크 통과, 멀티 태그 선택 및 확인 버튼으로 닫기 가능
-
-### #56 데이터 내보내기 기능 추가
-- **요청**: 데이터 내보내기 기능 개발
-- **변경**:
-  - `src/services/exportData.ts`: 내보내기 서비스 생성
-    - `exportTransactionsToCSV()`: 거래 내역 CSV 내보내기
-    - `exportCategoriesToCSV()`: 카테고리 CSV 내보내기
-    - `exportPaymentMethodsToCSV()`: 결제수단 CSV 내보내기
-    - `exportAllDataToJSON()`: 전체 데이터 JSON 백업
-    - `getExportPreview()`: 내보내기 미리보기 (최근 10건)
-    - BOM 추가로 Excel 한글 깨짐 방지
-  - `src/pages/ExportDataPage.tsx`: 내보내기 UI 페이지 생성
-    - 4가지 내보내기 옵션 (거래내역/카테고리/결제수단/전체백업)
-    - 선택형 카드 UI (라디오 버튼 스타일)
-    - 미리보기 섹션 (거래 샘플, 날짜 범위, 건수)
-    - 내보내기 결과 피드백 표시
-  - `src/pages/SettingsPage.tsx`: 내보내기 버튼에 navigate 연동
-  - `src/App.tsx`: `/settings/export` 라우트 추가
-- **내보내기 형식**:
-  | 데이터 | 형식 | 포함 필드 |
-  |--------|------|-----------|
-  | 거래 내역 | CSV | 날짜, 시간, 유형, 카테고리, 결제수단, 금액, 메모 |
-  | 카테고리 | CSV | 이름, 유형, 아이콘, 색상, 예산, 순서 |
-  | 결제수단 | CSV | 이름, 아이콘, 색상, 순서 |
-  | 전체 백업 | JSON | 모든 테이블 (거래, 카테고리, 결제수단, 설정, 반복거래) |
-- **결과**: 타입체크 통과, 설정 > 데이터 내보내기에서 CSV/JSON 내보내기 가능
+  1. 오늘 화면에서 "어제" 카드 탭 → 기록 탭의 어제 날짜로 스크롤
+  2. 오늘 화면에서 "예정" 카드 탭 → 기록 탭의 첫 번째 미래 날짜로 스크롤
+  3. URL 파라미터는 스크롤 후 자동 제거되어 뒤로가기 시 깔끔함
+- **결과**: 타입체크 통과, 오늘→기록 간 컨텍스트 연속성 확보
 
 ### #55 iOS Safari 데이터 지속성 문제 해결
 - **요청**: 모바일 Safari에서 앱을 닫았다 열 때마다 데이터가 초기화되는 문제
@@ -1078,22 +1078,24 @@
   | 개인정보 보호 모드 | ❌ 세션 종료 시 삭제 |
 - **결과**: 타입체크 통과, Storage Persistence API 적용
 
-### #60 메모 태그 입력 방식 전면 개편
-- **요청**: 기존 스페이스바 자동 분리가 직관적이지 않아 전면 개편 요청
-- **변경 방향**: 스페이스바 → **엔터키 또는 '+' 버튼**으로 명시적 태그 추가
+### #61 분석 탭 차트 다크모드 가시성 개선
+- **요청**: 분석 탭 그래프가 다크모드에서 글자가 잘 보이지 않는 문제
+- **원인**: 차트 색상이 하드코딩되어 다크모드 CSS 변수를 사용하지 않음
 - **변경**:
-  - `src/pages/AddPage.tsx`:
-    - `handleMemoInputChange()` → `handleAddTag()` + `handleMemoKeyDown()` 교체
-    - 엔터키 입력 시 태그 추가
-    - '+' 버튼 추가 (입력 필드 우측, 터치 친화적)
-    - placeholder: "메모 입력 후 엔터 또는 +"
-    - Plus 아이콘 import 추가
-  - `src/pages/TransactionDetailPage.tsx`: 동일하게 적용
-- **UI 변경**:
-  - 입력 필드 우측에 '+' 버튼 (w-11 h-11, 검정 배경)
-  - 입력값 없으면 버튼 비활성화 (회색)
-  - 1자 이상 입력 시 태그로 추가 가능
-- **결과**: 타입체크 통과, 명확한 태그 추가 UX
+  - `src/components/report/chartConfig.ts`:
+    - 하드코딩된 색상 → CSS 변수로 변경
+    - `expense`, `income`, `grid`, `axis` 모두 `var(--chart-*)` 사용
+  - `src/components/report/CategoryDonutChart.tsx`:
+    - 라벨 `fill="#333"` → `fill="var(--color-ink-dark)"` 변경
+    - "기타" 카테고리 색상 → `getComputedStyle`로 동적 조회
+- **CSS 변수 매핑**:
+  | 색상 | Light Mode | Dark Mode |
+  |------|------------|-----------|
+  | chart-expense | #1C1B1A | #F0F2F5 |
+  | chart-income | #4A7C59 | #5BA872 |
+  | chart-grid | #ECEAE6 | #2A303A |
+  | chart-axis | #6B6966 | #9CA3AF |
+- **결과**: 타입체크 통과, 다크모드에서 차트 가시성 개선
 
 ---
 

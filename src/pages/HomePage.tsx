@@ -1,14 +1,95 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Calendar, Repeat, TrendingUp, TrendingDown } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, Clock } from 'lucide-react';
 import { useTransactionStore, selectBudgetStatus } from '@/stores/transactionStore';
 import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
 import { Icon } from '@/components/common';
 import { formatCurrency } from '@/utils/format';
-import { isToday, isYesterday, format } from 'date-fns';
-import { getUpcomingRecurringTransactions, getMonthlyBudgetStructure } from '@/services/queries';
-import type { RecurringTransaction, MonthlyBudgetStructure } from '@/types';
+import { isToday, isYesterday, isFuture, startOfDay, endOfMonth, startOfMonth } from 'date-fns';
+import { getMonthlyBudgetStructure } from '@/services/queries';
+import type { Transaction, MonthlyBudgetStructure } from '@/types';
+
+// 감성적 메시지 생성
+function getEmptyTodayMessage(): { main: string; sub: string } {
+  const hour = new Date().getHours();
+  const day = new Date().getDay(); // 0 = Sunday
+
+  // 시간대별 메시지
+  const morningMessages = [
+    { main: '아직 조용한 아침이에요', sub: '오늘 하루도 차분하게' },
+    { main: '새로운 하루가 시작됐어요', sub: '천천히 시작해도 괜찮아요' },
+    { main: '아침 공기처럼 깨끗한 하루', sub: '' },
+  ];
+
+  const afternoonMessages = [
+    { main: '지갑이 쉬고 있는 오후', sub: '' },
+    { main: '여유로운 하루를 보내고 있네요', sub: '' },
+    { main: '조용히 흘러가는 오후', sub: '' },
+  ];
+
+  const eveningMessages = [
+    { main: '오늘은 차분한 하루였네요', sub: '' },
+    { main: '지갑 없이도 충분한 하루', sub: '' },
+    { main: '고요하게 저물어가는 하루', sub: '' },
+  ];
+
+  const nightMessages = [
+    { main: '오늘 하루 수고했어요', sub: '내일도 좋은 하루 되길' },
+    { main: '잔잔하게 마무리되는 하루', sub: '' },
+    { main: '오늘은 여기까지', sub: '푹 쉬세요' },
+  ];
+
+  // 특별한 날 메시지
+  const mondayMessages = [
+    { main: '월요일, 아직 여유롭네요', sub: '이번 주도 천천히' },
+  ];
+
+  const fridayMessages = [
+    { main: '금요일, 아직 차분한 하루', sub: '주말이 기다리고 있어요' },
+  ];
+
+  const weekendMessages = [
+    { main: '느긋한 주말 오전', sub: '' },
+    { main: '쉬어가는 주말', sub: '' },
+  ];
+
+  // 요일 + 시간대 조합
+  let messages: { main: string; sub: string }[];
+
+  // 주말
+  if (day === 0 || day === 6) {
+    if (hour < 12) {
+      messages = weekendMessages;
+    } else if (hour < 18) {
+      messages = afternoonMessages;
+    } else {
+      messages = eveningMessages;
+    }
+  }
+  // 월요일 아침
+  else if (day === 1 && hour < 12) {
+    messages = mondayMessages;
+  }
+  // 금요일 오후/저녁
+  else if (day === 5 && hour >= 14) {
+    messages = fridayMessages;
+  }
+  // 일반 시간대
+  else if (hour < 12) {
+    messages = morningMessages;
+  } else if (hour < 18) {
+    messages = afternoonMessages;
+  } else if (hour < 22) {
+    messages = eveningMessages;
+  } else {
+    messages = nightMessages;
+  }
+
+  // 랜덤 선택
+  const randomIndex = Math.floor(Math.random() * messages.length);
+  return messages[randomIndex];
+}
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -20,8 +101,8 @@ export function HomePage() {
   const budgetStatus = useTransactionStore(selectBudgetStatus(monthlyBudget));
   const categoryMap = useCategoryStore(selectCategoryMap);
 
-  const [upcomingRecurring, setUpcomingRecurring] = useState<RecurringTransaction[]>([]);
   const [budgetStructure, setBudgetStructure] = useState<MonthlyBudgetStructure | null>(null);
+  const [emptyMessage] = useState(() => getEmptyTodayMessage());
 
   useEffect(() => {
     fetchSettings();
@@ -33,11 +114,7 @@ export function HomePage() {
   const loadBudgetData = async () => {
     try {
       const now = new Date();
-      const [upcoming, structure] = await Promise.all([
-        getUpcomingRecurringTransactions(7),
-        getMonthlyBudgetStructure(now.getFullYear(), now.getMonth() + 1),
-      ]);
-      setUpcomingRecurring(upcoming);
+      const structure = await getMonthlyBudgetStructure(now.getFullYear(), now.getMonth() + 1);
       setBudgetStructure(structure);
     } catch (error) {
       console.error('Failed to load budget data:', error);
@@ -47,6 +124,58 @@ export function HomePage() {
   const today = new Date();
   const currentDateLabel = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
+  // Categorize transactions: today, yesterday, future (this month)
+  const { todayTransactions, yesterdayTransactions, futureTransactions } = useMemo(() => {
+    const monthEnd = endOfMonth(new Date());
+    const monthStart = startOfMonth(new Date());
+
+    const todayTx: Transaction[] = [];
+    const yesterdayTx: Transaction[] = [];
+    const futureTx: Transaction[] = [];
+
+    for (const tx of transactions) {
+      const txDate = startOfDay(tx.date);
+
+      if (isToday(tx.date)) {
+        todayTx.push(tx);
+      } else if (isYesterday(tx.date)) {
+        yesterdayTx.push(tx);
+      } else if (isFuture(txDate) && tx.date <= monthEnd && tx.date >= monthStart) {
+        futureTx.push(tx);
+      }
+    }
+
+    // Sort by time (most recent first for today, oldest first for future)
+    todayTx.sort((a, b) => b.date.getTime() - a.date.getTime());
+    yesterdayTx.sort((a, b) => b.date.getTime() - a.date.getTime());
+    futureTx.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    return {
+      todayTransactions: todayTx,
+      yesterdayTransactions: yesterdayTx,
+      futureTransactions: futureTx,
+    };
+  }, [transactions]);
+
+  // Calculate summaries
+  const todaySummary = useMemo(() => {
+    const income = todayTransactions.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
+    const expense = todayTransactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
+    return { income, expense, total: income - expense, count: todayTransactions.length };
+  }, [todayTransactions]);
+
+  const yesterdaySummary = useMemo(() => {
+    const income = yesterdayTransactions.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
+    const expense = yesterdayTransactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
+    return { income, expense, total: income - expense, count: yesterdayTransactions.length };
+  }, [yesterdayTransactions]);
+
+  const futureSummary = useMemo(() => {
+    const income = futureTransactions.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
+    const expense = futureTransactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
+    return { income, expense, total: income - expense, count: futureTransactions.length };
+  }, [futureTransactions]);
+
   // Use projected balance if available
   const remaining = budgetStructure
     ? Math.max(budgetStatus.remaining + budgetStructure.expectedIncome - budgetStructure.fixedExpenses, 0)
@@ -55,26 +184,9 @@ export function HomePage() {
   const remainingDays = budgetStatus.remainingDays;
   const dailyRecommended = remainingDays > 0 ? Math.round(remaining / remainingDays) : 0;
 
-  const recentTransactions = transactions.slice(0, 3);
-
-  const formatTransactionTime = (date: Date, time: string) => {
-    if (isToday(date)) {
-      return `오늘 ${time}`;
-    }
-    if (isYesterday(date)) {
-      return `어제 ${time}`;
-    }
-    return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
-  };
-
-  const formatUpcomingDate = (date: Date) => {
-    const now = new Date();
-    const diff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff === 0) return '오늘';
-    if (diff === 1) return '내일';
-    if (diff <= 7) return `${diff}일 후`;
-    return format(date, 'M/d');
-  };
+  const hasYesterday = yesterdaySummary.count > 0;
+  const hasFuture = futureSummary.count > 0;
+  const hasBottomCards = hasYesterday || hasFuture;
 
   if (isLoading && transactions.length === 0) {
     return (
@@ -84,12 +196,10 @@ export function HomePage() {
     );
   }
 
-  const hasProjections = budgetStructure && (budgetStructure.expectedIncome > 0 || budgetStructure.fixedExpenses > 0);
-
   return (
-    <div className="min-h-screen bg-paper-white pb-nav">
-      {/* Hero Zone */}
-      <section className="px-6 pt-6">
+    <div className="min-h-screen bg-paper-white pb-nav flex flex-col">
+      {/* Hero Zone - 상단 1/3 영역 */}
+      <section className="px-6 pt-16 pb-8">
         {/* Date Display */}
         <div className="text-center">
           <span className="text-sub text-ink-mid">
@@ -103,7 +213,7 @@ export function HomePage() {
             {formatCurrency(remaining >= 0 ? remaining : 0)}
           </h1>
           <p className="text-sub text-ink-mid mt-1">
-            {hasProjections ? '이번 달 예상 잔액' : '이번 달 쓸 수 있는 돈'}
+            이번 달 쓸 수 있는 돈
           </p>
         </div>
 
@@ -125,118 +235,29 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Projected Income/Expense Summary */}
-      {hasProjections && (
-        <section className="px-6 mt-4">
-          <div className="flex gap-3">
-            {budgetStructure.expectedIncome > 0 && (
-              <div className="flex-1 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                <div className="flex items-center gap-1 mb-1">
-                  <TrendingUp size={14} className="text-green-600 dark:text-green-400" />
-                  <span className="text-caption text-green-700 dark:text-green-400">예상 수입</span>
-                </div>
-                <p className="text-sub font-medium text-green-700 dark:text-green-400">
-                  +{budgetStructure.expectedIncome.toLocaleString()}원
-                </p>
-              </div>
-            )}
-            {budgetStructure.fixedExpenses > 0 && (
-              <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-                <div className="flex items-center gap-1 mb-1">
-                  <TrendingDown size={14} className="text-red-600 dark:text-red-400" />
-                  <span className="text-caption text-red-700 dark:text-red-400">예정 지출</span>
-                </div>
-                <p className="text-sub font-medium text-red-700 dark:text-red-400">
-                  {budgetStructure.fixedExpenses.toLocaleString()}원
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Upcoming Recurring Transactions */}
-      {upcomingRecurring.length > 0 && (
-        <section className="mt-6">
-          <div className="flex justify-between items-center px-6 py-3">
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-ink-mid" />
-              <h2 className="text-sub text-ink-dark">예정된 거래</h2>
-            </div>
-            <button
-              onClick={() => navigate('/settings/recurring')}
-              className="text-sub text-ink-mid flex items-center gap-1"
-            >
-              관리
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <div className="px-6">
-            <div className="bg-paper-light dark:bg-ink-dark/30 rounded-lg overflow-hidden">
-              {upcomingRecurring.slice(0, 3).map((item, index) => {
-                const category = categoryMap.get(item.categoryId);
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex items-center gap-3 px-4 py-3 ${
-                      index < upcomingRecurring.slice(0, 3).length - 1
-                        ? 'border-b border-paper-mid dark:border-ink-dark'
-                        : ''
-                    }`}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: (category?.color || '#B8B8B8') + '20' }}
-                    >
-                      <Repeat size={14} className="text-ink-mid" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-body text-ink-black truncate">{item.description}</p>
-                      <p className="text-caption text-ink-light">
-                        {formatUpcomingDate(new Date(item.nextExecutionDate))}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-body whitespace-nowrap ${
-                        item.type === 'income'
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-ink-black'
-                      }`}
-                    >
-                      {item.type === 'income' ? '+' : ''}
-                      {item.amount.toLocaleString()}원
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Recent Transactions Section */}
-      <section className="mt-6 pb-20">
+      {/* Today's Transactions - 중앙 메인 영역 */}
+      <section className="flex-1 flex flex-col">
         {/* Section Header */}
         <div className="flex justify-between items-center px-6 py-3">
-          <h2 className="text-sub text-ink-dark">최근 거래</h2>
-          <Link to="/history" className="text-sub text-ink-mid flex items-center gap-1">
-            모두
-            <ChevronRight size={16} />
-          </Link>
+          <h2 className="text-title text-ink-black">오늘</h2>
+          {todaySummary.count > 0 && (
+            <span className={`text-sub ${todaySummary.total >= 0 ? 'text-semantic-positive' : 'text-ink-dark'}`}>
+              {todaySummary.total >= 0 ? '+' : ''}{todaySummary.total.toLocaleString()}원
+            </span>
+          )}
         </div>
 
-        {/* Transaction List */}
-        {recentTransactions.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-body text-ink-light">아직 거래가 없어요</p>
-            <p className="text-sub text-ink-light mt-1">
-              + 버튼을 눌러 기록해보세요
-            </p>
+        {/* Today's Transaction List */}
+        {todayTransactions.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-8">
+            <p className="text-body text-ink-dark">{emptyMessage.main}</p>
+            {emptyMessage.sub && (
+              <p className="text-sub text-ink-light mt-1">{emptyMessage.sub}</p>
+            )}
           </div>
         ) : (
-          <ul>
-            {recentTransactions.map((tx) => {
+          <ul className="border-t border-paper-mid">
+            {todayTransactions.map((tx) => {
               const category = categoryMap.get(tx.categoryId);
               return (
                 <li
@@ -246,27 +267,25 @@ export function HomePage() {
                 >
                   {/* Icon */}
                   <div className="text-ink-mid">
-                    <Icon name={category?.icon || 'MoreHorizontal'} size={24} />
+                    <Icon name={category?.icon || 'MoreHorizontal'} size={20} />
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-body text-ink-dark truncate">
-                        {tx.description || tx.memo || category?.name || '거래'}
-                      </span>
-                      <span className="text-caption text-ink-light ml-2 whitespace-nowrap">
-                        {formatTransactionTime(tx.date, tx.time)}
-                      </span>
-                    </div>
+                    <p className="text-body text-ink-dark truncate">
+                      {tx.description || tx.memo || category?.name || '거래'}
+                    </p>
+                    <p className="text-caption text-ink-light">
+                      {tx.time} · {category?.name}
+                    </p>
                   </div>
 
                   {/* Amount */}
-                  <div className={`text-amount whitespace-nowrap ${
+                  <span className={`text-amount whitespace-nowrap ${
                     tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
                   }`}>
-                    {tx.type === 'income' ? '+ ' : ''}{tx.amount.toLocaleString()}원
-                  </div>
+                    {tx.type === 'income' ? '+' : ''}{tx.amount.toLocaleString()}원
+                  </span>
                 </li>
               );
             })}
@@ -274,6 +293,58 @@ export function HomePage() {
         )}
       </section>
 
+      {/* Bottom Cards: Yesterday | Future (2-column) */}
+      {hasBottomCards && (
+        <section className="px-6 py-4">
+          <div className="flex gap-3">
+            {/* Yesterday Card */}
+            {hasYesterday && (
+              <button
+                onClick={() => navigate('/history?scrollTo=yesterday')}
+                className={`flex-1 bg-paper-light rounded-md p-4 text-left active:bg-paper-mid transition-colors ${
+                  !hasFuture ? 'max-w-[50%]' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock size={16} className="text-ink-mid" />
+                  <span className="text-sub text-ink-dark">어제</span>
+                </div>
+                <p className="text-caption text-ink-light">
+                  {yesterdaySummary.count}건
+                </p>
+                <p className={`text-body mt-1 ${
+                  yesterdaySummary.total >= 0 ? 'text-semantic-positive' : 'text-ink-black'
+                }`}>
+                  {yesterdaySummary.total >= 0 ? '+' : ''}{yesterdaySummary.total.toLocaleString()}원
+                </p>
+              </button>
+            )}
+
+            {/* Future Card */}
+            {hasFuture && (
+              <button
+                onClick={() => navigate('/history?scrollTo=future')}
+                className={`flex-1 bg-paper-light rounded-md p-4 text-left active:bg-paper-mid transition-colors ${
+                  !hasYesterday ? 'max-w-[50%]' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar size={16} className="text-ink-mid" />
+                  <span className="text-sub text-ink-dark">예정</span>
+                </div>
+                <p className="text-caption text-ink-light">
+                  {futureSummary.count}건
+                </p>
+                <p className={`text-body mt-1 ${
+                  futureSummary.total >= 0 ? 'text-semantic-positive' : 'text-ink-black'
+                }`}>
+                  {futureSummary.total >= 0 ? '+' : ''}{futureSummary.total.toLocaleString()}원
+                </p>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

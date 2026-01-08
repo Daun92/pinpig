@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, ChevronDown, ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
+import { isFuture, startOfDay } from 'date-fns';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectCategoryMap, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { Icon } from '@/components/common';
@@ -68,10 +69,45 @@ export function HistoryPage() {
   // Month picker state
   const [pickerYear, setPickerYear] = useState(currentMonth.getFullYear());
 
+  // Scroll refs
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const todayGroupRef = useRef<HTMLDivElement>(null);
+  const yesterdayGroupRef = useRef<HTMLDivElement>(null);
+  const futureGroupRef = useRef<HTMLDivElement>(null);
+  const [hasScrolledToTarget, setHasScrolledToTarget] = useState(false);
+
+  // URL query params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scrollToTarget = searchParams.get('scrollTo'); // 'yesterday' | 'future' | null
+
   useEffect(() => {
     fetchCategories();
     fetchTransactions(new Date());
   }, [fetchCategories, fetchTransactions]);
+
+  // Scroll to target group after data loads
+  const scrollToGroup = useCallback((targetRef: React.RefObject<HTMLDivElement>) => {
+    if (targetRef.current) {
+      // Use scrollIntoView for more accurate positioning
+      targetRef.current.scrollIntoView({
+        behavior: 'auto',
+        block: 'start',
+      });
+
+      // Adjust for sticky headers (header 56px + filter bar ~52px = 108px)
+      if (scrollContainerRef.current) {
+        const headerOffset = 108;
+        scrollContainerRef.current.scrollTop -= headerOffset;
+      }
+
+      setHasScrolledToTarget(true);
+
+      // Clear the scrollTo param after scrolling
+      if (scrollToTarget) {
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [scrollToTarget, setSearchParams]);
 
   // Search all transactions when query changes
   useEffect(() => {
@@ -105,6 +141,23 @@ export function HistoryPage() {
 
   const dateGroups = groupTransactionsByDate(filteredTransactions);
   const currentMonthLabel = format(currentMonth, 'M월', { locale: ko });
+
+  // Auto scroll to target when data loads (only once)
+  useEffect(() => {
+    if (!hasScrolledToTarget && dateGroups.length > 0 && !searchQuery) {
+      // Determine target ref based on scrollToTarget param
+      let targetRef = todayGroupRef;
+      if (scrollToTarget === 'yesterday') {
+        targetRef = yesterdayGroupRef;
+      } else if (scrollToTarget === 'future') {
+        targetRef = futureGroupRef;
+      }
+
+      // Small delay to ensure DOM is rendered
+      const timer = setTimeout(() => scrollToGroup(targetRef), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [dateGroups.length, hasScrolledToTarget, searchQuery, scrollToTarget, scrollToGroup]);
 
   // Quick month navigation (without modal)
   const handlePrevMonth = () => {
@@ -178,9 +231,12 @@ export function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper-white pb-nav">
+    <div
+      ref={scrollContainerRef}
+      className="min-h-screen bg-paper-white pb-nav overflow-y-auto scroll-smooth snap-y snap-proximity"
+    >
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid sticky top-0 bg-paper-white z-20">
         {isSearchMode ? (
           <>
             <div className="flex-1 flex items-center gap-2">
@@ -218,7 +274,7 @@ export function HistoryPage() {
       </header>
 
       {/* Filter Bar */}
-      <div className="flex gap-2 px-4 py-3 bg-paper-white border-b border-paper-mid">
+      <div className="flex gap-2 px-4 py-3 bg-paper-white border-b border-paper-mid sticky top-14 z-20">
         {/* Month Navigation - hidden when searching */}
         {searchQuery.trim() ? (
           <div className="flex items-center px-3 py-2 bg-paper-light rounded-lg text-sub text-ink-mid">
@@ -275,7 +331,7 @@ export function HistoryPage() {
 
       {/* Search Result Info */}
       {(searchQuery || selectedCategoryIds.length > 0) && (
-        <div className="px-4 py-2 bg-paper-light border-b border-paper-mid">
+        <div className="px-4 py-2 bg-paper-light border-b border-paper-mid sticky top-[104px] z-20">
           <p className="text-caption text-ink-mid">
             {isSearching ? (
               '검색 중...'
@@ -305,10 +361,32 @@ export function HistoryPage() {
         </div>
       ) : (
         <div className="pb-20">
-          {dateGroups.map((group) => (
-            <div key={group.label}>
+          {dateGroups.map((group, index) => {
+            const isTodayGroup = isToday(group.date);
+            const isYesterdayGroup = isYesterday(group.date);
+            const isFutureGroup = isFuture(startOfDay(group.date));
+
+            // Determine ref for this group
+            // For future: use the LAST future group in array (closest to today, since array is sorted descending)
+            // For yesterday: use the yesterday group
+            const isClosestFuture = isFutureGroup && !dateGroups.slice(index + 1).some(g => isFuture(startOfDay(g.date)));
+            let groupRef: React.RefObject<HTMLDivElement> | undefined;
+            if (isTodayGroup) {
+              groupRef = todayGroupRef;
+            } else if (isYesterdayGroup) {
+              groupRef = yesterdayGroupRef;
+            } else if (isClosestFuture) {
+              groupRef = futureGroupRef;
+            }
+
+            return (
+            <div
+              key={group.label}
+              ref={groupRef}
+              className="snap-start"
+            >
               {/* Date Group Header */}
-              <div className="flex justify-between items-center px-4 py-3 bg-paper-light">
+              <div className="flex justify-between items-center px-4 py-3 bg-paper-light sticky top-[104px] z-10">
                 <span className="text-sub text-ink-dark">{group.label}</span>
                 <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
                   {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원
@@ -358,7 +436,8 @@ export function HistoryPage() {
                 })}
               </ul>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

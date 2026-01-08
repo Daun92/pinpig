@@ -1,13 +1,14 @@
 // Chart configuration for PinPig design system
+// Uses CSS variables for dark mode support
 
 export const CHART_COLORS = {
-  expense: '#1C1B1A',      // ink-black
-  income: '#4A7C59',       // semantic-positive
-  grid: '#ECEAE6',         // paper-mid
-  axis: '#6B6966',         // ink-mid
-  background: '#FAF9F7',   // paper-white
-  tooltipBg: '#FAF9F7',    // paper-white
-  tooltipBorder: '#ECEAE6', // paper-mid
+  expense: 'var(--chart-expense)',
+  income: 'var(--chart-income)',
+  grid: 'var(--chart-grid)',
+  axis: 'var(--chart-axis)',
+  background: 'var(--color-paper-white)',
+  tooltipBg: 'var(--color-paper-white)',
+  tooltipBorder: 'var(--color-paper-mid)',
 };
 
 export const CHART_DEFAULTS = {
