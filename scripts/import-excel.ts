@@ -3,6 +3,7 @@
  *
  * 사용법: 브라우저 콘솔에서 실행하거나 개발 도구에서 import
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import * as XLSX from 'xlsx';
 

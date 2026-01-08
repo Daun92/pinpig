@@ -460,7 +460,7 @@ export function BudgetWizardPage() {
                           [&::-webkit-slider-thumb]:rounded-full
                           [&::-webkit-slider-thumb]:cursor-pointer"
                         style={{
-                          // @ts-ignore
+                          // @ts-expect-error CSS custom property
                           '--thumb-color': cat.categoryColor,
                         }}
                       />

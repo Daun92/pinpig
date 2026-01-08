@@ -136,9 +136,7 @@ export function HistoryPage() {
   const futureGroupRef = useRef<HTMLDivElement>(null);
   const [hasScrolledToTarget, setHasScrolledToTarget] = useState(false);
 
-  // Floating header state for escalator effect
-  const [activeGroupLabel, setActiveGroupLabel] = useState<string | null>(null);
-  const [activeGroupTotal, setActiveGroupTotal] = useState<number>(0);
+  // Date group refs for scroll target
   const dateGroupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // URL query params
@@ -221,68 +219,6 @@ export function HistoryPage() {
     return monthGroups.flatMap(mg => mg.dateGroups);
   }, [monthGroups]);
 
-  // Scroll-based floating header - detect which date group is at top
-  const updateActiveGroup = useCallback(() => {
-    if (searchQuery.trim() || !scrollContainerRef.current) return;
-
-    const hasSearchInfo = selectedCategoryIds.length > 0;
-    const headerOffset = hasSearchInfo ? 136 : 108;
-
-    // Find the date group that's currently at the header position
-    let activeGroup: { label: string; total: number } | null = null;
-
-    dateGroupRefs.current.forEach((element) => {
-      const rect = element.getBoundingClientRect();
-      // Element is "active" if its top is at or above the header line
-      // and its bottom is still below the header (so we're still in this group)
-      if (rect.top <= headerOffset + 10 && rect.bottom > headerOffset) {
-        const label = element.getAttribute('data-group-label');
-        const total = element.getAttribute('data-group-total');
-        if (label) {
-          activeGroup = { label, total: Number(total) || 0 };
-        }
-      }
-    });
-
-    // If no group found at header position, find the first visible one
-    if (!activeGroup) {
-      let firstVisibleTop = Infinity;
-      let firstVisibleLabel: string | null = null;
-      let firstVisibleTotal = 0;
-
-      dateGroupRefs.current.forEach((element) => {
-        const rect = element.getBoundingClientRect();
-        if (rect.top >= headerOffset && rect.top < window.innerHeight && rect.top < firstVisibleTop) {
-          const label = element.getAttribute('data-group-label');
-          const total = element.getAttribute('data-group-total');
-          if (label) {
-            firstVisibleTop = rect.top;
-            firstVisibleLabel = label;
-            firstVisibleTotal = Number(total) || 0;
-          }
-        }
-      });
-
-      if (firstVisibleLabel) {
-        activeGroup = { label: firstVisibleLabel, total: firstVisibleTotal };
-      }
-    }
-
-    if (activeGroup) {
-      setActiveGroupLabel(activeGroup.label);
-      setActiveGroupTotal(activeGroup.total);
-    }
-  }, [searchQuery, selectedCategoryIds]);
-
-  // Initialize active group on mount and data change
-  useEffect(() => {
-    if (allDateGroups.length > 0 && !searchQuery.trim()) {
-      // Small delay to ensure refs are set
-      const timer = setTimeout(updateActiveGroup, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [allDateGroups, searchQuery, updateActiveGroup]);
-
   // Pull-to-load previous month
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -291,16 +227,13 @@ export function HistoryPage() {
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current || searchQuery.trim()) return;
 
-    // Update floating header based on scroll position
-    updateActiveGroup();
-
     const { scrollTop } = scrollContainerRef.current;
 
     // When at the very top and trying to scroll up more
     if (scrollTop <= 0 && !isPulling) {
       // User is at top - ready for pull gesture
     }
-  }, [searchQuery, isPulling, updateActiveGroup]);
+  }, [searchQuery, isPulling]);
 
   const handleTouchStart = useCallback(() => {
     if (!scrollContainerRef.current || searchQuery.trim()) return;
@@ -423,9 +356,6 @@ export function HistoryPage() {
     );
   }
 
-  // Calculate header positions for floating header
-  const hasSearchInfo = searchQuery || selectedCategoryIds.length > 0;
-  const floatingHeaderTop = hasSearchInfo ? 136 : 108;
 
   return (
     <div
@@ -546,21 +476,6 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Floating Date Header - single header that updates based on scroll position */}
-      {activeGroupLabel && !searchQuery.trim() && monthGroups.length > 0 && (
-        <div
-          className="fixed left-0 right-0 z-[18] bg-paper-light border-b border-paper-mid/50 shadow-sm transition-all duration-150"
-          style={{ top: `${floatingHeaderTop}px` }}
-        >
-          <div className="flex justify-between items-center px-4 py-2.5">
-            <span className="text-sub font-medium text-ink-dark">{activeGroupLabel}</span>
-            <span className={`text-sub ${activeGroupTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
-              {activeGroupTotal >= 0 ? '+' : ''}{activeGroupTotal.toLocaleString()}원
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Pull to load previous month indicator */}
       {isPulling && pullDistance > 0 && (
         <div
@@ -647,22 +562,14 @@ export function HistoryPage() {
                   }
                 };
 
-                // In non-search mode, use floating header instead of inline sticky
-                const useFloatingHeader = !searchQuery.trim();
-
                 return (
                   <div
                     key={groupKey}
                     ref={setGroupRef}
-                    data-group-key={groupKey}
-                    data-group-label={group.label}
-                    data-group-total={group.dailyTotal}
                     className="date-group relative"
                   >
-                    {/* Date Group Header - hidden when using floating header, visible in search mode */}
-                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light border-b border-paper-mid/50 ${
-                      useFloatingHeader ? 'opacity-0 h-0 overflow-hidden' : `sticky ${dateHeaderTop} z-10`
-                    }`}>
+                    {/* Date Group Header - sticky within its container */}
+                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light border-b border-paper-mid/50 sticky ${dateHeaderTop} z-10`}>
                       <span className="text-sub text-ink-dark">{group.label}</span>
                       <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
                         {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원

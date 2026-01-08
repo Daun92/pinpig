@@ -26,7 +26,8 @@
       "Bash(node scripts/update-worklog.js:*)",
       "Bash(git worktree:*)",
       "Bash(git merge:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npm run lint)"
     ]
   }
 }
