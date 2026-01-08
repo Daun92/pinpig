@@ -161,7 +161,7 @@ export function BudgetWizardPage() {
       {/* Progress Bar */}
       <div className="h-1 bg-paper-mid dark:bg-ink-dark flex-shrink-0">
         <div
-          className="h-full bg-ink-black dark:bg-paper-white transition-all"
+          className="h-full bg-ink-black dark:bg-pig-pink transition-all"
           style={{ width: `${(step / 5) * 100}%` }}
         />
       </div>
@@ -296,7 +296,7 @@ export function BudgetWizardPage() {
                   [&::-webkit-slider-thumb]:w-6
                   [&::-webkit-slider-thumb]:h-6
                   [&::-webkit-slider-thumb]:bg-ink-black
-                  [&::-webkit-slider-thumb]:dark:bg-paper-white
+                  [&::-webkit-slider-thumb]:dark:bg-pig-pink
                   [&::-webkit-slider-thumb]:rounded-full
                   [&::-webkit-slider-thumb]:cursor-pointer"
               />
@@ -392,7 +392,7 @@ export function BudgetWizardPage() {
                   }
                 }}
                 className={`w-12 h-6 rounded-full transition-colors ${
-                  isAutoDistribute ? 'bg-ink-black dark:bg-paper-white' : 'bg-paper-mid dark:bg-ink-dark'
+                  isAutoDistribute ? 'bg-ink-black dark:bg-pig-pink' : 'bg-paper-mid dark:bg-ink-dark'
                 }`}
               >
                 <div
@@ -487,8 +487,8 @@ export function BudgetWizardPage() {
         {/* Step 5: 완료 */}
         {step === 5 && !isSaving && (
           <div className="px-6 py-8 text-center">
-            <div className="w-16 h-16 bg-ink-black dark:bg-paper-white rounded-full flex items-center justify-center mx-auto mb-6">
-              <Check size={32} className="text-paper-white dark:text-ink-black" />
+            <div className="w-16 h-16 bg-ink-black dark:bg-pig-pink rounded-full flex items-center justify-center mx-auto mb-6">
+              <Check size={32} className="text-paper-white" />
             </div>
 
             <h1 className="text-title text-ink-black dark:text-paper-white mb-2">예산 설정이 완료됐어요</h1>
@@ -531,7 +531,7 @@ export function BudgetWizardPage() {
         {step < 4 && (
           <button
             onClick={handleNext}
-            className="w-full py-4 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body"
+            className="w-full py-4 bg-ink-black dark:bg-pig-pink text-paper-white rounded-md text-body"
           >
             다음
           </button>
@@ -541,7 +541,7 @@ export function BudgetWizardPage() {
           <button
             onClick={handleComplete}
             disabled={isSaving}
-            className="w-full py-4 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body disabled:opacity-50"
+            className="w-full py-4 bg-ink-black dark:bg-pig-pink text-paper-white rounded-md text-body disabled:opacity-50"
           >
             {isSaving ? '저장 중...' : '예산 설정 완료'}
           </button>
@@ -551,7 +551,7 @@ export function BudgetWizardPage() {
           <div className="space-y-3">
             <button
               onClick={() => navigate('/')}
-              className="w-full py-4 bg-ink-black dark:bg-paper-white text-paper-white dark:text-ink-black rounded-md text-body"
+              className="w-full py-4 bg-ink-black dark:bg-pig-pink text-paper-white rounded-md text-body"
             >
               홈으로 가기
             </button>

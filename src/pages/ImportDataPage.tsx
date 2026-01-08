@@ -124,13 +124,13 @@ export function ImportDataPage() {
   };
 
   return (
-    <div className="min-h-screen bg-paper-white pb-nav">
+    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center px-4 border-b border-paper-mid">
+      <header className="h-14 flex items-center px-4 border-b border-paper-mid dark:border-ink-dark">
         <button onClick={() => navigate('/settings')} className="p-2 -ml-2">
-          <ArrowLeft size={24} className="text-ink-black" />
+          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
         </button>
-        <h1 className="text-title text-ink-black ml-2">데이터 가져오기</h1>
+        <h1 className="text-title text-ink-black dark:text-paper-white ml-2">데이터 가져오기</h1>
       </header>
 
       <div className="px-6 py-6">
@@ -139,7 +139,7 @@ export function ImportDataPage() {
           <div className="space-y-6">
             <div className="text-center py-8">
               <FileSpreadsheet size={64} className="mx-auto text-ink-light mb-4" />
-              <h2 className="text-heading text-ink-black mb-2">Excel 파일 업로드</h2>
+              <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">Excel 파일 업로드</h2>
               <p className="text-body text-ink-mid">
                 다른 가계부 앱에서 내보낸 Excel 파일을 선택하세요
               </p>
@@ -155,7 +155,7 @@ export function ImportDataPage() {
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-4 border-2 border-dashed border-ink-light rounded-xl flex flex-col items-center gap-2 hover:border-pig-pink transition-colors"
+              className="w-full py-4 border-2 border-dashed border-ink-light dark:border-ink-dark rounded-xl flex flex-col items-center gap-2 hover:border-pig-pink transition-colors"
             >
               <Upload size={24} className="text-ink-mid" />
               <span className="text-body text-ink-mid">파일 선택</span>
@@ -169,7 +169,7 @@ export function ImportDataPage() {
               </div>
             )}
 
-            <div className="bg-paper-light dark:bg-paper-dark rounded-lg p-4">
+            <div className="bg-paper-light dark:bg-ink-dark rounded-lg p-4">
               <h3 className="text-sub text-ink-mid mb-2">지원 형식</h3>
               <ul className="text-caption text-ink-light space-y-1">
                 <li>- 머니매니저 (Money Manager)</li>
@@ -184,7 +184,7 @@ export function ImportDataPage() {
         {step === 'preview' && preview && (
           <div className="space-y-6">
             <div className="bg-pig-pink/10 dark:bg-pig-pink/20 rounded-lg p-4">
-              <h3 className="text-heading text-ink-black mb-1">{fileName}</h3>
+              <h3 className="text-heading text-ink-black dark:text-paper-white mb-1">{fileName}</h3>
               <p className="text-body text-ink-mid">
                 {preview.totalRows.toLocaleString()}개의 거래 데이터
               </p>
@@ -238,7 +238,7 @@ export function ImportDataPage() {
                     className={`px-3 py-1 rounded-full text-caption ${
                       cat.type === 'income'
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                        : 'bg-paper-light dark:bg-paper-dark text-ink-mid'
+                        : 'bg-paper-light dark:bg-ink-dark text-ink-mid'
                     }`}
                   >
                     {cat.name} ({cat.count})
@@ -261,7 +261,7 @@ export function ImportDataPage() {
                 {preview.paymentMethods.slice(0, 10).map((pm) => (
                   <span
                     key={pm.name}
-                    className="px-3 py-1 rounded-full bg-paper-light dark:bg-paper-dark text-caption text-ink-mid"
+                    className="px-3 py-1 rounded-full bg-paper-light dark:bg-ink-dark text-caption text-ink-mid"
                   >
                     {pm.name} ({pm.count})
                   </span>
@@ -281,18 +281,18 @@ export function ImportDataPage() {
                 {preview.sampleTransactions.map((tx, i) => (
                   <div
                     key={i}
-                    className="p-3 bg-paper-light dark:bg-paper-dark rounded-lg flex justify-between items-center"
+                    className="p-3 bg-paper-light dark:bg-ink-dark rounded-lg flex justify-between items-center"
                   >
                     <div>
                       <p className="text-caption text-ink-light">{tx.date}</p>
-                      <p className="text-body text-ink-black">{tx.description || tx.category}</p>
+                      <p className="text-body text-ink-black dark:text-paper-white">{tx.description || tx.category}</p>
                       <p className="text-caption text-ink-mid">
                         {tx.category} | {tx.paymentMethod}
                       </p>
                     </div>
                     <span
                       className={`text-body font-medium ${
-                        tx.type === '수입' ? 'text-money-green' : 'text-ink-black'
+                        tx.type === '수입' ? 'text-money-green' : 'text-ink-black dark:text-paper-white'
                       }`}
                     >
                       {tx.type === '수입' ? '+' : ''}
@@ -317,7 +317,7 @@ export function ImportDataPage() {
 
         {/* 미리보기 액션 버튼 - 하단 고정 */}
         {step === 'preview' && preview && (
-          <div className="fixed bottom-20 left-0 right-0 px-6 py-4 bg-paper-white dark:bg-ink-black border-t border-paper-mid">
+          <div className="fixed bottom-20 left-0 right-0 px-6 py-4 bg-paper-white dark:bg-ink-black border-t border-paper-mid dark:border-ink-dark">
             <div className="flex gap-3 max-w-lg mx-auto">
               <button
                 onClick={() => {
@@ -326,7 +326,7 @@ export function ImportDataPage() {
                   setPreview(null);
                   setFileName('');
                 }}
-                className="flex-1 py-3 rounded-xl border border-ink-light text-ink-mid"
+                className="flex-1 py-3 rounded-xl border border-ink-light dark:border-ink-dark text-ink-mid"
               >
                 다시 선택
               </button>
@@ -344,7 +344,7 @@ export function ImportDataPage() {
         {step === 'importing' && (
           <div className="text-center py-16">
             <Loader2 size={48} className="mx-auto text-pig-pink animate-spin mb-4" />
-            <h2 className="text-heading text-ink-black mb-2">데이터 가져오는 중...</h2>
+            <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">데이터 가져오는 중...</h2>
             <p className="text-body text-ink-mid">
               {excelData.length.toLocaleString()}개의 거래를 처리하고 있습니다
             </p>
@@ -360,29 +360,29 @@ export function ImportDataPage() {
                   <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mx-auto flex items-center justify-center mb-4">
                     <Check size={32} className="text-green-600 dark:text-green-400" />
                   </div>
-                  <h2 className="text-heading text-ink-black mb-2">가져오기 완료!</h2>
+                  <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">가져오기 완료!</h2>
                 </>
               ) : (
                 <>
                   <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mx-auto flex items-center justify-center mb-4">
                     <AlertCircle size={32} className="text-red-600 dark:text-red-400" />
                   </div>
-                  <h2 className="text-heading text-ink-black mb-2">가져오기 실패</h2>
+                  <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">가져오기 실패</h2>
                 </>
               )}
             </div>
 
-            <div className="bg-paper-light dark:bg-paper-dark rounded-lg p-4 space-y-3">
+            <div className="bg-paper-light dark:bg-ink-dark rounded-lg p-4 space-y-3">
               <div className="flex justify-between">
                 <span className="text-body text-ink-mid">가져온 거래</span>
-                <span className="text-body text-ink-black font-medium">
+                <span className="text-body text-ink-black dark:text-paper-white font-medium">
                   {result.importedTransactions.toLocaleString()}개
                 </span>
               </div>
               {result.newCategories > 0 && (
                 <div className="flex justify-between">
                   <span className="text-body text-ink-mid">새 카테고리</span>
-                  <span className="text-body text-ink-black font-medium">
+                  <span className="text-body text-ink-black dark:text-paper-white font-medium">
                     {result.newCategories}개
                   </span>
                 </div>
@@ -390,7 +390,7 @@ export function ImportDataPage() {
               {result.newPaymentMethods > 0 && (
                 <div className="flex justify-between">
                   <span className="text-body text-ink-mid">새 결제수단</span>
-                  <span className="text-body text-ink-black font-medium">
+                  <span className="text-body text-ink-black dark:text-paper-white font-medium">
                     {result.newPaymentMethods}개
                   </span>
                 </div>
@@ -404,7 +404,7 @@ export function ImportDataPage() {
                 </div>
               )}
               {result.dateRange.oldest && result.dateRange.newest && (
-                <div className="pt-2 border-t border-paper-mid">
+                <div className="pt-2 border-t border-paper-mid dark:border-ink-black">
                   <p className="text-caption text-ink-light">
                     {formatDate(result.dateRange.oldest)} ~ {formatDate(result.dateRange.newest)}
                   </p>
