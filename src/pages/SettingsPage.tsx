@@ -224,7 +224,7 @@ export function SettingsPage() {
           >
             <div className="flex items-center gap-3">
               <Upload size={20} className="text-ink-mid" />
-              <span className="text-body text-ink-black">데이터 가져오기 (Excel)</span>
+              <span className="text-body text-ink-black">데이터 가져오기</span>
             </div>
             <ChevronRight size={20} className="text-ink-light" />
           </button>

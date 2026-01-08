@@ -204,12 +204,12 @@ export function RecurringTransactionEditPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
-        <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <div className="min-h-screen bg-paper-white pb-nav">
+        <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
           <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-            <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+            <ArrowLeft size={24} className="text-ink-black" />
           </button>
-          <h1 className="text-title text-ink-black dark:text-paper-white">
+          <h1 className="text-title text-ink-black">
             {isEditing ? '반복 거래 수정' : '새 반복 거래'}
           </h1>
           <div className="w-10" />
@@ -222,20 +222,20 @@ export function RecurringTransactionEditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white">
+        <h1 className="text-title text-ink-black">
           {isEditing ? '반복 거래 수정' : '새 반복 거래'}
         </h1>
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
           className={`w-10 h-10 flex items-center justify-center ${
-            canSubmit ? 'text-ink-black dark:text-paper-white' : 'text-ink-light'
+            canSubmit ? 'text-ink-black' : 'text-ink-light'
           }`}
         >
           <Check size={24} />
@@ -245,7 +245,7 @@ export function RecurringTransactionEditPage() {
       {/* Form */}
       <div className="p-4 pb-24 space-y-4">
         {/* Type Toggle */}
-        <div className="flex bg-paper-light dark:bg-ink-dark/50 rounded-lg p-1">
+        <div className="flex bg-paper-light/50 rounded-lg p-1">
           <button
             onClick={() => {
               setFormType('expense');
@@ -254,7 +254,7 @@ export function RecurringTransactionEditPage() {
             }}
             className={`flex-1 py-2 rounded-md text-body transition-colors ${
               formType === 'expense'
-                ? 'bg-paper-white dark:bg-ink-black text-ink-black dark:text-paper-white'
+                ? 'bg-paper-white text-ink-black'
                 : 'text-ink-mid'
             }`}
           >
@@ -268,7 +268,7 @@ export function RecurringTransactionEditPage() {
             }}
             className={`flex-1 py-2 rounded-md text-body transition-colors ${
               formType === 'income'
-                ? 'bg-paper-white dark:bg-ink-black text-ink-black dark:text-paper-white'
+                ? 'bg-paper-white text-ink-black'
                 : 'text-ink-mid'
             }`}
           >
@@ -279,13 +279,13 @@ export function RecurringTransactionEditPage() {
         {/* Amount */}
         <div>
           <label className="text-sub text-ink-mid block mb-2">금액</label>
-          <div className="flex items-center bg-paper-light dark:bg-ink-dark rounded-md px-4">
+          <div className="flex items-center bg-paper-light rounded-md px-4">
             <input
               type="number"
               value={formAmount}
               onChange={(e) => setFormAmount(e.target.value)}
               placeholder="0"
-              className="flex-1 py-3 bg-transparent text-body text-ink-black dark:text-paper-white outline-none"
+              className="flex-1 py-3 bg-transparent text-body text-ink-black outline-none"
               autoFocus
             />
             <span className="text-ink-mid">원</span>
@@ -300,7 +300,7 @@ export function RecurringTransactionEditPage() {
             value={formDescription}
             onChange={(e) => setFormDescription(e.target.value)}
             placeholder="예: 넷플릭스, 월급, 월세"
-            className="w-full py-3 px-4 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none"
+            className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
           />
         </div>
 
@@ -315,7 +315,7 @@ export function RecurringTransactionEditPage() {
                 className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-colors ${
                   formCategoryId === cat.id
                     ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
-                    : 'border-paper-mid dark:border-ink-dark text-ink-mid'
+                    : 'border-paper-mid text-ink-mid'
                 }`}
               >
                 <Icon name={cat.icon} size={16} />
@@ -337,7 +337,7 @@ export function RecurringTransactionEditPage() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-colors ${
                     formPaymentMethodId === method.id
                       ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
-                      : 'border-paper-mid dark:border-ink-dark text-ink-mid'
+                      : 'border-paper-mid text-ink-mid'
                   }`}
                 >
                   <Icon name={method.icon} size={16} />
@@ -359,7 +359,7 @@ export function RecurringTransactionEditPage() {
                 className={`px-4 py-2 rounded-full border transition-colors ${
                   formFrequency === opt.value
                     ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
-                    : 'border-paper-mid dark:border-ink-dark text-ink-mid'
+                    : 'border-paper-mid text-ink-mid'
                 }`}
               >
                 <span className="text-sub">{opt.label}</span>
@@ -372,14 +372,14 @@ export function RecurringTransactionEditPage() {
         {formFrequency === 'monthly' && (
           <div>
             <label className="text-sub text-ink-mid block mb-2">매월 실행일</label>
-            <div className="flex items-center bg-paper-light dark:bg-ink-dark rounded-md px-4">
+            <div className="flex items-center bg-paper-light rounded-md px-4">
               <input
                 type="number"
                 min={1}
                 max={31}
                 value={formDayOfMonth}
                 onChange={(e) => setFormDayOfMonth(parseInt(e.target.value) || 1)}
-                className="flex-1 py-3 bg-transparent text-body text-ink-black dark:text-paper-white outline-none"
+                className="flex-1 py-3 bg-transparent text-body text-ink-black outline-none"
               />
               <span className="text-ink-mid">일</span>
             </div>
@@ -393,7 +393,7 @@ export function RecurringTransactionEditPage() {
             type="date"
             value={formStartDate}
             onChange={(e) => setFormStartDate(e.target.value)}
-            className="w-full py-3 px-4 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none"
+            className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
           />
         </div>
 
@@ -404,7 +404,7 @@ export function RecurringTransactionEditPage() {
             type="date"
             value={formEndDate}
             onChange={(e) => setFormEndDate(e.target.value)}
-            className="w-full py-3 px-4 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none"
+            className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
           />
           <p className="text-caption text-ink-light mt-1">비워두면 무기한 반복됩니다</p>
         </div>
@@ -417,17 +417,17 @@ export function RecurringTransactionEditPage() {
             value={formMemo}
             onChange={(e) => setFormMemo(e.target.value)}
             placeholder="메모"
-            className="w-full py-3 px-4 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none"
+            className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
           />
         </div>
 
         {/* Active Toggle */}
         <div className="flex items-center justify-between py-2">
-          <span className="text-body text-ink-black dark:text-paper-white">활성화</span>
+          <span className="text-body text-ink-black">활성화</span>
           <button
             onClick={() => setFormIsActive(!formIsActive)}
             className={`w-12 h-6 rounded-full transition-colors ${
-              formIsActive ? 'bg-green-500' : 'bg-paper-mid dark:bg-ink-dark'
+              formIsActive ? 'bg-green-500' : 'bg-paper-mid'
             }`}
           >
             <div

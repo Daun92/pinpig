@@ -1101,7 +1101,65 @@
 
 ## 2026-01-08
 
-### #62 지출 수단별 예산 관리 기능
+### #62 데이터 가져오기 기능 전면 개선
+- **요청**: Excel 가져오기 기능 개선 - UI 화면, Excel 직접 지원, 중복 처리, 진행상황 표시
+- **변경**:
+  - `src/services/excelImport.ts`:
+    - `ImportProgress` 타입 추가 (phase, current, total, message)
+    - `ImportProgressCallback` 타입 추가
+    - `DuplicateCheckResult` 타입 추가
+    - `ImportResult`에 `duplicateRows` 필드 추가
+    - `checkDuplicates()` 함수 추가 - 기존 데이터와 중복 체크
+    - `importExcelData()` 개선:
+      - `skipDuplicates` 옵션 추가 (기본값: true)
+      - `abortSignal` 옵션 추가 (취소 기능)
+      - `onProgress` 콜백 추가 (진행률 보고)
+      - 중복 체크 로직 (날짜-금액-설명 조합)
+      - 100건마다 취소 체크 및 진행률 업데이트
+      - 파일 내 중복도 방지 (existingKeys Set에 추가)
+  - `src/pages/ImportDataPage.tsx`:
+    - `duplicate_check` 단계 추가 (중복 확인 화면)
+    - `AbortController` 기반 취소 기능
+    - 진행률 바 UI (퍼센트, 현재/전체 건수)
+    - 중복 데이터 미리보기 (최대 20건 표시)
+    - 옵션 UI 개선:
+      - "기존 데이터 모두 삭제 후 가져오기" 체크박스
+      - "중복 데이터 자동 건너뛰기" 체크박스
+    - 중복 발견 시 선택 옵션:
+      - "새 데이터만 가져오기"
+      - "전체 가져오기 (중복 포함)"
+    - 취소 버튼 (importing 단계에서 표시)
+    - 완료 화면에 "건너뛴 중복" 카운트 표시
+    - 취소된 경우 AlertTriangle 아이콘 표시
+- **UX 플로우**:
+  1. 파일 선택 → 미리보기 (카테고리, 결제수단, 샘플 데이터)
+  2. 가져오기 클릭 → 중복 확인 (기존 데이터 있을 경우)
+  3. 중복 발견 시 → 선택 화면 (새 데이터만 / 전체)
+  4. 가져오기 진행 → 진행률 바 + 취소 버튼
+  5. 완료 → 결과 요약 (가져온 수, 중복, 새 카테고리 등)
+- **결과**: 타입체크 통과, 데이터 가져오기 UX 전면 개선
+
+### #63 CSV/JSON 데이터 가져오기 지원
+- **요청**: Excel 외에 CSV, JSON 파일 포맷 지원 추가
+- **변경**:
+  - `src/services/excelImport.ts` - `parseCSV()`, `parseJSON()`, `detectFileType()` 함수 추가
+  - `src/pages/ImportDataPage.tsx` - 드래그앤드롭 UI 및 다중 파일 포맷 지원
+- **결과**: CSV/JSON 가져오기 기능 완료, 드래그앤드롭 UI 추가, 타입체크 통과
+
+### #64 디자인 시스템 원칙 준수 개선
+- **요청**: 데이터 가져오기 페이지 디자인 스타일 원칙 준수, 설정 페이지 (Excel) 표시 삭제
+- **변경**:
+  - `src/pages/SettingsPage.tsx` - "데이터 가져오기 (Excel)" → "데이터 가져오기"
+  - `src/pages/ImportDataPage.tsx` - 디자인 시스템 원칙 준수 전면 개선:
+    - 컬러풀 아이콘(blue/green/amber) → 모노톤(ink-mid)
+    - pig-pink 강조색 버튼 → ink-black 기본 버튼
+    - rounded-xl → rounded-sm/md (디자인 시스템 토큰)
+    - text-heading → text-title
+    - 불필요한 색상 제거, paper/ink 계열로 통일
+    - 진행률 바 높이 2px로 변경
+- **결과**: 디자인 시스템 원칙(모노톤, Quiet Interface, Paper Metaphor) 준수, 타입체크 통과
+
+### #65 지출 수단별 예산 관리 기능
 - **요청**: 지출 수단(결제수단)별로 월 예산 한도를 설정하고 분석 탭에서 사용현황 확인
 - **변경**:
   - `src/types/index.ts`: `PaymentMethod.budget`, `PaymentMethodSummary` 타입 추가
@@ -1124,3 +1182,10 @@
 - PWA 푸시 알림 연동
 
 ---
+
+## 작업일지 파일 관리
+
+> **파일 분할 기준**: 2000줄 또는 100KB 초과 시 새 파일 생성
+> - `WORKLOG.md` - 현재 작업일지 (최신)
+> - `WORKLOG-2025.md` - 2025년 아카이브 (필요 시)
+> - 현재 상태: ~1150줄, 64KB (여유 있음)

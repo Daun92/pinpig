@@ -150,21 +150,21 @@ export function PaymentMethodManagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white">결제수단 관리</h1>
+        <h1 className="text-title text-ink-black">결제수단 관리</h1>
         <button onClick={goToAdd} className="w-10 h-10 flex items-center justify-center">
-          <Plus size={24} className="text-ink-black dark:text-paper-white" />
+          <Plus size={24} className="text-ink-black" />
         </button>
       </header>
 
       {/* Drag instruction */}
       {localMethods.length > 1 && (
-        <div className="px-6 py-2 bg-paper-light dark:bg-ink-dark">
+        <div className="px-6 py-2 bg-paper-light">
           <p className="text-caption text-ink-mid text-center">
             ≡ 아이콘을 드래그하여 순서를 변경할 수 있습니다
           </p>
@@ -203,7 +203,7 @@ export function PaymentMethodManagePage() {
                   onTouchStart={(e) => handleTouchStart(e, pm)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
-                  className={`flex items-center gap-3 p-4 bg-paper-light dark:bg-ink-dark rounded-md transition-all cursor-grab active:cursor-grabbing ${
+                  className={`flex items-center gap-3 p-4 bg-paper-light rounded-md transition-all cursor-grab active:cursor-grabbing ${
                     draggedId === pm.id ? 'opacity-50 scale-[1.02]' : ''
                   } ${
                     dragOverId === pm.id ? 'ring-2 ring-ink-black dark:ring-paper-white' : ''
@@ -222,7 +222,7 @@ export function PaymentMethodManagePage() {
                     <Icon name={pm.icon} size={20} style={{ color: pm.color }} />
                   </div>
                   <div className="flex-1 min-w-0" onClick={() => goToEdit(pm)}>
-                    <p className="text-body text-ink-black dark:text-paper-white truncate">{pm.name}</p>
+                    <p className="text-body text-ink-black truncate">{pm.name}</p>
                     {pm.isDefault && (
                       <p className="text-caption text-ink-light">기본</p>
                     )}
@@ -236,7 +236,7 @@ export function PaymentMethodManagePage() {
 
       {/* Info */}
       <section className="px-6 py-4">
-        <div className="p-4 bg-paper-light dark:bg-ink-dark rounded-md">
+        <div className="p-4 bg-paper-light rounded-md">
           <p className="text-caption text-ink-mid">
             카드별로 결제수단을 추가하면 각 카드의 사용 내역을 따로 확인할 수 있습니다.
             순서를 변경하면 거래 입력 시 표시되는 순서가 바뀝니다.

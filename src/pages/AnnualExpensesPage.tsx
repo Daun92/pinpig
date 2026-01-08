@@ -107,20 +107,20 @@ export function AnnualExpensesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper-white dark:bg-ink-black flex items-center justify-center">
+      <div className="min-h-screen bg-paper-white flex items-center justify-center">
         <Loader2 size={32} className="text-ink-mid animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white">연간 지출 관리</h1>
+        <h1 className="text-title text-ink-black">연간 지출 관리</h1>
         <button
           onClick={handleScan}
           disabled={isScanning}
@@ -138,16 +138,16 @@ export function AnnualExpensesPage() {
       {showDetected && detectedPatterns.length > 0 && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowDetected(false)} />
-          <div className="relative w-full max-w-lg bg-paper-white dark:bg-ink-black rounded-2xl max-h-[70vh] overflow-auto animate-fade-in">
+          <div className="relative w-full max-w-lg bg-paper-white rounded-2xl max-h-[70vh] overflow-auto animate-fade-in">
             <div className="p-6">
-              <h2 className="text-title text-ink-black dark:text-paper-white mb-2">올해 예상되는 큰 지출</h2>
+              <h2 className="text-title text-ink-black mb-2">올해 예상되는 큰 지출</h2>
               <p className="text-sub text-ink-mid mb-6">작년 데이터를 분석해봤어요</p>
 
               <div className="space-y-4">
                 {detectedPatterns.map((pattern) => (
                   <div
                     key={pattern.id}
-                    className="p-4 bg-paper-light dark:bg-ink-dark rounded-md"
+                    className="p-4 bg-paper-light rounded-md"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -158,13 +158,13 @@ export function AnnualExpensesPage() {
                           <Icon name={pattern.categoryIcon} size={20} className="text-ink-dark dark:text-paper-mid" />
                         </div>
                         <div>
-                          <p className="text-body text-ink-black dark:text-paper-white">{pattern.description}</p>
+                          <p className="text-body text-ink-black">{pattern.description}</p>
                           <p className="text-caption text-ink-light">
                             {pattern.year}년 {pattern.month}월 {pattern.day}일
                           </p>
                         </div>
                       </div>
-                      <p className="text-body text-ink-black dark:text-paper-white">{formatCurrency(pattern.amount)}</p>
+                      <p className="text-body text-ink-black">{formatCurrency(pattern.amount)}</p>
                     </div>
                     <button
                       onClick={() => handleAddDetected(pattern)}
@@ -189,9 +189,9 @@ export function AnnualExpensesPage() {
 
       {/* Summary */}
       {patterns.length > 0 && (
-        <div className="px-6 py-4 border-b border-paper-mid dark:border-ink-dark">
+        <div className="px-6 py-4 border-b border-paper-mid">
           <p className="text-sub text-ink-mid">올해 예상 합계</p>
-          <p className="text-title text-ink-black dark:text-paper-white">{formatCurrency(totalAnnualExpense)}</p>
+          <p className="text-title text-ink-black">{formatCurrency(totalAnnualExpense)}</p>
           <p className="text-caption text-ink-light mt-1">
             월 평균 {formatCurrency(Math.round(totalAnnualExpense / 12))} 추가 필요
           </p>
@@ -226,7 +226,7 @@ export function AnnualExpensesPage() {
                 <div
                   key={pattern.id}
                   className={`p-4 rounded-md border ${
-                    pattern.isEnabled ? 'border-paper-mid dark:border-ink-dark bg-paper-white dark:bg-ink-black' : 'border-paper-mid dark:border-ink-dark bg-paper-light dark:bg-ink-dark/50 opacity-60'
+                    pattern.isEnabled ? 'border-paper-mid bg-paper-white' : 'border-paper-mid bg-paper-light/50 opacity-60'
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -238,19 +238,19 @@ export function AnnualExpensesPage() {
                         <Icon name={pattern.categoryIcon} size={20} className="text-ink-dark dark:text-paper-mid" />
                       </div>
                       <div>
-                        <p className="text-body text-ink-black dark:text-paper-white">{pattern.description}</p>
+                        <p className="text-body text-ink-black">{pattern.description}</p>
                         <p className="text-caption text-ink-light">
                           {pattern.month}월 · D-{daysUntil}
                         </p>
                       </div>
                     </div>
-                    <p className="text-body text-ink-black dark:text-paper-white">{formatCurrency(pattern.amount)}</p>
+                    <p className="text-body text-ink-black">{formatCurrency(pattern.amount)}</p>
                   </div>
 
                   <div className="flex justify-end gap-2 mt-3">
                     <button
                       onClick={() => handleToggleEnabled(pattern)}
-                      className="p-2 rounded-md bg-paper-light dark:bg-ink-dark"
+                      className="p-2 rounded-md bg-paper-light"
                     >
                       {pattern.isEnabled ? (
                         <Bell size={18} className="text-ink-mid" />
@@ -260,7 +260,7 @@ export function AnnualExpensesPage() {
                     </button>
                     <button
                       onClick={() => handleDelete(pattern)}
-                      className="p-2 rounded-md bg-paper-light dark:bg-ink-dark"
+                      className="p-2 rounded-md bg-paper-light"
                     >
                       <Trash2 size={18} className="text-red-500" />
                     </button>
@@ -278,7 +278,7 @@ export function AnnualExpensesPage() {
           <button
             onClick={handleScan}
             disabled={isScanning}
-            className="w-full py-3 border border-paper-mid dark:border-ink-dark rounded-md text-body text-ink-mid flex items-center justify-center gap-2"
+            className="w-full py-3 border border-paper-mid rounded-md text-body text-ink-mid flex items-center justify-center gap-2"
           >
             <Plus size={18} />
             작년 데이터에서 찾기

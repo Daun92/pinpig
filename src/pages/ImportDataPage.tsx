@@ -1,95 +1,215 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileSpreadsheet, Check, AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Upload,
+  FileSpreadsheet,
+  FileText,
+  FileJson,
+  Check,
+  AlertCircle,
+  Loader2,
+  Trash2,
+  X,
+  Copy,
+  AlertTriangle,
+} from 'lucide-react';
 import {
   importExcelData,
   previewExcelImport,
   getImportStatus,
   clearAllTransactions,
+  checkDuplicates,
+  detectFileType,
+  parseCSV,
+  parseJSON,
+  SUPPORTED_FILE_TYPES,
   type ExcelRow,
   type ImportPreview,
   type ImportResult,
+  type ImportProgress,
+  type DuplicateCheckResult,
+  type SupportedFileType,
 } from '@/services/excelImport';
 
-type Step = 'upload' | 'preview' | 'importing' | 'complete';
+type Step = 'upload' | 'preview' | 'duplicate_check' | 'importing' | 'complete';
 
 export function ImportDataPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [step, setStep] = useState<Step>('upload');
   const [fileName, setFileName] = useState<string>('');
+  const [fileType, setFileType] = useState<SupportedFileType | null>(null);
   const [excelData, setExcelData] = useState<ExcelRow[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [duplicateResult, setDuplicateResult] = useState<DuplicateCheckResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string>('');
   const [clearExisting, setClearExisting] = useState(false);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [importStatus, setImportStatus] = useState<Awaited<ReturnType<typeof getImportStatus>> | null>(null);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // 파일 타입에 따른 아이콘
+  const getFileIcon = (type: SupportedFileType | null, size = 48) => {
+    const className = 'text-ink-mid';
+    switch (type) {
+      case 'csv':
+        return <FileText size={size} className={className} />;
+      case 'json':
+        return <FileJson size={size} className={className} />;
+      default:
+        return <FileSpreadsheet size={size} className={className} />;
+    }
+  };
+
+  // 파일 처리 공통 함수
+  const processFile = async (file: File) => {
+    setError('');
+    setFileName(file.name);
+
+    const detectedType = detectFileType(file.name);
+    if (!detectedType) {
+      setError('지원하지 않는 파일 형식입니다. xlsx, xls, csv, json 파일만 가능합니다.');
+      return;
+    }
+
+    setFileType(detectedType);
+
+    try {
+      let jsonData: ExcelRow[] = [];
+
+      if (detectedType === 'xlsx' || detectedType === 'xls') {
+        // Excel 파일 처리
+        const XLSX = await import('xlsx');
+        const reader = new FileReader();
+
+        const result = await new Promise<ExcelRow[]>((resolve, reject) => {
+          reader.onload = (event) => {
+            try {
+              const data = event.target?.result;
+              const workbook = XLSX.read(data, { type: 'binary' });
+              const sheetName = workbook.SheetNames[0];
+              const sheet = workbook.Sheets[sheetName];
+              const parsed: ExcelRow[] = XLSX.utils.sheet_to_json(sheet);
+              resolve(parsed);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = () => reject(new Error('파일 읽기 실패'));
+          reader.readAsBinaryString(file);
+        });
+
+        jsonData = result;
+      } else if (detectedType === 'csv') {
+        // CSV 파일 처리
+        const text = await file.text();
+        jsonData = parseCSV(text);
+      } else if (detectedType === 'json') {
+        // JSON 파일 처리
+        const text = await file.text();
+        jsonData = parseJSON(text);
+      }
+
+      if (jsonData.length === 0) {
+        setError('파일에서 데이터를 찾을 수 없습니다. 파일 형식을 확인해주세요.');
+        return;
+      }
+
+      setExcelData(jsonData);
+
+      // 미리보기 생성
+      const previewData = await previewExcelImport(jsonData);
+      setPreview(previewData);
+
+      // 현재 상태 조회
+      const status = await getImportStatus();
+      setImportStatus(status);
+
+      setStep('preview');
+    } catch (err) {
+      console.error('파일 처리 오류:', err);
+      setError('파일을 처리할 수 없습니다. 올바른 형식인지 확인해주세요.');
+    }
+  };
 
   // 파일 선택 핸들러
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
 
+  // 드래그앤드롭 핸들러
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  // 중복 확인
+  const handleCheckDuplicates = async () => {
+    if (excelData.length === 0 || clearExisting) {
+      handleImport();
+      return;
+    }
+
+    setStep('duplicate_check');
     setError('');
-    setFileName(file.name);
 
     try {
-      // xlsx 라이브러리 동적 로드
-      const XLSX = await import('xlsx');
+      const duplicates = await checkDuplicates(excelData, setProgress);
+      setDuplicateResult(duplicates);
 
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const data = event.target?.result;
-          const workbook = XLSX.read(data, { type: 'binary' });
-
-          // 첫 번째 시트 파싱
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const jsonData: ExcelRow[] = XLSX.utils.sheet_to_json(sheet);
-
-          setExcelData(jsonData);
-
-          // 미리보기 생성
-          const previewData = await previewExcelImport(jsonData);
-          setPreview(previewData);
-
-          // 현재 상태 조회
-          const status = await getImportStatus();
-          setImportStatus(status);
-
-          setStep('preview');
-        } catch (err) {
-          console.error('파싱 오류:', err);
-          setError('파일을 읽을 수 없습니다. 올바른 Excel 파일인지 확인해주세요.');
-        }
-      };
-
-      reader.onerror = () => {
-        setError('파일을 읽는 중 오류가 발생했습니다.');
-      };
-
-      reader.readAsBinaryString(file);
+      if (duplicates.duplicateCount === 0) {
+        handleImport();
+      }
     } catch (err) {
-      console.error('Excel 처리 오류:', err);
-      setError('Excel 파일 처리 중 오류가 발생했습니다.');
+      console.error('중복 확인 오류:', err);
+      setError('중복 확인 중 오류가 발생했습니다.');
+      setStep('preview');
     }
   };
 
   // 가져오기 실행
-  const handleImport = async () => {
+  const handleImport = useCallback(async () => {
     if (excelData.length === 0) return;
+
+    abortControllerRef.current = new AbortController();
 
     setStep('importing');
     setError('');
+    setProgress(null);
 
     try {
-      const importResult = await importExcelData(excelData, {
-        clearExisting,
-        createMissingCategories: true,
-        createMissingPaymentMethods: true,
-      });
+      const importResult = await importExcelData(
+        excelData,
+        {
+          clearExisting,
+          createMissingCategories: true,
+          createMissingPaymentMethods: true,
+          skipDuplicates,
+          abortSignal: abortControllerRef.current.signal,
+        },
+        setProgress
+      );
 
       setResult(importResult);
       setStep('complete');
@@ -97,6 +217,15 @@ export function ImportDataPage() {
       console.error('가져오기 오류:', err);
       setError('가져오기 중 오류가 발생했습니다: ' + (err as Error).message);
       setStep('preview');
+    } finally {
+      abortControllerRef.current = null;
+    }
+  }, [excelData, clearExisting, skipDuplicates]);
+
+  // 가져오기 취소
+  const handleCancelImport = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -108,9 +237,20 @@ export function ImportDataPage() {
       await clearAllTransactions();
       const status = await getImportStatus();
       setImportStatus(status);
-    } catch (err) {
+    } catch {
       setError('삭제 중 오류가 발생했습니다.');
     }
+  };
+
+  // 초기화
+  const resetState = () => {
+    setStep('upload');
+    setExcelData([]);
+    setPreview(null);
+    setFileName('');
+    setFileType(null);
+    setDuplicateResult(null);
+    setError('');
   };
 
   // 날짜 포맷
@@ -123,58 +263,94 @@ export function ImportDataPage() {
     });
   };
 
+  // 진행률 퍼센트 계산
+  const progressPercent = progress ? Math.round((progress.current / progress.total) * 100) : 0;
+
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center px-4 border-b border-paper-mid">
         <button onClick={() => navigate('/settings')} className="p-2 -ml-2">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white ml-2">데이터 가져오기</h1>
+        <h1 className="text-title text-ink-black ml-2">데이터 가져오기</h1>
       </header>
 
       <div className="px-6 py-6">
         {/* Step 1: 파일 업로드 */}
         {step === 'upload' && (
           <div className="space-y-6">
-            <div className="text-center py-8">
-              <FileSpreadsheet size={64} className="mx-auto text-ink-light mb-4" />
-              <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">Excel 파일 업로드</h2>
-              <p className="text-body text-ink-mid">
-                다른 가계부 앱에서 내보낸 Excel 파일을 선택하세요
-              </p>
+            <div className="text-center py-6">
+              <div className="flex justify-center gap-4 mb-4">
+                <FileSpreadsheet size={32} className="text-ink-mid" />
+                <FileText size={32} className="text-ink-mid" />
+                <FileJson size={32} className="text-ink-mid" />
+              </div>
+              <h2 className="text-title text-ink-black mb-2">파일 업로드</h2>
+              <p className="text-body text-ink-mid">다른 가계부 앱에서 내보낸 파일을 선택하세요</p>
             </div>
 
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv,.json"
               onChange={handleFileSelect}
               className="hidden"
             />
 
-            <button
+            {/* 드래그앤드롭 영역 */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-4 border-2 border-dashed border-ink-light dark:border-ink-dark rounded-xl flex flex-col items-center gap-2 hover:border-pig-pink transition-colors"
+              className={`w-full py-10 border-2 border-dashed rounded-md flex flex-col items-center gap-3 cursor-pointer transition-all ${
+                isDragging
+                  ? 'border-ink-black bg-paper-light'
+                  : 'border-paper-mid hover:border-ink-mid'
+              }`}
             >
-              <Upload size={24} className="text-ink-mid" />
-              <span className="text-body text-ink-mid">파일 선택</span>
-              <span className="text-caption text-ink-light">.xlsx, .xls</span>
-            </button>
+              <Upload size={28} className={isDragging ? 'text-ink-black' : 'text-ink-mid'} />
+              <div className="text-center">
+                <span className="text-body text-ink-black block">
+                  {isDragging ? '여기에 놓으세요' : '클릭하거나 파일을 드래그하세요'}
+                </span>
+                <span className="text-caption text-ink-light mt-1 block">Excel, CSV, JSON 지원</span>
+              </div>
+            </div>
+
+            {/* 지원 형식 */}
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(SUPPORTED_FILE_TYPES).map(([key, info]) => (
+                <div key={key} className="p-3 bg-paper-light rounded-md flex items-center gap-3">
+                  {key === 'csv' ? (
+                    <FileText size={20} className="text-ink-mid" />
+                  ) : key === 'json' ? (
+                    <FileJson size={20} className="text-ink-mid" />
+                  ) : (
+                    <FileSpreadsheet size={20} className="text-ink-mid" />
+                  )}
+                  <div>
+                    <p className="text-sub text-ink-black">{info.label}</p>
+                    <p className="text-caption text-ink-light">{info.extension}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {error && (
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
-                <p className="text-body text-red-600 dark:text-red-400">{error}</p>
+              <div className="p-4 bg-paper-light rounded-md flex items-start gap-3">
+                <AlertCircle size={20} className="text-ink-mid shrink-0 mt-0.5" />
+                <p className="text-body text-ink-dark">{error}</p>
               </div>
             )}
 
-            <div className="bg-paper-light dark:bg-ink-dark rounded-lg p-4">
-              <h3 className="text-sub text-ink-mid mb-2">지원 형식</h3>
+            <div className="bg-paper-light rounded-md p-4">
+              <h3 className="text-sub text-ink-mid mb-2">지원 앱 / 형식</h3>
               <ul className="text-caption text-ink-light space-y-1">
-                <li>- 머니매니저 (Money Manager)</li>
-                <li>- 기간, 자산, 분류, 내용, 금액 컬럼 필요</li>
-                <li>- 첫 번째 시트의 데이터만 가져옵니다</li>
+                <li>- 머니매니저 (Money Manager) - Excel</li>
+                <li>- PinPig 내보내기 파일 - JSON</li>
+                <li>- 범용 CSV (날짜, 금액, 카테고리, 내용 컬럼)</li>
               </ul>
             </div>
           </div>
@@ -183,62 +359,79 @@ export function ImportDataPage() {
         {/* Step 2: 미리보기 */}
         {step === 'preview' && preview && (
           <div className="space-y-6">
-            <div className="bg-pig-pink/10 dark:bg-pig-pink/20 rounded-lg p-4">
-              <h3 className="text-heading text-ink-black dark:text-paper-white mb-1">{fileName}</h3>
-              <p className="text-body text-ink-mid">
-                {preview.totalRows.toLocaleString()}개의 거래 데이터
-              </p>
-              {preview.dateRange.oldest && preview.dateRange.newest && (
-                <p className="text-caption text-ink-light mt-1">
-                  {formatDate(preview.dateRange.oldest)} ~ {formatDate(preview.dateRange.newest)}
+            <div className="bg-paper-light rounded-md p-4 flex items-start gap-4">
+              {getFileIcon(fileType, 40)}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-title text-ink-black truncate">{fileName}</h3>
+                <p className="text-body text-ink-mid">
+                  {preview.totalRows.toLocaleString()}개의 거래 데이터
                 </p>
-              )}
+                {preview.dateRange.oldest && preview.dateRange.newest && (
+                  <p className="text-caption text-ink-light mt-1">
+                    {formatDate(preview.dateRange.oldest)} ~ {formatDate(preview.dateRange.newest)}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* 현재 데이터 현황 */}
             {importStatus && importStatus.totalTransactions > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
+              <div className="bg-paper-light rounded-md p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sub text-amber-700 dark:text-amber-400">현재 저장된 데이터</h4>
-                    <p className="text-body text-amber-600 dark:text-amber-300">
+                    <h4 className="text-sub text-ink-mid">현재 저장된 데이터</h4>
+                    <p className="text-body text-ink-black">
                       {importStatus.totalTransactions.toLocaleString()}개의 거래
                     </p>
                   </div>
                   <button
                     onClick={handleClearExisting}
-                    className="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg"
+                    className="p-2 text-ink-mid hover:bg-paper-mid rounded-md"
                   >
                     <Trash2 size={20} />
                   </button>
                 </div>
-                <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={clearExisting}
-                    onChange={(e) => setClearExisting(e.target.checked)}
-                    className="w-4 h-4 rounded border-amber-400 text-pig-pink focus:ring-pig-pink"
-                  />
-                  <span className="text-caption text-amber-600 dark:text-amber-300">
-                    가져오기 전 기존 데이터 삭제
-                  </span>
-                </label>
+
+                <div className="mt-3 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={clearExisting}
+                      onChange={(e) => {
+                        setClearExisting(e.target.checked);
+                        if (e.target.checked) setSkipDuplicates(false);
+                      }}
+                      className="w-4 h-4 rounded border-ink-light text-ink-black focus:ring-ink-mid"
+                    />
+                    <span className="text-caption text-ink-mid">기존 데이터 모두 삭제 후 가져오기</span>
+                  </label>
+
+                  {!clearExisting && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={skipDuplicates}
+                        onChange={(e) => setSkipDuplicates(e.target.checked)}
+                        className="w-4 h-4 rounded border-ink-light text-ink-black focus:ring-ink-mid"
+                      />
+                      <span className="text-caption text-ink-mid">중복 데이터 자동 건너뛰기</span>
+                    </label>
+                  )}
+                </div>
               </div>
             )}
 
             {/* 카테고리 목록 */}
             <div>
-              <h4 className="text-sub text-ink-mid mb-2">
-                카테고리 ({preview.categories.length}개)
-              </h4>
+              <h4 className="text-sub text-ink-mid mb-2">카테고리 ({preview.categories.length}개)</h4>
               <div className="flex flex-wrap gap-2">
                 {preview.categories.slice(0, 15).map((cat) => (
                   <span
                     key={cat.name}
                     className={`px-3 py-1 rounded-full text-caption ${
                       cat.type === 'income'
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                        : 'bg-paper-light dark:bg-ink-dark text-ink-mid'
+                        ? 'bg-money-green/10 text-money-green'
+                        : 'bg-paper-light text-ink-mid'
                     }`}
                   >
                     {cat.name} ({cat.count})
@@ -253,26 +446,28 @@ export function ImportDataPage() {
             </div>
 
             {/* 결제수단 목록 */}
-            <div>
-              <h4 className="text-sub text-ink-mid mb-2">
-                결제수단 ({preview.paymentMethods.length}개)
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {preview.paymentMethods.slice(0, 10).map((pm) => (
-                  <span
-                    key={pm.name}
-                    className="px-3 py-1 rounded-full bg-paper-light dark:bg-ink-dark text-caption text-ink-mid"
-                  >
-                    {pm.name} ({pm.count})
-                  </span>
-                ))}
-                {preview.paymentMethods.length > 10 && (
-                  <span className="px-3 py-1 text-caption text-ink-light">
-                    +{preview.paymentMethods.length - 10}개 더
-                  </span>
-                )}
+            {preview.paymentMethods.length > 0 && (
+              <div>
+                <h4 className="text-sub text-ink-mid mb-2">
+                  결제수단 ({preview.paymentMethods.length}개)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {preview.paymentMethods.slice(0, 10).map((pm) => (
+                    <span
+                      key={pm.name}
+                      className="px-3 py-1 rounded-full bg-paper-light text-caption text-ink-mid"
+                    >
+                      {pm.name} ({pm.count})
+                    </span>
+                  ))}
+                  {preview.paymentMethods.length > 10 && (
+                    <span className="px-3 py-1 text-caption text-ink-light">
+                      +{preview.paymentMethods.length - 10}개 더
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 샘플 데이터 */}
             <div>
@@ -281,21 +476,25 @@ export function ImportDataPage() {
                 {preview.sampleTransactions.map((tx, i) => (
                   <div
                     key={i}
-                    className="p-3 bg-paper-light dark:bg-ink-dark rounded-lg flex justify-between items-center"
+                    className="p-3 bg-paper-light rounded-md flex justify-between items-center"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-caption text-ink-light">{tx.date}</p>
-                      <p className="text-body text-ink-black dark:text-paper-white">{tx.description || tx.category}</p>
+                      <p className="text-body text-ink-black truncate">
+                        {tx.description || tx.category}
+                      </p>
                       <p className="text-caption text-ink-mid">
-                        {tx.category} | {tx.paymentMethod}
+                        {tx.category} {tx.paymentMethod && `| ${tx.paymentMethod}`}
                       </p>
                     </div>
                     <span
-                      className={`text-body font-medium ${
-                        tx.type === '수입' ? 'text-money-green' : 'text-ink-black dark:text-paper-white'
+                      className={`text-body font-medium ml-2 shrink-0 ${
+                        tx.type === '수입' || tx.type === 'income'
+                          ? 'text-money-green'
+                          : 'text-ink-black'
                       }`}
                     >
-                      {tx.type === '수입' ? '+' : ''}
+                      {tx.type === '수입' || tx.type === 'income' ? '+' : ''}
                       {tx.amount.toLocaleString()}원
                     </span>
                   </div>
@@ -304,35 +503,29 @@ export function ImportDataPage() {
             </div>
 
             {error && (
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
-                <p className="text-body text-red-600 dark:text-red-400">{error}</p>
+              <div className="p-4 bg-paper-light rounded-md flex items-start gap-3">
+                <AlertCircle size={20} className="text-ink-mid shrink-0 mt-0.5" />
+                <p className="text-body text-ink-dark">{error}</p>
               </div>
             )}
 
-            {/* 하단 여백 (고정 버튼 공간) */}
             <div className="h-20" />
           </div>
         )}
 
-        {/* 미리보기 액션 버튼 - 하단 고정 */}
+        {/* 미리보기 액션 버튼 */}
         {step === 'preview' && preview && (
-          <div className="fixed bottom-20 left-0 right-0 px-6 py-4 bg-paper-white dark:bg-ink-black border-t border-paper-mid dark:border-ink-dark">
+          <div className="fixed bottom-20 left-0 right-0 px-6 py-4 bg-paper-white border-t border-paper-mid">
             <div className="flex gap-3 max-w-lg mx-auto">
               <button
-                onClick={() => {
-                  setStep('upload');
-                  setExcelData([]);
-                  setPreview(null);
-                  setFileName('');
-                }}
-                className="flex-1 py-3 rounded-xl border border-ink-light dark:border-ink-dark text-ink-mid"
+                onClick={resetState}
+                className="flex-1 py-3 rounded-sm border border-paper-mid text-ink-mid"
               >
                 다시 선택
               </button>
               <button
-                onClick={handleImport}
-                className="flex-1 py-3 rounded-xl bg-pig-pink text-white font-medium"
+                onClick={handleCheckDuplicates}
+                className="flex-1 py-3 rounded-sm bg-ink-black text-paper-white font-medium"
               >
                 가져오기
               </button>
@@ -340,57 +533,188 @@ export function ImportDataPage() {
           </div>
         )}
 
-        {/* Step 3: 가져오는 중 */}
-        {step === 'importing' && (
-          <div className="text-center py-16">
-            <Loader2 size={48} className="mx-auto text-pig-pink animate-spin mb-4" />
-            <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">데이터 가져오는 중...</h2>
-            <p className="text-body text-ink-mid">
-              {excelData.length.toLocaleString()}개의 거래를 처리하고 있습니다
-            </p>
+        {/* Step 3: 중복 확인 결과 */}
+        {step === 'duplicate_check' && duplicateResult && (
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-full bg-paper-light mx-auto flex items-center justify-center mb-4">
+                <Copy size={28} className="text-ink-mid" />
+              </div>
+              <h2 className="text-title text-ink-black mb-2">중복 데이터 발견</h2>
+              <p className="text-body text-ink-mid">
+                {duplicateResult.duplicateCount.toLocaleString()}개의 중복 거래가 있습니다
+              </p>
+            </div>
+
+            <div className="bg-paper-light rounded-md p-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">전체 데이터</span>
+                <span className="text-body text-ink-black font-medium">
+                  {duplicateResult.totalRows.toLocaleString()}개
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">중복 데이터</span>
+                <span className="text-body text-ink-mid">
+                  {duplicateResult.duplicateCount.toLocaleString()}개
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">새 데이터</span>
+                <span className="text-body text-money-green font-medium">
+                  {duplicateResult.newCount.toLocaleString()}개
+                </span>
+              </div>
+            </div>
+
+            {duplicateResult.duplicates.length > 0 && (
+              <div>
+                <h4 className="text-sub text-ink-mid mb-2">중복 데이터 예시</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {duplicateResult.duplicates.map((dup, i) => (
+                    <div
+                      key={i}
+                      className="p-3 bg-paper-light rounded-md flex justify-between items-center"
+                    >
+                      <div>
+                        <p className="text-caption text-ink-light">{dup.date}</p>
+                        <p className="text-body text-ink-black">{dup.description || dup.category}</p>
+                      </div>
+                      <span className="text-body text-ink-mid">{dup.amount.toLocaleString()}원</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setSkipDuplicates(true);
+                  handleImport();
+                }}
+                className="w-full py-3 rounded-sm bg-ink-black text-paper-white font-medium"
+              >
+                새 데이터만 가져오기 ({duplicateResult.newCount.toLocaleString()}개)
+              </button>
+              <button
+                onClick={() => {
+                  setSkipDuplicates(false);
+                  handleImport();
+                }}
+                className="w-full py-3 rounded-sm border border-paper-mid text-ink-mid"
+              >
+                전체 가져오기 (중복 포함)
+              </button>
+              <button
+                onClick={() => {
+                  setStep('preview');
+                  setDuplicateResult(null);
+                }}
+                className="w-full py-3 rounded-sm text-ink-light"
+              >
+                취소
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Step 4: 완료 */}
+        {/* Step 4: 가져오는 중 */}
+        {step === 'importing' && (
+          <div className="text-center py-16 space-y-6">
+            <Loader2 size={40} className="mx-auto text-ink-mid animate-spin" />
+            <div>
+              <h2 className="text-title text-ink-black mb-2">데이터 가져오는 중...</h2>
+              <p className="text-body text-ink-mid">
+                {progress?.message ||
+                  `${excelData.length.toLocaleString()}개의 거래를 처리하고 있습니다`}
+              </p>
+            </div>
+
+            {progress && (
+              <div className="max-w-sm mx-auto">
+                <div className="flex justify-between text-caption text-ink-mid mb-2">
+                  <span>{progress.phase === 'importing' ? '가져오기' : '준비'}</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-ink-black transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                {progress.phase === 'importing' && (
+                  <p className="text-caption text-ink-light mt-2">
+                    {progress.current.toLocaleString()} / {progress.total.toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleCancelImport}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-paper-mid text-ink-mid hover:bg-paper-light transition-colors"
+            >
+              <X size={16} />
+              <span>취소</span>
+            </button>
+          </div>
+        )}
+
+        {/* Step 5: 완료 */}
         {step === 'complete' && result && (
           <div className="space-y-6">
             <div className="text-center py-8">
               {result.success ? (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mx-auto flex items-center justify-center mb-4">
-                    <Check size={32} className="text-green-600 dark:text-green-400" />
+                  <div className="w-16 h-16 rounded-full bg-money-green/10 mx-auto flex items-center justify-center mb-4">
+                    <Check size={28} className="text-money-green" />
                   </div>
-                  <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">가져오기 완료!</h2>
+                  <h2 className="text-title text-ink-black mb-2">가져오기 완료</h2>
+                </>
+              ) : result.errors.some((e) => e.includes('취소')) ? (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-paper-light mx-auto flex items-center justify-center mb-4">
+                    <AlertTriangle size={28} className="text-ink-mid" />
+                  </div>
+                  <h2 className="text-title text-ink-black mb-2">가져오기 취소됨</h2>
+                  <p className="text-body text-ink-mid">일부 데이터가 가져와졌을 수 있습니다</p>
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mx-auto flex items-center justify-center mb-4">
-                    <AlertCircle size={32} className="text-red-600 dark:text-red-400" />
+                  <div className="w-16 h-16 rounded-full bg-paper-light mx-auto flex items-center justify-center mb-4">
+                    <AlertCircle size={28} className="text-ink-mid" />
                   </div>
-                  <h2 className="text-heading text-ink-black dark:text-paper-white mb-2">가져오기 실패</h2>
+                  <h2 className="text-title text-ink-black mb-2">가져오기 실패</h2>
                 </>
               )}
             </div>
 
-            <div className="bg-paper-light dark:bg-ink-dark rounded-lg p-4 space-y-3">
+            <div className="bg-paper-light rounded-md p-4 space-y-3">
               <div className="flex justify-between">
                 <span className="text-body text-ink-mid">가져온 거래</span>
-                <span className="text-body text-ink-black dark:text-paper-white font-medium">
+                <span className="text-body text-ink-black font-medium">
                   {result.importedTransactions.toLocaleString()}개
                 </span>
               </div>
+              {result.duplicateRows > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-body text-ink-mid">건너뛴 중복</span>
+                  <span className="text-body text-ink-mid">
+                    {result.duplicateRows.toLocaleString()}개
+                  </span>
+                </div>
+              )}
               {result.newCategories > 0 && (
                 <div className="flex justify-between">
                   <span className="text-body text-ink-mid">새 카테고리</span>
-                  <span className="text-body text-ink-black dark:text-paper-white font-medium">
-                    {result.newCategories}개
-                  </span>
+                  <span className="text-body text-ink-black font-medium">{result.newCategories}개</span>
                 </div>
               )}
               {result.newPaymentMethods > 0 && (
                 <div className="flex justify-between">
                   <span className="text-body text-ink-mid">새 결제수단</span>
-                  <span className="text-body text-ink-black dark:text-paper-white font-medium">
+                  <span className="text-body text-ink-black font-medium">
                     {result.newPaymentMethods}개
                   </span>
                 </div>
@@ -398,13 +722,11 @@ export function ImportDataPage() {
               {result.skippedRows > 0 && (
                 <div className="flex justify-between">
                   <span className="text-body text-ink-mid">건너뛴 행</span>
-                  <span className="text-body text-amber-600">
-                    {result.skippedRows}개
-                  </span>
+                  <span className="text-body text-ink-mid">{result.skippedRows}개</span>
                 </div>
               )}
               {result.dateRange.oldest && result.dateRange.newest && (
-                <div className="pt-2 border-t border-paper-mid dark:border-ink-black">
+                <div className="pt-2 border-t border-paper-mid">
                   <p className="text-caption text-ink-light">
                     {formatDate(result.dateRange.oldest)} ~ {formatDate(result.dateRange.newest)}
                   </p>
@@ -412,15 +734,18 @@ export function ImportDataPage() {
               )}
             </div>
 
-            {result.errors.length > 0 && (
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-                <h4 className="text-sub text-red-600 dark:text-red-400 mb-2">오류 목록</h4>
-                <ul className="text-caption text-red-500 space-y-1 max-h-32 overflow-y-auto">
-                  {result.errors.slice(0, 10).map((err, i) => (
-                    <li key={i}>- {err}</li>
-                  ))}
-                  {result.errors.length > 10 && (
-                    <li>... 외 {result.errors.length - 10}개</li>
+            {result.errors.length > 0 && !result.errors.every((e) => e.includes('취소')) && (
+              <div className="bg-paper-light rounded-md p-4">
+                <h4 className="text-sub text-ink-mid mb-2">오류 목록</h4>
+                <ul className="text-caption text-ink-light space-y-1 max-h-32 overflow-y-auto">
+                  {result.errors
+                    .filter((e) => !e.includes('취소'))
+                    .slice(0, 10)
+                    .map((err, i) => (
+                      <li key={i}>- {err}</li>
+                    ))}
+                  {result.errors.filter((e) => !e.includes('취소')).length > 10 && (
+                    <li>... 외 {result.errors.filter((e) => !e.includes('취소')).length - 10}개</li>
                   )}
                 </ul>
               </div>
@@ -428,7 +753,7 @@ export function ImportDataPage() {
 
             <button
               onClick={() => navigate('/')}
-              className="w-full py-3 rounded-xl bg-pig-pink text-white font-medium"
+              className="w-full py-3 rounded-sm bg-ink-black text-paper-white font-medium"
             >
               홈으로 돌아가기
             </button>

@@ -103,20 +103,20 @@ export function PaymentMethodEditPage() {
   }, [canSubmit, handleSubmit, setCanSubmit, setSubmitHandler, resetFab]);
 
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white">
+        <h1 className="text-title text-ink-black">
           {isEditing ? '결제수단 수정' : '새 결제수단'}
         </h1>
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
           className={`w-10 h-10 flex items-center justify-center ${
-            canSubmit ? 'text-ink-black dark:text-paper-white' : 'text-ink-light'
+            canSubmit ? 'text-ink-black' : 'text-ink-light'
           }`}
         >
           <Check size={24} />
@@ -133,7 +133,7 @@ export function PaymentMethodEditPage() {
             value={formData.name}
             onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="결제수단 이름 (예: 신한카드)"
-            className="w-full px-4 py-3 bg-paper-light dark:bg-ink-dark rounded-md text-body text-ink-black dark:text-paper-white outline-none border border-transparent focus:border-ink-mid dark:focus:border-paper-mid"
+            className="w-full px-4 py-3 bg-paper-light rounded-md text-body text-ink-black outline-none border border-transparent focus:border-ink-mid dark:focus:border-paper-mid"
             autoFocus
           />
         </div>
@@ -168,7 +168,7 @@ export function PaymentMethodEditPage() {
                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                   formData.icon === iconName
                     ? 'bg-ink-black dark:bg-pig-pink'
-                    : 'bg-paper-light dark:bg-ink-dark'
+                    : 'bg-paper-light'
                 }`}
               >
                 <Icon
@@ -208,14 +208,14 @@ export function PaymentMethodEditPage() {
         {/* Preview */}
         <div>
           <label className="text-sub text-ink-mid block mb-2">미리보기</label>
-          <div className="flex items-center gap-3 p-4 bg-paper-light dark:bg-ink-dark rounded-md">
+          <div className="flex items-center gap-3 p-4 bg-paper-light rounded-md">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
               style={{ backgroundColor: formData.color + '20' }}
             >
               <Icon name={formData.icon} size={20} style={{ color: formData.color }} />
             </div>
-            <p className="text-body text-ink-black dark:text-paper-white">
+            <p className="text-body text-ink-black">
               {formData.name || '결제수단 이름'}
             </p>
           </div>

@@ -1,5 +1,6 @@
 /**
- * Excel 데이터 가져오기 서비스
+ * 데이터 가져오기 서비스
+ * Excel, CSV, JSON 형식 지원
  * 다른 가계부 앱에서 내보낸 데이터를 PinPig 형식으로 변환
  */
 
@@ -7,10 +8,24 @@ import { db, generateId } from './database';
 import type { Transaction, Category, PaymentMethod, CreateCategoryInput, CreatePaymentMethodInput } from '@/types';
 
 // =========================================
-// Excel 데이터 구조 인터페이스
+// 지원 파일 형식
+// =========================================
+
+export type SupportedFileType = 'xlsx' | 'xls' | 'csv' | 'json';
+
+export const SUPPORTED_FILE_TYPES: Record<SupportedFileType, { extension: string; mimeType: string; label: string }> = {
+  xlsx: { extension: '.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'Excel (xlsx)' },
+  xls: { extension: '.xls', mimeType: 'application/vnd.ms-excel', label: 'Excel (xls)' },
+  csv: { extension: '.csv', mimeType: 'text/csv', label: 'CSV' },
+  json: { extension: '.json', mimeType: 'application/json', label: 'JSON' },
+};
+
+// =========================================
+// 데이터 구조 인터페이스
 // =========================================
 
 export interface ExcelRow {
+  // 머니매니저 형식
   기간?: number | string;        // Excel 시리얼 날짜 또는 문자열
   자산?: string;                 // 결제수단 (카드/은행)
   분류?: string;                 // 카테고리
@@ -21,6 +36,16 @@ export interface ExcelRow {
   추가입력?: string;             // 메모
   금액?: number;                 // 금액 (대체)
   화폐?: string;                 // 통화
+
+  // CSV/JSON 범용 형식 (영문)
+  date?: string;                 // 날짜 (YYYY-MM-DD 또는 MM/DD/YYYY)
+  time?: string;                 // 시간 (HH:mm)
+  type?: string;                 // 'income' | 'expense' | '수입' | '지출'
+  category?: string;             // 카테고리명
+  amount?: number;               // 금액
+  description?: string;          // 설명/가맹점
+  memo?: string;                 // 메모
+  paymentMethod?: string;        // 결제수단
 }
 
 export interface ImportResult {
@@ -30,11 +55,33 @@ export interface ImportResult {
   newCategories: number;
   newPaymentMethods: number;
   skippedRows: number;
+  duplicateRows: number;
   errors: string[];
   dateRange: {
     oldest: Date | null;
     newest: Date | null;
   };
+}
+
+export interface ImportProgress {
+  phase: 'preparing' | 'checking_duplicates' | 'creating_categories' | 'importing' | 'complete';
+  current: number;
+  total: number;
+  message: string;
+}
+
+export type ImportProgressCallback = (progress: ImportProgress) => void;
+
+export interface DuplicateCheckResult {
+  totalRows: number;
+  duplicateCount: number;
+  newCount: number;
+  duplicates: Array<{
+    date: string;
+    description: string;
+    amount: number;
+    category: string;
+  }>;
 }
 
 export interface ImportPreview {
@@ -107,6 +154,140 @@ const PAYMENT_METHOD_MAPPING: Record<string, { icon: string; color: string }> = 
   '현금': { icon: 'Banknote', color: '#4CAF50' },
   '공제': { icon: 'Receipt', color: '#9E9E9E' },
 };
+
+// =========================================
+// 파일 파싱 함수
+// =========================================
+
+/**
+ * 파일 확장자로 파일 타입 감지
+ */
+export function detectFileType(fileName: string): SupportedFileType | null {
+  const ext = fileName.toLowerCase().split('.').pop();
+  switch (ext) {
+    case 'xlsx': return 'xlsx';
+    case 'xls': return 'xls';
+    case 'csv': return 'csv';
+    case 'json': return 'json';
+    default: return null;
+  }
+}
+
+/**
+ * CSV 문자열을 ExcelRow 배열로 파싱
+ */
+export function parseCSV(csvContent: string): ExcelRow[] {
+  const lines = csvContent.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+
+  // 헤더 파싱 (첫 번째 줄)
+  const headers = parseCSVLine(lines[0]);
+  const rows: ExcelRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length === 0) continue;
+
+    const row: Record<string, unknown> = {};
+    headers.forEach((header, index) => {
+      const value = values[index]?.trim() || '';
+      const key = header.trim();
+
+      // 숫자 필드 처리
+      if (['금액', 'KRW', 'amount'].includes(key)) {
+        row[key] = parseFloat(value.replace(/,/g, '')) || 0;
+      } else {
+        row[key] = value;
+      }
+    });
+
+    rows.push(row as ExcelRow);
+  }
+
+  return rows;
+}
+
+/**
+ * CSV 한 줄 파싱 (따옴표 처리)
+ */
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++; // 이스케이프된 따옴표
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+
+  return result;
+}
+
+/**
+ * JSON 문자열을 ExcelRow 배열로 파싱
+ */
+export function parseJSON(jsonContent: string): ExcelRow[] {
+  try {
+    const data = JSON.parse(jsonContent);
+
+    // 배열인 경우
+    if (Array.isArray(data)) {
+      return data.map(normalizeRow);
+    }
+
+    // { transactions: [...] } 형태인 경우
+    if (data.transactions && Array.isArray(data.transactions)) {
+      return data.transactions.map(normalizeRow);
+    }
+
+    // { data: [...] } 형태인 경우
+    if (data.data && Array.isArray(data.data)) {
+      return data.data.map(normalizeRow);
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 다양한 필드명을 ExcelRow 형식으로 정규화
+ */
+function normalizeRow(row: Record<string, unknown>): ExcelRow {
+  return {
+    // 날짜 필드 정규화
+    기간: row['기간'] || row['date'] || row['날짜'] || row['Date'],
+    // 결제수단 필드 정규화
+    자산: (row['자산'] || row['paymentMethod'] || row['payment_method'] || row['결제수단'] || '') as string,
+    // 카테고리 필드 정규화
+    분류: (row['분류'] || row['category'] || row['카테고리'] || '') as string,
+    // 내용 필드 정규화
+    내용: (row['내용'] || row['description'] || row['설명'] || row['가맹점'] || '') as string,
+    // 금액 필드 정규화
+    금액: Number(row['금액'] || row['amount'] || row['KRW'] || 0),
+    KRW: Number(row['KRW'] || row['금액'] || row['amount'] || 0),
+    // 타입 필드 정규화
+    '수입/지출': (row['수입/지출'] || row['type'] || row['타입'] || '') as string,
+    // 메모 필드 정규화
+    추가입력: (row['추가입력'] || row['memo'] || row['메모'] || row['note'] || '') as string,
+  } as ExcelRow;
+}
 
 // =========================================
 // 유틸리티 함수
@@ -224,6 +405,78 @@ export async function previewExcelImport(jsonData: ExcelRow[]): Promise<ImportPr
 }
 
 /**
+ * 중복 데이터 확인
+ * 동일 날짜, 금액, 설명을 가진 거래가 있는지 체크
+ */
+export async function checkDuplicates(
+  jsonData: ExcelRow[],
+  onProgress?: ImportProgressCallback
+): Promise<DuplicateCheckResult> {
+  const result: DuplicateCheckResult = {
+    totalRows: jsonData.length,
+    duplicateCount: 0,
+    newCount: 0,
+    duplicates: [],
+  };
+
+  // 기존 거래 가져오기
+  const existingTransactions = await db.transactions.toArray();
+
+  // 중복 체크용 Set 생성 (날짜-금액-설명 조합)
+  const existingKeys = new Set<string>();
+  for (const tx of existingTransactions) {
+    const dateStr = tx.date instanceof Date
+      ? tx.date.toISOString().split('T')[0]
+      : new Date(tx.date).toISOString().split('T')[0];
+    const key = `${dateStr}-${tx.amount}-${tx.description}`;
+    existingKeys.add(key);
+  }
+
+  // 각 행 체크
+  for (let i = 0; i < jsonData.length; i++) {
+    const row = jsonData[i];
+
+    if (onProgress && i % 100 === 0) {
+      onProgress({
+        phase: 'checking_duplicates',
+        current: i,
+        total: jsonData.length,
+        message: `중복 확인 중... ${i}/${jsonData.length}`,
+      });
+    }
+
+    if (!row['기간']) continue;
+
+    const date = typeof row['기간'] === 'number'
+      ? excelDateToJS(row['기간'])
+      : new Date(row['기간']);
+
+    if (isNaN(date.getTime())) continue;
+
+    const dateStr = date.toISOString().split('T')[0];
+    const amount = Math.abs(row['금액'] || row['KRW'] || 0);
+    const description = row['내용'] || '';
+    const key = `${dateStr}-${amount}-${description}`;
+
+    if (existingKeys.has(key)) {
+      result.duplicateCount++;
+      if (result.duplicates.length < 20) {
+        result.duplicates.push({
+          date: date.toLocaleDateString('ko-KR'),
+          description,
+          amount,
+          category: row['분류'] || '기타',
+        });
+      }
+    } else {
+      result.newCount++;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Excel 데이터를 PinPig로 가져오기
  */
 export async function importExcelData(
@@ -232,12 +485,17 @@ export async function importExcelData(
     clearExisting?: boolean;
     createMissingCategories?: boolean;
     createMissingPaymentMethods?: boolean;
-  } = {}
+    skipDuplicates?: boolean;
+    abortSignal?: AbortSignal;
+  } = {},
+  onProgress?: ImportProgressCallback
 ): Promise<ImportResult> {
   const {
     clearExisting = false,
     createMissingCategories = true,
     createMissingPaymentMethods = true,
+    skipDuplicates = true,
+    abortSignal,
   } = options;
 
   const result: ImportResult = {
@@ -247,14 +505,42 @@ export async function importExcelData(
     newCategories: 0,
     newPaymentMethods: 0,
     skippedRows: 0,
+    duplicateRows: 0,
     errors: [],
     dateRange: { oldest: null, newest: null },
   };
 
+  // 중복 체크를 위한 Set 준비
+  let existingKeys = new Set<string>();
+  if (skipDuplicates && !clearExisting) {
+    onProgress?.({
+      phase: 'preparing',
+      current: 0,
+      total: 1,
+      message: '기존 데이터 로딩 중...',
+    });
+
+    const existingTransactions = await db.transactions.toArray();
+    for (const tx of existingTransactions) {
+      const dateStr = tx.date instanceof Date
+        ? tx.date.toISOString().split('T')[0]
+        : new Date(tx.date).toISOString().split('T')[0];
+      const key = `${dateStr}-${tx.amount}-${tx.description}`;
+      existingKeys.add(key);
+    }
+  }
+
   try {
+    // 취소 체크
+    if (abortSignal?.aborted) {
+      result.errors.push('가져오기가 취소되었습니다.');
+      return result;
+    }
+
     // 기존 데이터 삭제 (선택적)
     if (clearExisting) {
       await db.transactions.clear();
+      existingKeys = new Set<string>();
     }
 
     // 현재 카테고리 및 결제수단 가져오기
@@ -275,6 +561,13 @@ export async function importExcelData(
     // 새로 생성할 카테고리/결제수단 추적
     const newCategoriesToCreate = new Map<string, CreateCategoryInput>();
     const newPaymentMethodsToCreate = new Map<string, CreatePaymentMethodInput>();
+
+    onProgress?.({
+      phase: 'creating_categories',
+      current: 0,
+      total: jsonData.length,
+      message: '카테고리 및 결제수단 분석 중...',
+    });
 
     // 1차 패스: 필요한 카테고리/결제수단 확인
     for (const row of jsonData) {
@@ -342,11 +635,39 @@ export async function importExcelData(
       result.newPaymentMethods++;
     }
 
+    // 취소 체크
+    if (abortSignal?.aborted) {
+      result.errors.push('가져오기가 취소되었습니다.');
+      return result;
+    }
+
     // 2차 패스: 거래 데이터 가져오기
     const batchSize = 500;
     const transactions: Transaction[] = [];
 
-    for (const row of jsonData) {
+    for (let i = 0; i < jsonData.length; i++) {
+      const row = jsonData[i];
+
+      // 취소 체크 (100건마다)
+      if (i % 100 === 0) {
+        if (abortSignal?.aborted) {
+          // 현재까지 처리된 데이터 저장
+          if (transactions.length > 0) {
+            await db.transactions.bulkAdd(transactions);
+            result.importedTransactions += transactions.length;
+          }
+          result.errors.push('가져오기가 취소되었습니다.');
+          return result;
+        }
+
+        onProgress?.({
+          phase: 'importing',
+          current: i,
+          total: jsonData.length,
+          message: `거래 데이터 가져오는 중... ${i.toLocaleString()}/${jsonData.length.toLocaleString()}`,
+        });
+      }
+
       try {
         // 날짜 파싱
         if (!row['기간']) {
@@ -361,6 +682,21 @@ export async function importExcelData(
         if (isNaN(date.getTime())) {
           result.skippedRows++;
           continue;
+        }
+
+        // 중복 체크
+        if (skipDuplicates && !clearExisting) {
+          const dateStr = date.toISOString().split('T')[0];
+          const amount = Math.abs(row['금액'] || row['KRW'] || 0);
+          const description = row['내용'] || '';
+          const key = `${dateStr}-${amount}-${description}`;
+
+          if (existingKeys.has(key)) {
+            result.duplicateRows++;
+            continue;
+          }
+          // 새로 추가되는 항목도 키에 추가 (동일 파일 내 중복 방지)
+          existingKeys.add(key);
         }
 
         // 날짜 범위 업데이트
@@ -435,6 +771,13 @@ export async function importExcelData(
       await db.transactions.bulkAdd(transactions);
       result.importedTransactions += transactions.length;
     }
+
+    onProgress?.({
+      phase: 'complete',
+      current: jsonData.length,
+      total: jsonData.length,
+      message: '가져오기 완료!',
+    });
 
     result.success = true;
   } catch (error) {

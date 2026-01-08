@@ -160,31 +160,31 @@ export function CategoryManagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button
           onClick={() => navigate(-1)}
           className="w-10 h-10 flex items-center justify-center"
         >
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white">카테고리 관리</h1>
+        <h1 className="text-title text-ink-black">카테고리 관리</h1>
         <button
           onClick={goToAdd}
           className="w-10 h-10 flex items-center justify-center"
         >
-          <Plus size={24} className="text-ink-black dark:text-paper-white" />
+          <Plus size={24} className="text-ink-black" />
         </button>
       </header>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-paper-mid dark:border-ink-dark">
+      <div className="flex border-b border-paper-mid">
         <button
           onClick={() => setActiveTab('expense')}
           className={`flex-1 py-3 text-center text-body transition-colors ${
             activeTab === 'expense'
-              ? 'text-ink-black dark:text-paper-white border-b-2 border-ink-black dark:border-paper-white'
+              ? 'text-ink-black border-b-2 border-ink-black dark:border-paper-white'
               : 'text-ink-mid'
           }`}
         >
@@ -194,7 +194,7 @@ export function CategoryManagePage() {
           onClick={() => setActiveTab('income')}
           className={`flex-1 py-3 text-center text-body transition-colors ${
             activeTab === 'income'
-              ? 'text-ink-black dark:text-paper-white border-b-2 border-ink-black dark:border-paper-white'
+              ? 'text-ink-black border-b-2 border-ink-black dark:border-paper-white'
               : 'text-ink-mid'
           }`}
         >
@@ -211,7 +211,7 @@ export function CategoryManagePage() {
 
       {/* Drag instruction */}
       {localCategories.length > 1 && (
-        <div className="px-6 py-2 bg-paper-light dark:bg-ink-dark">
+        <div className="px-6 py-2 bg-paper-light">
           <p className="text-caption text-ink-mid text-center">
             ≡ 아이콘을 드래그하여 순서를 변경할 수 있습니다
           </p>
@@ -250,7 +250,7 @@ export function CategoryManagePage() {
                   onTouchStart={(e) => handleTouchStart(e, category)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
-                  className={`flex items-center gap-3 p-4 bg-paper-light dark:bg-ink-dark rounded-md transition-all cursor-grab active:cursor-grabbing ${
+                  className={`flex items-center gap-3 p-4 bg-paper-light rounded-md transition-all cursor-grab active:cursor-grabbing ${
                     draggedId === category.id ? 'opacity-50 scale-[1.02]' : ''
                   } ${
                     dragOverId === category.id ? 'ring-2 ring-ink-black dark:ring-paper-white' : ''
@@ -271,7 +271,7 @@ export function CategoryManagePage() {
                   </div>
 
                   <div className="flex-1 min-w-0" onClick={() => goToEdit(category)}>
-                    <p className="text-body text-ink-black dark:text-paper-white truncate">{category.name}</p>
+                    <p className="text-body text-ink-black truncate">{category.name}</p>
                     {category.budget && category.budget > 0 && (
                       <p className="text-caption text-ink-mid">
                         예산: {category.budget.toLocaleString()}원
@@ -290,7 +290,7 @@ export function CategoryManagePage() {
 
       {/* Info */}
       <section className="px-6 py-4 mt-4">
-        <div className="p-4 bg-paper-light dark:bg-ink-dark rounded-md">
+        <div className="p-4 bg-paper-light rounded-md">
           <p className="text-caption text-ink-mid">
             카테고리 순서를 변경하면 거래 입력 시 표시되는 순서가 바뀝니다.
             {activeTab === 'expense' && ' 지출 카테고리에는 예산을 설정할 수 있습니다.'}

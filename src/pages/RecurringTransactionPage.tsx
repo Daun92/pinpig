@@ -77,16 +77,16 @@ export function RecurringTransactionPage() {
     .reduce((sum, r) => sum + r.amount, 0);
 
   return (
-    <div className="min-h-screen bg-paper-white dark:bg-ink-black pb-nav">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
-        <h1 className="text-title text-ink-black dark:text-paper-white">반복 거래</h1>
+        <h1 className="text-title text-ink-black">반복 거래</h1>
         <button
           onClick={goToAdd}
-          className="w-10 h-10 flex items-center justify-center text-ink-black dark:text-paper-white"
+          className="w-10 h-10 flex items-center justify-center text-ink-black"
         >
           <Plus size={24} />
         </button>
@@ -145,7 +145,7 @@ export function RecurringTransactionPage() {
                           <Icon name={cat?.icon || 'Wallet'} size={20} style={{ color: cat?.color }} />
                         </div>
                         <div className="flex-1 min-w-0" onClick={() => goToEdit(item)}>
-                          <p className="text-body text-ink-black dark:text-paper-white truncate">{item.description}</p>
+                          <p className="text-body text-ink-black truncate">{item.description}</p>
                           <div className="flex items-center gap-2 text-caption text-ink-light">
                             <Repeat size={12} />
                             <span>{FREQUENCY_LABELS[item.frequency]}</span>
@@ -205,7 +205,7 @@ export function RecurringTransactionPage() {
                           <Icon name={cat?.icon || 'CreditCard'} size={20} style={{ color: cat?.color }} />
                         </div>
                         <div className="flex-1 min-w-0" onClick={() => goToEdit(item)}>
-                          <p className="text-body text-ink-black dark:text-paper-white truncate">{item.description}</p>
+                          <p className="text-body text-ink-black truncate">{item.description}</p>
                           <div className="flex items-center gap-2 text-caption text-ink-light">
                             <Repeat size={12} />
                             <span>{FREQUENCY_LABELS[item.frequency]}</span>
@@ -215,7 +215,7 @@ export function RecurringTransactionPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-body font-medium text-ink-black dark:text-paper-white">
+                          <p className="text-body font-medium text-ink-black">
                             {item.amount.toLocaleString()}원
                           </p>
                         </div>

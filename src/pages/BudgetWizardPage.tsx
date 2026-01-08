@@ -138,7 +138,7 @@ export function BudgetWizardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper-white dark:bg-ink-black flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-paper-white flex flex-col items-center justify-center">
         <Loader2 size={32} className="text-ink-mid animate-spin mb-4" />
         <p className="text-body text-ink-mid">지난 3개월을 돌아볼게요</p>
       </div>
@@ -148,11 +148,11 @@ export function BudgetWizardPage() {
   const hasData = recommendation && recommendation.dataMonths > 0;
 
   return (
-    <div className="fixed inset-0 bg-paper-white dark:bg-ink-black flex flex-col pb-nav z-[55]">
+    <div className="fixed inset-0 bg-paper-white flex flex-col pb-nav z-[55]">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid dark:border-ink-dark flex-shrink-0">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid flex-shrink-0">
         <button onClick={handleBack} className="w-10 h-10 flex items-center justify-center">
-          <ArrowLeft size={24} className="text-ink-black dark:text-paper-white" />
+          <ArrowLeft size={24} className="text-ink-black" />
         </button>
         <span className="text-sub text-ink-mid">{step} / 5</span>
         <div className="w-10" />
@@ -171,33 +171,33 @@ export function BudgetWizardPage() {
         {/* Step 1: 과거 돌아보기 */}
         {step === 1 && (
           <div className="px-6 py-8">
-            <h1 className="text-title text-ink-black dark:text-paper-white text-center mb-2">
+            <h1 className="text-title text-ink-black text-center mb-2">
               {hasData ? '지난 3개월 동안' : '아직 데이터가 없어요'}
             </h1>
 
             {hasData ? (
               <>
-                <p className="text-hero text-ink-black dark:text-paper-white text-center mb-2">
+                <p className="text-hero text-ink-black text-center mb-2">
                   {formatCurrency(recommendation!.totalExpense3Months)}
                 </p>
-                <p className="text-title text-ink-black dark:text-paper-white text-center mb-8">을 사용했어요</p>
+                <p className="text-title text-ink-black text-center mb-8">을 사용했어요</p>
 
-                <div className="border-t border-paper-mid dark:border-ink-dark pt-6 space-y-4">
+                <div className="border-t border-paper-mid pt-6 space-y-4">
                   <div className="flex justify-between">
                     <span className="text-body text-ink-mid">월 평균</span>
-                    <span className="text-body text-ink-black dark:text-paper-white">
+                    <span className="text-body text-ink-black">
                       {formatCurrency(recommendation!.avgExpense3Months)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-body text-ink-mid">가장 많이 쓴 달</span>
-                    <span className="text-body text-ink-black dark:text-paper-white">
+                    <span className="text-body text-ink-black">
                       {formatCurrency(recommendation!.maxExpenseMonth)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-body text-ink-mid">가장 적게 쓴 달</span>
-                    <span className="text-body text-ink-black dark:text-paper-white">
+                    <span className="text-body text-ink-black">
                       {formatCurrency(recommendation!.minExpenseMonth)}
                     </span>
                   </div>
@@ -210,7 +210,7 @@ export function BudgetWizardPage() {
                   <br />
                   일반적인 예산으로 시작해볼게요
                 </p>
-                <p className="text-hero text-ink-black dark:text-paper-white text-center mb-4">2,000,000원</p>
+                <p className="text-hero text-ink-black text-center mb-4">2,000,000원</p>
                 <p className="text-sub text-ink-light text-center">
                   사용하다 보면 나에게 맞는
                   <br />
@@ -224,7 +224,7 @@ export function BudgetWizardPage() {
         {/* Step 2: 소비 패턴 */}
         {step === 2 && (
           <div className="px-6 py-8">
-            <h1 className="text-title text-ink-black dark:text-paper-white text-center mb-6">이렇게 쓰고 있었어요</h1>
+            <h1 className="text-title text-ink-black text-center mb-6">이렇게 쓰고 있었어요</h1>
 
             {categoryBudgets.length === 0 ? (
               <p className="text-body text-ink-light text-center py-12">
@@ -268,7 +268,7 @@ export function BudgetWizardPage() {
         {/* Step 3: 예산 목표 설정 */}
         {step === 3 && (
           <div className="px-6 py-8">
-            <h1 className="text-title text-ink-black dark:text-paper-white text-center mb-2">
+            <h1 className="text-title text-ink-black text-center mb-2">
               이번 달 목표를 정해볼까요?
             </h1>
 
@@ -279,7 +279,7 @@ export function BudgetWizardPage() {
             )}
 
             <div className="text-center mb-8">
-              <p className="text-hero text-ink-black dark:text-paper-white">{formatCurrency(totalBudget)}</p>
+              <p className="text-hero text-ink-black">{formatCurrency(totalBudget)}</p>
             </div>
 
             {/* Slider */}
@@ -314,7 +314,7 @@ export function BudgetWizardPage() {
                   className="flex-1 py-3 bg-paper-light dark:bg-ink-dark/50 rounded-md"
                 >
                   <p className="text-sub text-ink-mid">절약</p>
-                  <p className="text-body text-ink-black dark:text-paper-white">
+                  <p className="text-body text-ink-black">
                     {formatShortCurrency(Math.round(recommendation!.avgExpense3Months * 0.9))}
                   </p>
                 </button>
@@ -323,7 +323,7 @@ export function BudgetWizardPage() {
                   className="flex-1 py-3 bg-paper-light dark:bg-ink-dark/50 rounded-md border-2 border-ink-black dark:border-paper-white"
                 >
                   <p className="text-sub text-ink-mid">유지</p>
-                  <p className="text-body text-ink-black dark:text-paper-white">
+                  <p className="text-body text-ink-black">
                     {formatShortCurrency(recommendation!.avgExpense3Months)}
                   </p>
                 </button>
@@ -332,7 +332,7 @@ export function BudgetWizardPage() {
                   className="flex-1 py-3 bg-paper-light dark:bg-ink-dark/50 rounded-md"
                 >
                   <p className="text-sub text-ink-mid">여유</p>
-                  <p className="text-body text-ink-black dark:text-paper-white">
+                  <p className="text-body text-ink-black">
                     {formatShortCurrency(Math.round(recommendation!.avgExpense3Months * 1.1))}
                   </p>
                 </button>
@@ -344,7 +344,7 @@ export function BudgetWizardPage() {
         {/* Step 4: 카테고리별 예산 배분 */}
         {step === 4 && (
           <div className="px-6 py-8">
-            <h1 className="text-title text-ink-black dark:text-paper-white text-center mb-2">
+            <h1 className="text-title text-ink-black text-center mb-2">
               카테고리별 예산을 정해요
             </h1>
             <p className="text-sub text-ink-mid text-center mb-6">
@@ -355,13 +355,13 @@ export function BudgetWizardPage() {
             <div className="bg-paper-light dark:bg-ink-dark/50 rounded-lg p-4 mb-6">
               <div className="flex justify-between mb-2">
                 <span className="text-body text-ink-mid">총 예산</span>
-                <span className="text-body text-ink-black dark:text-paper-white font-medium">
+                <span className="text-body text-ink-black font-medium">
                   {formatCurrency(totalBudget)}
                 </span>
               </div>
               <div className="flex justify-between mb-2">
                 <span className="text-body text-ink-mid">배분된 금액</span>
-                <span className="text-body text-ink-black dark:text-paper-white">{formatCurrency(totalCategoryBudgets)}</span>
+                <span className="text-body text-ink-black">{formatCurrency(totalCategoryBudgets)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-body text-ink-mid">
@@ -379,9 +379,9 @@ export function BudgetWizardPage() {
             </div>
 
             {/* Auto distribute toggle */}
-            <div className="flex items-center justify-between py-3 mb-4 border-b border-paper-mid dark:border-ink-dark">
+            <div className="flex items-center justify-between py-3 mb-4 border-b border-paper-mid">
               <div className="flex items-center gap-2">
-                <span className="text-sub text-ink-black dark:text-paper-white">자동 배분</span>
+                <span className="text-sub text-ink-black">자동 배분</span>
                 <Info size={14} className="text-ink-light" />
               </div>
               <button
@@ -396,7 +396,7 @@ export function BudgetWizardPage() {
                 }`}
               >
                 <div
-                  className={`w-5 h-5 bg-paper-white dark:bg-ink-black rounded-full transition-transform ${
+                  className={`w-5 h-5 bg-paper-white rounded-full transition-transform ${
                     isAutoDistribute ? 'translate-x-6' : 'translate-x-0.5'
                   }`}
                 />
@@ -421,10 +421,10 @@ export function BudgetWizardPage() {
                       >
                         <Icon name={cat.categoryIcon} size={16} style={{ color: cat.categoryColor }} />
                       </div>
-                      <span className="text-body text-ink-black dark:text-paper-white">{cat.categoryName}</span>
+                      <span className="text-body text-ink-black">{cat.categoryName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-body text-ink-black dark:text-paper-white font-medium">
+                      <span className="text-body text-ink-black font-medium">
                         {formatCurrency(cat.budget)}
                       </span>
                       {cat.isExpanded ? (
@@ -472,7 +472,7 @@ export function BudgetWizardPage() {
                           onChange={(e) =>
                             handleCategoryBudgetChange(cat.categoryId, parseInt(e.target.value) || 0)
                           }
-                          className="w-24 text-right text-sub text-ink-black dark:text-paper-white bg-transparent outline-none"
+                          className="w-24 text-right text-sub text-ink-black bg-transparent outline-none"
                         />
                         <span className="text-caption text-ink-light">원</span>
                       </div>
@@ -491,28 +491,28 @@ export function BudgetWizardPage() {
               <Check size={32} className="text-paper-white" />
             </div>
 
-            <h1 className="text-title text-ink-black dark:text-paper-white mb-2">예산 설정이 완료됐어요</h1>
+            <h1 className="text-title text-ink-black mb-2">예산 설정이 완료됐어요</h1>
             <p className="text-sub text-ink-mid mb-8">이제 예산 관리를 시작해볼까요?</p>
 
             <div className="bg-paper-light dark:bg-ink-dark/50 rounded-lg p-4 text-left">
               <div className="flex justify-between mb-3">
                 <span className="text-body text-ink-mid">월 예산</span>
-                <span className="text-body text-ink-black dark:text-paper-white font-medium">
+                <span className="text-body text-ink-black font-medium">
                   {formatCurrency(totalBudget)}
                 </span>
               </div>
               <div className="flex justify-between mb-3">
                 <span className="text-body text-ink-mid">카테고리별 예산</span>
-                <span className="text-body text-ink-black dark:text-paper-white">{categoryBudgets.length}개 설정</span>
+                <span className="text-body text-ink-black">{categoryBudgets.length}개 설정</span>
               </div>
-              <div className="border-t border-paper-mid dark:border-ink-dark pt-3 mt-3">
+              <div className="border-t border-paper-mid pt-3 mt-3">
                 {categoryBudgets.slice(0, 3).map((cat) => (
                   <div key={cat.categoryId} className="flex justify-between py-1">
                     <div className="flex items-center gap-2">
                       <Icon name={cat.categoryIcon} size={14} style={{ color: cat.categoryColor }} />
                       <span className="text-sub text-ink-mid">{cat.categoryName}</span>
                     </div>
-                    <span className="text-sub text-ink-black dark:text-paper-white">{formatCurrency(cat.budget)}</span>
+                    <span className="text-sub text-ink-black">{formatCurrency(cat.budget)}</span>
                   </div>
                 ))}
                 {categoryBudgets.length > 3 && (
@@ -527,7 +527,7 @@ export function BudgetWizardPage() {
       </div>
 
       {/* Footer Buttons */}
-      <div className="flex-shrink-0 p-6 border-t border-paper-mid dark:border-ink-dark">
+      <div className="flex-shrink-0 p-6 border-t border-paper-mid">
         {step < 4 && (
           <button
             onClick={handleNext}
