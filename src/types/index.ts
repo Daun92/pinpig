@@ -43,6 +43,7 @@ export interface PaymentMethod {
   color: string;
   order: number;
   isDefault?: boolean;
+  budget?: number;           // 월 예산 한도 (선택)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,6 +89,18 @@ export interface MonthSummary {
   expense: number;
   balance: number;
   transactionCount: number;
+}
+
+export interface PaymentMethodSummary {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  paymentMethodIcon: string;
+  paymentMethodColor: string;
+  amount: number;
+  percentage: number;
+  count: number;
+  budget?: number;            // 설정된 예산 한도
+  budgetPercent?: number;     // 예산 대비 사용 비율
 }
 
 // Default Categories - icon values are Lucide icon names

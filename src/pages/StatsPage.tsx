@@ -9,27 +9,29 @@ import {
   selectAnnualTrend,
 } from '@/stores/transactionStore';
 import { getSettings } from '@/services/database';
-import { getCategoryTrend } from '@/services/queries';
+import { getCategoryTrend, getPaymentMethodBreakdown } from '@/services/queries';
 import { Icon } from '@/components/common/Icon';
 import {
   CategoryTrendModal,
   CategoryDonutChart,
+  PaymentMethodDonutChart,
   TrendPeriodSelector,
   CategoryFilterChips,
   MultiCategoryTrendChart,
   type TrendPeriod,
 } from '@/components/report';
-import type { Settings, CategorySummary, CategoryTrend } from '@/types';
+import type { Settings, CategorySummary, CategoryTrend, PaymentMethodSummary } from '@/types';
 
 export function StatsPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [activeTab, setActiveTab] = useState<'category' | 'trend'>('category');
+  const [activeTab, setActiveTab] = useState<'category' | 'paymentMethod' | 'trend'>('category');
   const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [selectedCategory, setSelectedCategory] = useState<CategorySummary | null>(null);
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('6months');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categoryTrendData, setCategoryTrendData] = useState<Map<string, CategoryTrend[]>>(new Map());
+  const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<PaymentMethodSummary[]>([]);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(currentMonth.getFullYear());
 
@@ -55,6 +57,9 @@ export function StatsPage() {
 
     fetchMonthSummary(year, month);
     fetchCategoryBreakdown(year, month, transactionType);
+
+    // Fetch payment method breakdown
+    getPaymentMethodBreakdown(year, month, transactionType).then(setPaymentMethodBreakdown);
   }, [currentMonth, transactionType, fetchMonthSummary, fetchCategoryBreakdown]);
 
   // Fetch trend data based on period
@@ -330,6 +335,16 @@ export function StatsPage() {
           카테고리별
         </button>
         <button
+          onClick={() => setActiveTab('paymentMethod')}
+          className={`flex-1 py-3 text-center text-body ${
+            activeTab === 'paymentMethod'
+              ? 'text-ink-black border-b-2 border-ink-black'
+              : 'text-ink-mid'
+          }`}
+        >
+          수단별
+        </button>
+        <button
           onClick={() => setActiveTab('trend')}
           className={`flex-1 py-3 text-center text-body ${
             activeTab === 'trend'
@@ -404,6 +419,80 @@ export function StatsPage() {
                       {category.count}건
                     </p>
                   </button>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* Payment Method Breakdown */}
+      {activeTab === 'paymentMethod' && (
+        <section className="px-6 py-4">
+          {paymentMethodBreakdown.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-body text-ink-light">거래 데이터가 없습니다</p>
+            </div>
+          ) : (
+            <>
+              {/* Donut Chart */}
+              <PaymentMethodDonutChart
+                data={paymentMethodBreakdown}
+                totalAmount={displayAmount}
+                height={280}
+              />
+
+              {/* Payment Method List */}
+              <div className="space-y-4 mt-6">
+                {paymentMethodBreakdown.map((method) => (
+                  <div key={method.paymentMethodId} className="py-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: method.paymentMethodColor + '20' }}
+                        >
+                          <Icon
+                            name={method.paymentMethodIcon}
+                            size={16}
+                            className="text-ink-dark"
+                          />
+                        </div>
+                        <span className="text-body text-ink-dark">
+                          {method.paymentMethodName}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
+                          {transactionType === 'income' && '+ '}
+                          {method.amount.toLocaleString()}원
+                        </span>
+                        <span className="text-sub text-ink-mid ml-2">
+                          {Math.round(method.percentage)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${method.percentage}%`,
+                          backgroundColor: method.paymentMethodColor,
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <p className="text-caption text-ink-light">
+                        {method.count}건
+                      </p>
+                      {method.budget && method.budgetPercent !== undefined && (
+                        <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid'}`}>
+                          예산의 {method.budgetPercent}%
+                          {method.budgetPercent > 100 && ' (초과)'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </>

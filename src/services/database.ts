@@ -51,6 +51,16 @@ class PinPigDatabase extends Dexie {
       annualExpenses: 'id, categoryId, month, year, isEnabled',
       recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
     });
+
+    // Schema v4: Add budget field to paymentMethods (no schema change needed, just version bump)
+    this.version(4).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, date, [date+type], [categoryId+date], createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
+      recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
+    });
   }
 }
 
