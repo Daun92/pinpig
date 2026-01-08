@@ -485,9 +485,9 @@ export function HistoryPage() {
                   <div
                     key={`${monthGroup.year}-${monthGroup.month}-${group.label}`}
                     ref={groupRef}
-                    className="snap-start"
+                    className="date-group relative"
                   >
-                    {/* Date Group Header - sticky below month header */}
+                    {/* Date Group Header - sticky within this date group container */}
                     <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light sticky ${dateHeaderTop} z-10 border-b border-paper-mid/50`}>
                       <span className="text-sub text-ink-dark">{group.label}</span>
                       <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>

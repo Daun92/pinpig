@@ -101,13 +101,16 @@
     position: relative;
   }
 
-  /* Month header shadow when stacked */
-  .month-group > .sticky {
-    transition: box-shadow 0.15s ease-out;
+  /* Date group container for escalator effect */
+  .date-group {
+    /* Sticky header will be constrained within this container */
+    /* When this container scrolls out, the sticky header follows */
+    contain: layout;
   }
 
-  /* Subtle shadow on scroll for depth */
-  .month-group > .sticky[style*="position: sticky"] {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  /* Smooth shadow transition for depth effect */
+  .date-group > .sticky,
+  .month-group > .sticky {
+    transition: box-shadow 0.15s ease-out;
   }
 }
