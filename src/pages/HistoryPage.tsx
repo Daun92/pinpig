@@ -219,69 +219,114 @@ export function HistoryPage() {
     return monthGroups.flatMap(mg => mg.dateGroups);
   }, [monthGroups]);
 
-  // Pull-to-load previous month
-  const [isPulling, setIsPulling] = useState(false);
+  // Pull-to-load for month navigation (up = previous, down = next)
+  const [pullDirection, setPullDirection] = useState<'up' | 'down' | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
   const pullThreshold = 80;
 
-  const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current || searchQuery.trim()) return;
+  // Check if can go to next month (not beyond current month)
+  const canGoToNextMonth = useMemo(() => {
+    const now = new Date();
+    return currentMonth.getFullYear() < now.getFullYear() ||
+      (currentMonth.getFullYear() === now.getFullYear() && currentMonth.getMonth() < now.getMonth());
+  }, [currentMonth]);
 
-    const { scrollTop } = scrollContainerRef.current;
+  const isAtScrollTop = useCallback(() => {
+    if (!scrollContainerRef.current) return false;
+    return scrollContainerRef.current.scrollTop <= 0;
+  }, []);
 
-    // When at the very top and trying to scroll up more
-    if (scrollTop <= 0 && !isPulling) {
-      // User is at top - ready for pull gesture
+  const isAtScrollBottom = useCallback(() => {
+    if (!scrollContainerRef.current) return false;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    return scrollTop + clientHeight >= scrollHeight - 5; // 5px threshold
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (searchQuery.trim()) return;
+
+    const touch = e.touches[0];
+    setTouchStartY(touch.clientY);
+
+    // Determine pull direction based on scroll position
+    // Top pull = next month (more recent), Bottom pull = previous month (older)
+    if (isAtScrollTop() && canGoToNextMonth) {
+      setPullDirection('up');
+    } else if (isAtScrollBottom()) {
+      setPullDirection('down');
+    } else {
+      setPullDirection(null);
     }
-  }, [searchQuery, isPulling]);
-
-  const handleTouchStart = useCallback(() => {
-    if (!scrollContainerRef.current || searchQuery.trim()) return;
-    if (scrollContainerRef.current.scrollTop > 0) return;
-
-    setIsPulling(true);
     setPullDistance(0);
-  }, [searchQuery]);
+  }, [searchQuery, isAtScrollTop, isAtScrollBottom, canGoToNextMonth]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isPulling || !scrollContainerRef.current) return;
-    if (scrollContainerRef.current.scrollTop > 0) {
-      setIsPulling(false);
-      setPullDistance(0);
-      return;
-    }
+    if (!pullDirection || !scrollContainerRef.current) return;
 
-    // Calculate pull distance (simplified - would need touch start Y for accuracy)
     const touch = e.touches[0];
-    const pullY = Math.max(0, touch.clientY - 200); // Approximate
-    setPullDistance(Math.min(pullY * 0.5, pullThreshold * 1.5));
-  }, [isPulling]);
+    const deltaY = touch.clientY - touchStartY;
+
+    if (pullDirection === 'up') {
+      // Pulling down at top of page = go to previous month
+      if (!isAtScrollTop()) {
+        setPullDirection(null);
+        setPullDistance(0);
+        return;
+      }
+      if (deltaY > 0) {
+        setPullDistance(Math.min(deltaY * 0.5, pullThreshold * 1.5));
+      }
+    } else if (pullDirection === 'down') {
+      // Pulling up at bottom of page = go to next month
+      if (!isAtScrollBottom()) {
+        setPullDirection(null);
+        setPullDistance(0);
+        return;
+      }
+      if (deltaY < 0) {
+        setPullDistance(Math.min(Math.abs(deltaY) * 0.5, pullThreshold * 1.5));
+      }
+    }
+  }, [pullDirection, touchStartY, isAtScrollTop, isAtScrollBottom]);
 
   const handleTouchEnd = useCallback(() => {
-    if (pullDistance >= pullThreshold) {
-      // Load previous month
-      const prev = subMonths(currentMonth, 1);
-      setCurrentMonth(prev);
-      fetchTransactions(prev);
+    if (pullDistance >= pullThreshold && pullDirection) {
+      if (pullDirection === 'up' && canGoToNextMonth) {
+        // Pull down at top = go to next month (more recent)
+        const next = addMonths(currentMonth, 1);
+        setCurrentMonth(next);
+        fetchTransactions(next);
+      } else if (pullDirection === 'down') {
+        // Pull up at bottom = go to previous month (older)
+        const prev = subMonths(currentMonth, 1);
+        setCurrentMonth(prev);
+        fetchTransactions(prev);
+      }
     }
-    setIsPulling(false);
+    setPullDirection(null);
     setPullDistance(0);
-  }, [pullDistance, currentMonth, setCurrentMonth, fetchTransactions]);
+  }, [pullDistance, pullDirection, currentMonth, setCurrentMonth, fetchTransactions, canGoToNextMonth]);
 
-  // Auto scroll to target when data loads (only once)
+  // Auto scroll to target when data loads (only when explicitly requested via URL param)
   useEffect(() => {
-    if (!hasScrolledToTarget && allDateGroups.length > 0 && !searchQuery) {
-      // Determine target ref based on scrollToTarget param
-      let targetRef = todayGroupRef;
+    // Only scroll when explicitly requested via scrollTo param
+    // This prevents unwanted auto-scroll when returning to the tab
+    if (!hasScrolledToTarget && allDateGroups.length > 0 && !searchQuery && scrollToTarget) {
+      let targetRef: React.RefObject<HTMLDivElement> | null = null;
       if (scrollToTarget === 'yesterday') {
         targetRef = yesterdayGroupRef;
       } else if (scrollToTarget === 'future') {
         targetRef = futureGroupRef;
+      } else if (scrollToTarget === 'today') {
+        targetRef = todayGroupRef;
       }
 
-      // Small delay to ensure DOM is rendered
-      const timer = setTimeout(() => scrollToGroup(targetRef), 100);
-      return () => clearTimeout(timer);
+      if (targetRef) {
+        // Small delay to ensure DOM is rendered
+        const timer = setTimeout(() => scrollToGroup(targetRef!), 100);
+        return () => clearTimeout(timer);
+      }
     }
   }, [allDateGroups.length, hasScrolledToTarget, searchQuery, scrollToTarget, scrollToGroup]);
 
@@ -361,7 +406,6 @@ export function HistoryPage() {
     <div
       ref={scrollContainerRef}
       className="min-h-screen bg-paper-white pb-nav overflow-y-auto scroll-smooth"
-      onScroll={handleScroll}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -476,8 +520,8 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Pull to load previous month indicator */}
-      {isPulling && pullDistance > 0 && (
+      {/* Pull to load indicator (top: next month - more recent) */}
+      {pullDirection === 'up' && pullDistance > 0 && (
         <div
           className="flex items-center justify-center py-4 text-ink-mid transition-opacity"
           style={{
@@ -486,7 +530,7 @@ export function HistoryPage() {
           }}
         >
           <span className="text-sub">
-            {pullDistance >= pullThreshold ? '놓으면 이전 달로' : '당겨서 이전 달 보기'}
+            {pullDistance >= pullThreshold ? '놓으면 다음 달로' : '당겨서 다음 달 보기'}
           </span>
         </div>
       )}
@@ -629,6 +673,21 @@ export function HistoryPage() {
             </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pull to load indicator (bottom: previous month - older) */}
+      {pullDirection === 'down' && pullDistance > 0 && (
+        <div
+          className="flex items-center justify-center py-4 text-ink-mid transition-opacity"
+          style={{
+            opacity: Math.min(pullDistance / pullThreshold, 1),
+            transform: `translateY(${-pullDistance * 0.3}px)`,
+          }}
+        >
+          <span className="text-sub">
+            {pullDistance >= pullThreshold ? '놓으면 이전 달로' : '당겨서 이전 달 보기'}
+          </span>
         </div>
       )}
 

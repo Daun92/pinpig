@@ -1344,3 +1344,19 @@
   - `src/vite-env.d.ts`: `__APP_VERSION__` 타입 선언 추가
   - `src/pages/SettingsPage.tsx`: 하드코딩 `0.1.0` → `{__APP_VERSION__}` 변경
 - **결과**: 타입체크/빌드 통과, 배포 시 버전 자동 동기화
+
+### #75 기록 탭 UX 개선 (스크롤 버그 수정 + 양방향 월 이동)
+- **요청**:
+  1. 홈에서 어제/예정으로 이동 후 스크롤하면 최근 날짜로 강제 이동되는 버그 수정
+  2. 월 스와이프가 이전 달로만 이동 → 양방향 이동 구현
+- **문제 분석**:
+  - 버그: `scrollToTarget`이 없을 때 기본값 `todayGroupRef`로 스크롤됨
+  - 탭 복귀 시 `hasScrolledToTarget` 리셋되면서 자동 스크롤 발생
+- **변경**: `src/pages/HistoryPage.tsx`
+  - 자동 스크롤: 명시적 `scrollTo` 파라미터 있을 때만 작동하도록 수정
+  - 양방향 월 이동: `pullDirection` 상태 추가 ('up' | 'down')
+    - 상단 당기기 = 다음 달 (더 최신으로, 현재 월까지만)
+    - 하단 당기기 = 이전 달 (더 과거로)
+  - 터치 이벤트 로직 개선: `touchStartY` 기반 정확한 delta 계산
+  - Pull indicator UI 양방향 지원
+- **결과**: 타입체크 통과, 스크롤 버그 해결, 기록 순서(최신→과거)에 맞는 자연스러운 월 이동
