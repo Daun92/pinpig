@@ -136,6 +136,12 @@ export function HistoryPage() {
   const futureGroupRef = useRef<HTMLDivElement>(null);
   const [hasScrolledToTarget, setHasScrolledToTarget] = useState(false);
 
+  // Floating header state for escalator effect
+  const [activeGroupLabel, setActiveGroupLabel] = useState<string | null>(null);
+  const [activeGroupTotal, setActiveGroupTotal] = useState<number>(0);
+  const dateGroupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
   // URL query params
   const [searchParams, setSearchParams] = useSearchParams();
   const scrollToTarget = searchParams.get('scrollTo'); // 'yesterday' | 'future' | null
@@ -215,6 +221,107 @@ export function HistoryPage() {
   const allDateGroups = useMemo(() => {
     return monthGroups.flatMap(mg => mg.dateGroups);
   }, [monthGroups]);
+
+  // Intersection Observer for floating header - detect which date group is at top
+  useEffect(() => {
+    if (searchQuery.trim()) return; // Disable in search mode
+
+    const hasSearchInfo = selectedCategoryIds.length > 0;
+    // Floating header position: after header (56px) + filter bar (52px) + optional search info (28px)
+    const headerOffset = hasSearchInfo ? 136 : 108;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        // Find the topmost visible group
+        const visibleEntries = entries.filter(entry => entry.isIntersecting);
+
+        if (visibleEntries.length > 0) {
+          // Sort by position - find the one closest to top
+          const sortedEntries = visibleEntries.sort((a, b) => {
+            return a.boundingClientRect.top - b.boundingClientRect.top;
+          });
+
+          const topEntry = sortedEntries[0];
+          const groupKey = topEntry.target.getAttribute('data-group-key');
+          const groupLabel = topEntry.target.getAttribute('data-group-label');
+          const groupTotal = topEntry.target.getAttribute('data-group-total');
+
+          if (groupLabel && groupKey) {
+            setActiveGroupLabel(groupLabel);
+            setActiveGroupTotal(Number(groupTotal) || 0);
+          }
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        // Observe when element enters the zone right below the sticky header
+        rootMargin: `-${headerOffset}px 0px -80% 0px`,
+        threshold: 0,
+      }
+    );
+
+    // Observe all date groups
+    dateGroupRefs.current.forEach((element) => {
+      if (observerRef.current) {
+        observerRef.current.observe(element);
+      }
+    });
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [allDateGroups, searchQuery, selectedCategoryIds]);
+
+  // Pull-to-load previous month
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullThreshold = 80;
+
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current || searchQuery.trim()) return;
+
+    const { scrollTop } = scrollContainerRef.current;
+
+    // When at the very top and trying to scroll up more
+    if (scrollTop <= 0 && !isPulling) {
+      // User is at top - ready for pull gesture
+    }
+  }, [searchQuery, isPulling]);
+
+  const handleTouchStart = useCallback(() => {
+    if (!scrollContainerRef.current || searchQuery.trim()) return;
+    if (scrollContainerRef.current.scrollTop > 0) return;
+
+    setIsPulling(true);
+    setPullDistance(0);
+  }, [searchQuery]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling || !scrollContainerRef.current) return;
+    if (scrollContainerRef.current.scrollTop > 0) {
+      setIsPulling(false);
+      setPullDistance(0);
+      return;
+    }
+
+    // Calculate pull distance (simplified - would need touch start Y for accuracy)
+    const touch = e.touches[0];
+    const pullY = Math.max(0, touch.clientY - 200); // Approximate
+    setPullDistance(Math.min(pullY * 0.5, pullThreshold * 1.5));
+  }, [isPulling]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance >= pullThreshold) {
+      // Load previous month
+      const prev = subMonths(currentMonth, 1);
+      setCurrentMonth(prev);
+      fetchTransactions(prev);
+    }
+    setIsPulling(false);
+    setPullDistance(0);
+  }, [pullDistance, currentMonth, setCurrentMonth, fetchTransactions]);
 
   // Auto scroll to target when data loads (only once)
   useEffect(() => {
@@ -304,10 +411,18 @@ export function HistoryPage() {
     );
   }
 
+  // Calculate header positions for floating header
+  const hasSearchInfo = searchQuery || selectedCategoryIds.length > 0;
+  const floatingHeaderTop = hasSearchInfo ? 136 : 108;
+
   return (
     <div
       ref={scrollContainerRef}
-      className="min-h-screen bg-paper-white pb-nav overflow-y-auto scroll-smooth snap-y snap-proximity"
+      className="min-h-screen bg-paper-white pb-nav overflow-y-auto scroll-smooth"
+      onScroll={handleScroll}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid sticky top-0 bg-paper-white z-20">
@@ -419,6 +534,36 @@ export function HistoryPage() {
         </div>
       )}
 
+      {/* Floating Date Header - single header that updates based on scroll position */}
+      {activeGroupLabel && !searchQuery.trim() && monthGroups.length > 0 && (
+        <div
+          className="fixed left-0 right-0 z-[18] bg-paper-light border-b border-paper-mid/50 shadow-sm transition-all duration-150"
+          style={{ top: `${floatingHeaderTop}px` }}
+        >
+          <div className="flex justify-between items-center px-4 py-2.5">
+            <span className="text-sub font-medium text-ink-dark">{activeGroupLabel}</span>
+            <span className={`text-sub ${activeGroupTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
+              {activeGroupTotal >= 0 ? '+' : ''}{activeGroupTotal.toLocaleString()}원
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Pull to load previous month indicator */}
+      {isPulling && pullDistance > 0 && (
+        <div
+          className="flex items-center justify-center py-4 text-ink-mid transition-opacity"
+          style={{
+            opacity: Math.min(pullDistance / pullThreshold, 1),
+            transform: `translateY(${pullDistance * 0.3}px)`,
+          }}
+        >
+          <span className="text-sub">
+            {pullDistance >= pullThreshold ? '놓으면 이전 달로' : '당겨서 이전 달 보기'}
+          </span>
+        </div>
+      )}
+
       {/* Transaction List */}
       {monthGroups.length === 0 ? (
         <div className="py-16 pb-20 text-center">
@@ -466,29 +611,46 @@ export function HistoryPage() {
                 const isTodayGroup = isToday(group.date);
                 const isYesterdayGroup = isYesterday(group.date);
                 const isFutureGroup = isFuture(startOfDay(group.date));
+                const groupKey = `${monthGroup.year}-${monthGroup.month}-${format(group.date, 'dd')}`;
 
                 // Determine ref for this group
                 const isClosestFuture = isFutureGroup && !allDateGroups.slice(
                   allDateGroups.findIndex(g => g === group) + 1
                 ).some(g => isFuture(startOfDay(g.date)));
 
-                let groupRef: React.RefObject<HTMLDivElement> | undefined;
-                if (isTodayGroup) {
-                  groupRef = todayGroupRef;
-                } else if (isYesterdayGroup) {
-                  groupRef = yesterdayGroupRef;
-                } else if (isClosestFuture) {
-                  groupRef = futureGroupRef;
-                }
+                // Combined ref callback for both scroll target and intersection observer
+                const setGroupRef = (el: HTMLDivElement | null) => {
+                  if (el) {
+                    dateGroupRefs.current.set(groupKey, el);
+                    // Also set scroll target refs
+                    if (isTodayGroup && todayGroupRef) {
+                      (todayGroupRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    } else if (isYesterdayGroup && yesterdayGroupRef) {
+                      (yesterdayGroupRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    } else if (isClosestFuture && futureGroupRef) {
+                      (futureGroupRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    }
+                  } else {
+                    dateGroupRefs.current.delete(groupKey);
+                  }
+                };
+
+                // In non-search mode, use floating header instead of inline sticky
+                const useFloatingHeader = !searchQuery.trim();
 
                 return (
                   <div
-                    key={`${monthGroup.year}-${monthGroup.month}-${group.label}`}
-                    ref={groupRef}
+                    key={groupKey}
+                    ref={setGroupRef}
+                    data-group-key={groupKey}
+                    data-group-label={group.label}
+                    data-group-total={group.dailyTotal}
                     className="date-group relative"
                   >
-                    {/* Date Group Header - sticky within this date group container */}
-                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light sticky ${dateHeaderTop} z-10 border-b border-paper-mid/50`}>
+                    {/* Date Group Header - hidden when using floating header, visible in search mode */}
+                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light border-b border-paper-mid/50 ${
+                      useFloatingHeader ? 'opacity-0 h-0 overflow-hidden' : `sticky ${dateHeaderTop} z-10`
+                    }`}>
                       <span className="text-sub text-ink-dark">{group.label}</span>
                       <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
                         {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원

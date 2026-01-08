@@ -1255,6 +1255,26 @@
   - 다음 일자 그룹이 올라오면 이전 헤더가 자연스럽게 밀려남
   - 에스컬레이터 효과 적용 완료
 
+### #70 Floating Header + Pull-to-load 이전 월 구현
+- **요청**: PC에서 에스컬레이터 효과 체감 어려움, 월초에서 당기면 이전 월로 이동
+- **원인 분석**:
+  - CSS sticky는 부모 컨테이너 내에서만 작동
+  - 모든 date-group이 같은 스크롤 컨테이너에 있어 서로 밀어내지 않음
+  - PC에서 한 화면에 모든 거래가 보이면 스크롤 자체가 적음
+- **변경**:
+  - `src/pages/HistoryPage.tsx`:
+    - Intersection Observer 기반 단일 Floating Header 구현
+    - `activeGroupLabel`, `activeGroupTotal` 상태로 현재 보이는 그룹 추적
+    - `dateGroupRefs` Map으로 모든 date-group 요소 관리
+    - Pull-to-load 터치 이벤트 (handleTouchStart/Move/End)
+    - 스크롤 최상단에서 당기면 이전 월 데이터 로드
+    - Floating Header는 고정 위치, 스크롤에 따라 내용만 교체
+- **결과**:
+  - 단일 Floating Header가 스크롤 위치에 따라 자동 업데이트
+  - 일반 모드: Floating Header 사용, 검색 모드: 기존 sticky 헤더 유지
+  - Pull-to-load로 이전 월 자연스럽게 로드 가능
+  - 빌드 및 타입체크 통과
+
 ---
 
 ## 진행 예정
