@@ -9,7 +9,8 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   categoryId: string;
-  paymentMethodId?: string;
+  paymentMethodId?: string;      // 지출 시 결제수단
+  incomeSourceId?: string;       // 수입 시 수입수단
   description: string;           // 가맹점/상호명
   memo?: string;
   date: Date;
@@ -61,6 +62,11 @@ export interface Settings {
   payday: number;                    // 급여일 (1-31)
   isOnboardingComplete: boolean;     // 온보딩 완료 여부
   theme: ThemeMode;
+  // Coach mark (투어) 완료 플래그
+  hasSeenHomeTour: boolean;
+  hasSeenAddTour: boolean;
+  hasSeenStatsTour: boolean;
+  hasSeenSettingsTour: boolean;
   updatedAt: Date;
 }
 
@@ -72,6 +78,10 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updatedAt'> = {
   payday: 25,
   isOnboardingComplete: false,
   theme: 'system',
+  hasSeenHomeTour: false,
+  hasSeenAddTour: false,
+  hasSeenStatsTour: false,
+  hasSeenSettingsTour: false,
 };
 
 export interface CategorySummary {
@@ -151,6 +161,29 @@ export const DEFAULT_PAYMENT_METHODS: Omit<PaymentMethod, 'id' | 'createdAt' | '
 ];
 
 // =========================================
+// Income Source Types (수입 수단)
+// =========================================
+
+export interface IncomeSource {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  order: number;
+  isDefault?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type CreateIncomeSourceInput = Omit<IncomeSource, 'id' | 'createdAt' | 'updatedAt'>;
+
+export const DEFAULT_INCOME_SOURCES: Omit<IncomeSource, 'id' | 'createdAt' | 'updatedAt'>[] = [
+  { name: '현금', icon: 'Banknote', color: '#4CAF50', order: 0, isDefault: true },
+  { name: '카드', icon: 'CreditCard', color: '#2196F3', order: 1 },
+  { name: '계좌이체', icon: 'Building', color: '#9C27B0', order: 2 },
+];
+
+// =========================================
 // Report & Analytics Types
 // =========================================
 
@@ -178,6 +211,17 @@ export interface CategoryTrend {
   categoryName: string;
   categoryIcon: string;
   categoryColor: string;
+  amount: number;
+  transactionCount: number;
+}
+
+export interface PaymentMethodTrend {
+  year: number;
+  month: number;
+  paymentMethodId: string;
+  paymentMethodName: string;
+  paymentMethodIcon: string;
+  paymentMethodColor: string;
   amount: number;
   transactionCount: number;
 }

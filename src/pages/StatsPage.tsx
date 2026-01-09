@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, Lightbulb, X } from 'lucide-react';
-import { addMonths, subMonths, format } from 'date-fns';
+import { addMonths, subMonths, format, getDaysInMonth, getDate } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   useTransactionStore,
@@ -9,20 +10,30 @@ import {
   selectAnnualTrend,
 } from '@/stores/transactionStore';
 import { getSettings } from '@/services/database';
-import { getCategoryTrend, getPaymentMethodBreakdown } from '@/services/queries';
+import {
+  getCategoryTrend,
+  getPaymentMethodBreakdown,
+  getYearlySummary,
+  getYearlyCategoryBreakdown,
+  getYearlyPaymentMethodBreakdown,
+} from '@/services/queries';
 import { Icon } from '@/components/common/Icon';
+import { useCoachMark } from '@/components/coachmark';
 import {
   CategoryTrendModal,
   CategoryDonutChart,
   PaymentMethodDonutChart,
+  PaymentMethodTrendModal,
   TrendPeriodSelector,
   CategoryFilterChips,
   MultiCategoryTrendChart,
   type TrendPeriod,
 } from '@/components/report';
-import type { Settings, CategorySummary, CategoryTrend, PaymentMethodSummary } from '@/types';
+import type { Settings, CategorySummary, CategoryTrend, PaymentMethodSummary, MonthSummary } from '@/types';
 
 export function StatsPage() {
+  const navigate = useNavigate();
+  const { startTour } = useCoachMark();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [settings, setSettings] = useState<Settings | null>(null);
   const [activeTab, setActiveTab] = useState<'category' | 'paymentMethod' | 'trend'>('category');
@@ -34,6 +45,19 @@ export function StatsPage() {
   const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<PaymentMethodSummary[]>([]);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(currentMonth.getFullYear());
+
+  // 새로운 상태: 기간 모드 (월간/연간)
+  const [periodMode, setPeriodMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [yearlySummary, setYearlySummary] = useState<MonthSummary | null>(null);
+  const [yearlyCategoryBreakdown, setYearlyCategoryBreakdown] = useState<CategorySummary[]>([]);
+  const [yearlyPaymentMethodBreakdown, setYearlyPaymentMethodBreakdown] = useState<PaymentMethodSummary[]>([]);
+
+  // 추이 탭: 전체 라인 표시 토글
+  const [showTotalLine, setShowTotalLine] = useState(false);
+
+  // 수단별 모달
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodSummary | null>(null);
 
   const {
     monthSummary,
@@ -49,18 +73,31 @@ export function StatsPage() {
 
   useEffect(() => {
     getSettings().then((s) => setSettings(s || null));
-  }, []);
+    // Start stats tour on first visit
+    startTour('stats');
+  }, [startTour]);
 
   useEffect(() => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth() + 1;
+    if (periodMode === 'monthly') {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1;
 
-    fetchMonthSummary(year, month);
-    fetchCategoryBreakdown(year, month, transactionType);
-
-    // Fetch payment method breakdown
-    getPaymentMethodBreakdown(year, month, transactionType).then(setPaymentMethodBreakdown);
-  }, [currentMonth, transactionType, fetchMonthSummary, fetchCategoryBreakdown]);
+      fetchMonthSummary(year, month);
+      fetchCategoryBreakdown(year, month, transactionType);
+      getPaymentMethodBreakdown(year, month, transactionType).then(setPaymentMethodBreakdown);
+    } else {
+      // 연간 모드
+      Promise.all([
+        getYearlySummary(selectedYear),
+        getYearlyCategoryBreakdown(selectedYear, transactionType),
+        getYearlyPaymentMethodBreakdown(selectedYear, transactionType),
+      ]).then(([summary, catBreakdown, pmBreakdown]) => {
+        setYearlySummary(summary);
+        setYearlyCategoryBreakdown(catBreakdown);
+        setYearlyPaymentMethodBreakdown(pmBreakdown);
+      });
+    }
+  }, [currentMonth, selectedYear, periodMode, transactionType, fetchMonthSummary, fetchCategoryBreakdown]);
 
   // Fetch trend data based on period
   useEffect(() => {
@@ -75,7 +112,8 @@ export function StatsPage() {
   // Fetch category trend data when categories are selected
   useEffect(() => {
     const fetchCategoryTrends = async () => {
-      const months = trendPeriod === '12months' ? 12 : 6;
+      // 연간 모드에서는 36개월(3년)치 데이터 가져옴
+      const months = trendPeriod === 'annual' ? 36 : trendPeriod === '12months' ? 12 : 6;
       const newData = new Map<string, CategoryTrend[]>();
 
       for (const categoryId of selectedCategoryIds) {
@@ -86,23 +124,12 @@ export function StatsPage() {
       setCategoryTrendData(newData);
     };
 
-    if (selectedCategoryIds.length > 0 && trendPeriod !== 'annual') {
+    if (selectedCategoryIds.length > 0) {
       fetchCategoryTrends();
     } else {
       setCategoryTrendData(new Map());
     }
   }, [selectedCategoryIds, trendPeriod]);
-
-  const handlePrevMonth = () => {
-    setCurrentMonth((prev) => subMonths(prev, 1));
-  };
-
-  const handleNextMonth = () => {
-    const next = addMonths(currentMonth, 1);
-    if (next <= new Date()) {
-      setCurrentMonth(next);
-    }
-  };
 
   const openMonthPicker = () => {
     setPickerYear(currentMonth.getFullYear());
@@ -149,20 +176,38 @@ export function StatsPage() {
     };
   });
 
-  const totalExpense = monthSummary?.expense || 0;
-  const totalIncome = monthSummary?.income || 0;
+  // 표시 데이터 (월간/연간 모드에 따라 다름)
+  const activeSummary = periodMode === 'monthly' ? monthSummary : yearlySummary;
+  const activeCategoryBreakdown = periodMode === 'monthly' ? categoryBreakdown : yearlyCategoryBreakdown;
+  const activePaymentMethodBreakdown = periodMode === 'monthly' ? paymentMethodBreakdown : yearlyPaymentMethodBreakdown;
+
+  const totalExpense = activeSummary?.expense || 0;
+  const totalIncome = activeSummary?.income || 0;
   const displayAmount = transactionType === 'expense' ? totalExpense : totalIncome;
   const budgetPercent = settings?.monthlyBudget
     ? Math.round((totalExpense / settings.monthlyBudget) * 100)
     : 0;
+
+  // 남은 예산 및 하루 권장 금액 계산
+  const remainingBudget = settings?.monthlyBudget ? Math.max(settings.monthlyBudget - totalExpense, 0) : 0;
+  const today = new Date();
+  const isCurrentMonth = currentMonth.getFullYear() === today.getFullYear() && currentMonth.getMonth() === today.getMonth();
+  const daysInMonth = getDaysInMonth(currentMonth);
+  const remainingDays = isCurrentMonth ? Math.max(daysInMonth - getDate(today) + 1, 1) : daysInMonth;
+  const dailyBudget = remainingDays > 0 ? Math.round(remainingBudget / remainingDays) : 0;
+
+  // 기간 표시 텍스트
+  const periodLabel = periodMode === 'yearly'
+    ? `${selectedYear}년`
+    : `${currentMonth.getMonth() + 1}월`;
 
   // 인사이트 생성
   const generateInsights = () => {
     const insights: string[] = [];
 
     if (transactionType === 'expense') {
-      if (categoryBreakdown.length > 0) {
-        insights.push(`${categoryBreakdown[0].categoryName}에 가장 많이 썼어요`);
+      if (activeCategoryBreakdown.length > 0) {
+        insights.push(`${activeCategoryBreakdown[0].categoryName}에 가장 많이 썼어요`);
       }
 
       if (monthlyTrend.length >= 2) {
@@ -186,8 +231,8 @@ export function StatsPage() {
       }
     } else {
       // 수입 인사이트
-      if (categoryBreakdown.length > 0) {
-        insights.push(`${categoryBreakdown[0].categoryName}에서 가장 많이 받았어요`);
+      if (activeCategoryBreakdown.length > 0) {
+        insights.push(`${activeCategoryBreakdown[0].categoryName}에서 가장 많이 받았어요`);
       }
 
       if (monthlyTrend.length >= 2) {
@@ -294,100 +339,236 @@ export function StatsPage() {
 
   return (
     <div className="min-h-screen bg-paper-white pb-nav">
-      {/* Header with Month Navigation */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+      {/* Header */}
+      <header className="h-14 flex items-center px-4 border-b border-paper-mid">
         <h1 className="text-title text-ink-black pl-2">분석</h1>
-        <div className="flex items-center bg-paper-light rounded-lg">
+      </header>
+
+      {/* Income/Expense Tab Bar */}
+      <div className="flex border-b border-paper-mid">
+        <button
+          onClick={() => setTransactionType('expense')}
+          className={`flex-1 py-3 text-center text-body transition-colors ${
+            transactionType === 'expense'
+              ? 'text-ink-black border-b-2 border-ink-black'
+              : 'text-ink-mid'
+          }`}
+        >
+          지출
+        </button>
+        <button
+          onClick={() => setTransactionType('income')}
+          className={`flex-1 py-3 text-center text-body transition-colors ${
+            transactionType === 'income'
+              ? 'text-semantic-positive border-b-2 border-ink-black'
+              : 'text-ink-mid'
+          }`}
+        >
+          수입
+        </button>
+      </div>
+
+      {/* Summary Section */}
+      <section className="px-6 py-6">
+        {/* Period Navigation */}
+        <div className="flex items-center justify-center gap-2 mb-2">
           <button
-            onClick={handlePrevMonth}
-            className="w-9 h-9 flex items-center justify-center text-ink-dark"
+            onClick={() => {
+              if (periodMode === 'monthly') {
+                setCurrentMonth((prev) => subMonths(prev, 1));
+              } else {
+                setSelectedYear((prev) => prev - 1);
+              }
+            }}
+            className="w-9 h-9 flex items-center justify-center bg-paper-light rounded-full text-ink-dark"
           >
             <ChevronLeft size={18} />
           </button>
           <button
             onClick={openMonthPicker}
-            className="flex items-center gap-1 px-1 py-2 text-sub text-ink-dark"
+            className="flex items-center gap-1 px-4 py-2 bg-paper-light rounded-full text-body text-ink-dark"
           >
-            {format(currentMonth, 'M월', { locale: ko })}
+            {periodMode === 'yearly'
+              ? `${selectedYear}년`
+              : format(currentMonth, 'yyyy년 M월', { locale: ko })}
             <ChevronDown size={14} />
           </button>
           <button
-            onClick={handleNextMonth}
-            disabled={addMonths(currentMonth, 1) > new Date()}
-            className="w-9 h-9 flex items-center justify-center text-ink-dark disabled:text-ink-light"
+            onClick={() => {
+              if (periodMode === 'monthly') {
+                const next = addMonths(currentMonth, 1);
+                if (next <= new Date()) {
+                  setCurrentMonth(next);
+                }
+              } else {
+                if (selectedYear < new Date().getFullYear()) {
+                  setSelectedYear((prev) => prev + 1);
+                }
+              }
+            }}
+            disabled={
+              periodMode === 'monthly'
+                ? addMonths(currentMonth, 1) > new Date()
+                : selectedYear >= new Date().getFullYear()
+            }
+            className="w-9 h-9 flex items-center justify-center bg-paper-light rounded-full text-ink-dark disabled:text-ink-light"
           >
             <ChevronRight size={18} />
           </button>
         </div>
-      </header>
 
-      {/* Summary Section */}
-      <section className="px-6 py-6">
-        {/* Income/Expense Toggle */}
-        <div className="flex gap-2 mb-4">
+        {/* Period Mode Text Toggle (월간/연간) */}
+        <div className="flex items-center justify-center gap-4 mb-4">
           <button
-            onClick={() => setTransactionType('expense')}
-            className={`flex-1 py-2 rounded-full text-body transition-colors ${
-              transactionType === 'expense'
-                ? 'bg-ink-black text-paper-white'
-                : 'bg-paper-light text-ink-mid'
+            onClick={() => setPeriodMode('monthly')}
+            className={`text-sub transition-colors ${
+              periodMode === 'monthly'
+                ? 'text-ink-black underline underline-offset-4'
+                : 'text-ink-light'
             }`}
           >
-            지출
+            월간
           </button>
+          <span className="text-ink-light">|</span>
           <button
-            onClick={() => setTransactionType('income')}
-            className={`flex-1 py-2 rounded-full text-body transition-colors ${
-              transactionType === 'income'
-                ? 'bg-semantic-positive text-paper-white'
-                : 'bg-paper-light text-ink-mid'
+            onClick={() => setPeriodMode('yearly')}
+            className={`text-sub transition-colors ${
+              periodMode === 'yearly'
+                ? 'text-ink-black underline underline-offset-4'
+                : 'text-ink-light'
             }`}
           >
-            수입
+            연간
           </button>
         </div>
 
-        <p className="text-sub text-ink-mid">
-          이번 달 {transactionType === 'expense' ? '지출' : '수입'}
+        <p className="text-sub text-ink-mid text-center">
+          {periodLabel} {transactionType === 'expense' ? '지출' : '수입'}
         </p>
-        <p className={`text-hero mt-2 ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
+        <p className={`text-hero mt-2 text-center ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
           {transactionType === 'income' && '+ '}
           {displayAmount.toLocaleString()}원
         </p>
 
-        {transactionType === 'expense' && settings?.monthlyBudget && settings.monthlyBudget > 0 && (
-          <>
-            <div className="mt-4 h-0.5 bg-paper-mid rounded-full overflow-hidden">
-              <div
-                className="h-full bg-ink-black rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(budgetPercent, 100)}%` }}
-              />
+        {/* Budget/Balance Status Bar - 항상 표시 */}
+        {transactionType === 'expense' && periodMode === 'monthly' ? (
+          // 월간 지출: 예산 대비
+          settings?.monthlyBudget && settings.monthlyBudget > 0 ? (
+            <>
+              <div className="mt-4 h-0.5 bg-paper-mid rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-ink-black rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(budgetPercent, 100)}%` }}
+                />
+              </div>
+              <p className="text-sub text-ink-mid mt-2 text-center">
+                예산의 {budgetPercent}%를 썼어요
+              </p>
+              {isCurrentMonth && remainingBudget > 0 && (
+                <p className="text-caption text-ink-light text-center mt-1">
+                  하루 {dailyBudget.toLocaleString()}원씩 쓸 수 있어요
+                </p>
+              )}
+              {budgetPercent > 100 && (
+                <p className="text-caption text-ink-light text-center mt-1">
+                  {(totalExpense - settings.monthlyBudget).toLocaleString()}원 초과했어요
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <span className="text-sub text-ink-light">예산을 세우면 흐름이 보여요</span>
+              <button
+                onClick={() => navigate('/budget-wizard')}
+                className="px-3 py-1 bg-paper-mid rounded-full text-caption text-ink-mid"
+              >
+                설정하기
+              </button>
             </div>
-            <p className="text-sub text-ink-mid mt-2">
-              예산의 {budgetPercent}%
-            </p>
-          </>
-        )}
-
-        {/* Balance info when viewing income */}
-        {transactionType === 'income' && (
-          <div className="mt-4 p-3 bg-paper-light rounded-md">
-            <div className="flex justify-between text-sub">
-              <span className="text-ink-mid">이번 달 지출</span>
-              <span className="text-ink-dark">{totalExpense.toLocaleString()}원</span>
-            </div>
-            <div className="flex justify-between text-body mt-1">
-              <span className="text-ink-mid">잔액</span>
-              <span className={totalIncome - totalExpense >= 0 ? 'text-semantic-positive' : 'text-semantic-negative'}>
-                {totalIncome - totalExpense >= 0 ? '+ ' : ''}{(totalIncome - totalExpense).toLocaleString()}원
-              </span>
-            </div>
+          )
+        ) : transactionType === 'expense' && periodMode === 'yearly' ? (
+          // 연간 지출: 수입 대비 → 연간 예산 fallback
+          <div className="mt-4">
+            {totalIncome > 0 ? (
+              // 수입 데이터 있음: 수입 대비 지출 비율
+              <>
+                <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-ink-black rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(Math.round((totalExpense / totalIncome) * 100), 100)}%` }}
+                  />
+                </div>
+                <p className="text-sub text-ink-mid mt-2 text-center">
+                  번 돈의 {Math.round((totalExpense / totalIncome) * 100)}%를 썼어요
+                </p>
+                <p className="text-caption text-ink-light text-center mt-1">
+                  {totalIncome - totalExpense >= 0
+                    ? `${(totalIncome - totalExpense).toLocaleString()}원 남았어요`
+                    : `${Math.abs(totalIncome - totalExpense).toLocaleString()}원 더 썼어요`
+                  }
+                </p>
+              </>
+            ) : settings?.monthlyBudget && settings.monthlyBudget > 0 ? (
+              // 수입 없고 예산 있음: 연간 예산(월예산×12) 대비
+              (() => {
+                const yearlyBudget = settings.monthlyBudget * 12;
+                const yearlyBudgetPercent = Math.round((totalExpense / yearlyBudget) * 100);
+                return (
+                  <>
+                    <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-ink-black rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(yearlyBudgetPercent, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-sub text-ink-mid mt-2 text-center">
+                      연간 예산의 {yearlyBudgetPercent}%를 썼어요
+                    </p>
+                    <p className="text-caption text-ink-light text-center mt-1">
+                      월 {settings.monthlyBudget.toLocaleString()}원 × 12개월 기준
+                    </p>
+                  </>
+                );
+              })()
+            ) : (
+              // 수입도 예산도 없음
+              <p className="text-sub text-ink-light text-center">
+                수입을 기록하거나 예산을 설정하면 흐름이 보여요
+              </p>
+            )}
+          </div>
+        ) : (
+          // 수입 모드 (월간/연간 공통): 지출 대비 잔액
+          <div className="mt-4">
+            {totalExpense > 0 ? (
+              <>
+                <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-semantic-positive rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(Math.round(((totalIncome - totalExpense) / totalIncome) * 100), 100)}%` }}
+                  />
+                </div>
+                <p className="text-sub text-ink-mid mt-2 text-center">
+                  {totalIncome > totalExpense
+                    ? `${Math.round(((totalIncome - totalExpense) / totalIncome) * 100)}%를 모을 수 있어요`
+                    : `수입보다 ${Math.abs(totalIncome - totalExpense).toLocaleString()}원 더 썼어요`
+                  }
+                </p>
+                <p className="text-caption text-ink-light text-center mt-1">
+                  {periodLabel} 지출 {totalExpense.toLocaleString()}원
+                </p>
+              </>
+            ) : (
+              <p className="text-sub text-ink-mid text-center">
+                아직 지출이 없어요
+              </p>
+            )}
           </div>
         )}
       </section>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-paper-mid">
+      <div className="flex border-b border-paper-mid" data-tour="stats-tabs">
         <button
           onClick={() => setActiveTab('category')}
           className={`flex-1 py-3 text-center text-body ${
@@ -416,7 +597,7 @@ export function StatsPage() {
               : 'text-ink-mid'
           }`}
         >
-          월별 추이
+          기간별 추이
         </button>
       </div>
 
@@ -440,7 +621,7 @@ export function StatsPage() {
           >
             <span className="text-sub">
               {swipeDirection === 'left'
-                ? (activeTab === 'category' ? '수단별' : '월별 추이')
+                ? (activeTab === 'category' ? '수단별' : '기간별 추이')
                 : (activeTab === 'trend' ? '수단별' : '카테고리별')
               }
             </span>
@@ -450,22 +631,24 @@ export function StatsPage() {
         {/* Category Breakdown */}
         {activeTab === 'category' && (
         <section className="px-6 py-4">
-          {categoryBreakdown.length === 0 ? (
+          {activeCategoryBreakdown.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-body text-ink-light">거래 데이터가 없습니다</p>
             </div>
           ) : (
             <>
               {/* Donut Chart */}
-              <CategoryDonutChart
-                data={categoryBreakdown}
-                totalAmount={displayAmount}
-                height={280}
-              />
+              <div data-tour="stats-chart">
+                <CategoryDonutChart
+                  data={activeCategoryBreakdown}
+                  totalAmount={displayAmount}
+                  height={280}
+                />
+              </div>
 
               {/* Category List */}
               <div className="space-y-4 mt-6">
-                {categoryBreakdown.map((category) => (
+                {activeCategoryBreakdown.map((category) => (
                   <button
                     key={category.categoryId}
                     className="w-full py-2 text-left"
@@ -520,7 +703,7 @@ export function StatsPage() {
       {/* Payment Method Breakdown */}
       {activeTab === 'paymentMethod' && (
         <section className="px-6 py-4">
-          {paymentMethodBreakdown.length === 0 ? (
+          {activePaymentMethodBreakdown.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-body text-ink-light">거래 데이터가 없습니다</p>
             </div>
@@ -528,15 +711,19 @@ export function StatsPage() {
             <>
               {/* Donut Chart */}
               <PaymentMethodDonutChart
-                data={paymentMethodBreakdown}
+                data={activePaymentMethodBreakdown}
                 totalAmount={displayAmount}
                 height={280}
               />
 
               {/* Payment Method List */}
               <div className="space-y-4 mt-6">
-                {paymentMethodBreakdown.map((method) => (
-                  <div key={method.paymentMethodId} className="py-2">
+                {activePaymentMethodBreakdown.map((method) => (
+                  <button
+                    key={method.paymentMethodId}
+                    className="w-full py-2 text-left"
+                    onClick={() => setSelectedPaymentMethod(method)}
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <div
@@ -576,14 +763,14 @@ export function StatsPage() {
                       <p className="text-caption text-ink-light">
                         {method.count}건
                       </p>
-                      {method.budget && method.budgetPercent !== undefined && (
+                      {method.budget && method.budgetPercent !== undefined && periodMode === 'monthly' && (
                         <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid'}`}>
                           예산의 {method.budgetPercent}%
                           {method.budgetPercent > 100 && ' (초과)'}
                         </p>
                       )}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </>
@@ -602,15 +789,19 @@ export function StatsPage() {
             />
           </div>
 
-          {/* Category Filter (only for monthly views) */}
-          {trendPeriod !== 'annual' && categoryBreakdown.length > 0 && (
+          {/* Category Filter */}
+          {activeCategoryBreakdown.length > 0 && (
             <div className="mb-4">
-              <p className="text-caption text-ink-mid mb-2">카테고리 필터</p>
+              <p className="text-caption text-ink-mid mb-2">카테고리 필터 (최대 3개)</p>
               <CategoryFilterChips
-                categories={categoryBreakdown}
+                categories={activeCategoryBreakdown}
                 selectedIds={selectedCategoryIds}
                 onToggle={handleCategoryToggle}
                 maxSelections={3}
+                showAll={true}
+                showTotalOption={true}
+                isTotalSelected={showTotalLine}
+                onTotalToggle={() => setShowTotalLine(!showTotalLine)}
               />
             </div>
           )}
@@ -628,6 +819,7 @@ export function StatsPage() {
                 annualData={annualTrend}
                 categoryLines={categoryLines}
                 height={240}
+                showTotalLine={showTotalLine}
               />
 
               {/* Summary */}
@@ -670,7 +862,9 @@ export function StatsPage() {
       <section className="px-6 py-4 pb-20">
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb size={16} className="text-ink-mid" />
-          <span className="text-sub text-ink-mid">이번 달 관심사</span>
+          <span className="text-sub text-ink-mid">
+            {periodMode === 'yearly' ? '올해 관심사' : '이번 달 관심사'}
+          </span>
         </div>
         <div className="p-4 bg-paper-light rounded-md">
           <ul className="space-y-2">
@@ -684,13 +878,15 @@ export function StatsPage() {
         </div>
       </section>
 
-      {/* Month Picker Modal */}
+      {/* Period Picker Modal */}
       {showMonthPicker && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
           <div className="bg-paper-white w-full max-w-lg rounded-2xl animate-fade-in">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-paper-mid">
-              <h2 className="text-title text-ink-black">월 선택</h2>
+              <h2 className="text-title text-ink-black">
+                {periodMode === 'yearly' ? '연도 선택' : '월 선택'}
+              </h2>
               <button
                 onClick={() => setShowMonthPicker(false)}
                 className="w-10 h-10 flex items-center justify-center"
@@ -721,32 +917,58 @@ export function StatsPage() {
               </button>
             </div>
 
-            {/* Month Grid (4x3) */}
-            <div className="grid grid-cols-4 gap-2 px-4 py-4">
-              {Array.from({ length: 12 }, (_, i) => {
-                const isSelected =
-                  pickerYear === currentMonth.getFullYear() &&
-                  i === currentMonth.getMonth();
-                const disabled = isMonthDisabled(i);
+            {/* 연간 모드: 연도 선택 버튼 */}
+            {periodMode === 'yearly' && (
+              <div className="px-4 py-4">
+                <button
+                  onClick={() => {
+                    if (pickerYear <= new Date().getFullYear()) {
+                      setSelectedYear(pickerYear);
+                      setShowMonthPicker(false);
+                    }
+                  }}
+                  disabled={pickerYear > new Date().getFullYear()}
+                  className={`w-full py-4 rounded-lg text-body transition-colors ${
+                    pickerYear === selectedYear
+                      ? 'bg-ink-black text-paper-white'
+                      : pickerYear > new Date().getFullYear()
+                      ? 'bg-paper-light text-ink-light'
+                      : 'bg-paper-light text-ink-dark hover:bg-paper-mid'
+                  }`}
+                >
+                  {pickerYear}년 선택
+                </button>
+              </div>
+            )}
 
-                return (
-                  <button
-                    key={i}
-                    onClick={() => !disabled && handleSelectMonth(i)}
-                    disabled={disabled}
-                    className={`py-3 rounded-lg text-body transition-colors ${
-                      isSelected
-                        ? 'bg-ink-black text-paper-white'
-                        : disabled
-                        ? 'bg-paper-light text-ink-light'
-                        : 'bg-paper-light text-ink-dark hover:bg-paper-mid'
-                    }`}
-                  >
-                    {i + 1}월
-                  </button>
-                );
-              })}
-            </div>
+            {/* 월간 모드: Month Grid (4x3) */}
+            {periodMode === 'monthly' && (
+              <div className="grid grid-cols-4 gap-2 px-4 py-4">
+                {Array.from({ length: 12 }, (_, i) => {
+                  const isSelected =
+                    pickerYear === currentMonth.getFullYear() &&
+                    i === currentMonth.getMonth();
+                  const disabled = isMonthDisabled(i);
+
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => !disabled && handleSelectMonth(i)}
+                      disabled={disabled}
+                      className={`py-3 rounded-lg text-body transition-colors ${
+                        isSelected
+                          ? 'bg-ink-black text-paper-white'
+                          : disabled
+                          ? 'bg-paper-light text-ink-light'
+                          : 'bg-paper-light text-ink-dark hover:bg-paper-mid'
+                      }`}
+                    >
+                      {i + 1}월
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Close Button */}
             <div className="px-4 pb-4">
@@ -767,8 +989,20 @@ export function StatsPage() {
           category={selectedCategory}
           isOpen={!!selectedCategory}
           onClose={() => setSelectedCategory(null)}
-          year={currentMonth.getFullYear()}
-          month={currentMonth.getMonth() + 1}
+          year={periodMode === 'yearly' ? selectedYear : currentMonth.getFullYear()}
+          month={periodMode === 'yearly' ? 12 : currentMonth.getMonth() + 1}
+          type={transactionType}
+        />
+      )}
+
+      {/* Payment Method Trend Modal */}
+      {selectedPaymentMethod && (
+        <PaymentMethodTrendModal
+          paymentMethod={selectedPaymentMethod}
+          isOpen={!!selectedPaymentMethod}
+          onClose={() => setSelectedPaymentMethod(null)}
+          year={periodMode === 'yearly' ? selectedYear : currentMonth.getFullYear()}
+          month={periodMode === 'yearly' ? 12 : currentMonth.getMonth() + 1}
           type={transactionType}
         />
       )}

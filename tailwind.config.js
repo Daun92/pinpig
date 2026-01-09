@@ -69,6 +69,13 @@ export default {
         'fade-in': 'fadeIn 0.15s ease-out',
         'slide-up': 'slideUp 0.2s ease-out',
         'slide-down': 'slideDown 0.2s ease-out',
+        'bounce-gentle': 'bounceGentle 1s ease-in-out infinite',
+        'count-up': 'countUp 0.6s ease-out forwards',
+        'pulse-subtle': 'pulseSubtle 2s ease-in-out infinite',
+        'draw-line': 'drawLine 1s ease-out forwards',
+        'fill-donut': 'fillDonut 1s ease-out forwards',
+        'step-highlight': 'stepHighlight 0.5s ease-out forwards',
+        'spotlight': 'spotlight 0.2s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -82,6 +89,35 @@ export default {
         slideDown: {
           '0%': { transform: 'translateY(-100%)' },
           '100%': { transform: 'translateY(0)' },
+        },
+        bounceGentle: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+        countUp: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        pulseSubtle: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
+        drawLine: {
+          '0%': { strokeDashoffset: '100' },
+          '100%': { strokeDashoffset: '0' },
+        },
+        fillDonut: {
+          '0%': { strokeDasharray: '0 100' },
+          '100%': { strokeDasharray: 'var(--fill-amount, 75) 100' },
+        },
+        stepHighlight: {
+          '0%': { transform: 'scale(1)', opacity: '0.5' },
+          '50%': { transform: 'scale(1.1)', opacity: '1' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        spotlight: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
         },
       },
     },

@@ -4,12 +4,14 @@ import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wan
 import { getSettings, updateSettings, resetDatabase } from '@/services/database';
 import { getImportStatus, clearAllTransactions } from '@/services/excelImport';
 import { useTheme } from '@/hooks/useTheme';
+import { useCoachMark } from '@/components/coachmark';
 import { SegmentedControl } from '@/components/common';
 import type { Settings, ThemeMode } from '@/types';
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { startTour } = useCoachMark();
   const [, setSettings] = useState<Settings | null>(null);
   const [budget, setBudget] = useState('');
 
@@ -36,7 +38,9 @@ export function SettingsPage() {
     });
 
     refreshImportStatus();
-  }, []);
+    // Start settings tour on first visit
+    startTour('settings');
+  }, [startTour]);
 
   const refreshImportStatus = async () => {
     const status = await getImportStatus();
@@ -99,7 +103,7 @@ export function SettingsPage() {
       </header>
 
       {/* Budget Section */}
-      <section className="px-6 pt-6">
+      <section className="px-6 pt-6" data-tour="settings-budget">
         <h2 className="text-sub text-ink-light mb-2">예산</h2>
         <div className="border-b border-paper-mid">
           <div className="flex items-center justify-between py-4">
@@ -187,7 +191,7 @@ export function SettingsPage() {
 
       {/* Category & Payment Section */}
       <section className="px-6 pt-6">
-        <h2 className="text-sub text-ink-light mb-2">카테고리 & 결제수단</h2>
+        <h2 className="text-sub text-ink-light mb-2">카테고리 & 수단</h2>
         <div className="border-b border-paper-mid">
           <button
             onClick={() => navigate('/settings/categories')}
@@ -202,12 +206,12 @@ export function SettingsPage() {
         </div>
         <div className="border-b border-paper-mid">
           <button
-            onClick={() => navigate('/settings/payment-methods')}
+            onClick={() => navigate('/settings/methods')}
             className="w-full flex items-center justify-between py-4"
           >
             <div className="flex items-center gap-3">
               <CreditCard size={20} className="text-ink-mid" />
-              <span className="text-body text-ink-black">결제수단 관리</span>
+              <span className="text-body text-ink-black">수단 관리</span>
             </div>
             <ChevronRight size={20} className="text-ink-light" />
           </button>

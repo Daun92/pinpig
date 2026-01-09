@@ -65,6 +65,7 @@ export function TabBar() {
                 key={to}
                 onClick={handleMainButtonClick}
                 className="flex flex-col items-center justify-center min-w-touch min-h-touch relative -mt-4 z-[70]"
+                data-tour="add-confirm"
               >
                 <div
                   className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors ${

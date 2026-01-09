@@ -4,6 +4,7 @@ import { Calendar, Clock } from 'lucide-react';
 import { useTransactionStore, selectBudgetStatus } from '@/stores/transactionStore';
 import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
+import { useCoachMark } from '@/components/coachmark';
 import { Icon } from '@/components/common';
 import { formatCurrency } from '@/utils/format';
 import { isToday, isYesterday, isFuture, startOfDay, endOfMonth, startOfMonth } from 'date-fns';
@@ -96,6 +97,7 @@ export function HomePage() {
   const { transactions, fetchTransactions, isLoading } = useTransactionStore();
   const { fetchSettings } = useSettingsStore();
   const { fetchCategories } = useCategoryStore();
+  const { startTour } = useCoachMark();
 
   const monthlyBudget = useSettingsStore(selectMonthlyBudget);
   const budgetStatus = useTransactionStore(selectBudgetStatus(monthlyBudget));
@@ -110,6 +112,13 @@ export function HomePage() {
     fetchTransactions(new Date());
     loadBudgetData();
   }, [fetchSettings, fetchCategories, fetchTransactions]);
+
+  // Start home tour on first visit
+  useEffect(() => {
+    if (!isLoading) {
+      startTour('home');
+    }
+  }, [isLoading, startTour]);
 
   const loadBudgetData = async () => {
     try {
@@ -208,7 +217,7 @@ export function HomePage() {
         </div>
 
         {/* Hero Amount */}
-        <div className="text-center mt-2">
+        <div className="text-center mt-2" data-tour="home-hero">
           <h1 className="text-hero text-ink-black">
             {formatCurrency(remaining >= 0 ? remaining : 0)}
           </h1>
@@ -228,7 +237,7 @@ export function HomePage() {
         </div>
 
         {/* Daily Budget */}
-        <div className="text-center mt-3">
+        <div className="text-center mt-3" data-tour="home-daily">
           <p className="text-sub text-ink-mid">
             {remainingDays}일 남음 · 하루 {formatCurrency(dailyRecommended)}
           </p>
@@ -249,12 +258,24 @@ export function HomePage() {
 
         {/* Today's Transaction List */}
         {todayTransactions.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-8">
-            <p className="text-body text-ink-dark">{emptyMessage.main}</p>
-            {emptyMessage.sub && (
-              <p className="text-sub text-ink-light mt-1">{emptyMessage.sub}</p>
-            )}
-          </div>
+          transactions.length === 0 ? (
+            // 첫 사용자: 거래 내역이 전혀 없을 때
+            <div className="flex-1 flex flex-col items-center justify-center py-12">
+              <p className="text-body text-ink-dark">새로운 시작이에요</p>
+              <p className="text-sub text-ink-light mt-2 text-center">
+                아래 + 버튼을 눌러<br />
+                첫 번째 기록을 남겨보세요
+              </p>
+            </div>
+          ) : (
+            // 기존 사용자: 오늘 거래만 없을 때
+            <div className="flex-1 flex flex-col items-center justify-center py-8">
+              <p className="text-body text-ink-dark">{emptyMessage.main}</p>
+              {emptyMessage.sub && (
+                <p className="text-sub text-ink-light mt-1">{emptyMessage.sub}</p>
+              )}
+            </div>
+          )
         ) : (
           <ul className="border-t border-paper-mid">
             {todayTransactions.map((tx) => {
