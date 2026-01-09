@@ -53,8 +53,8 @@ export function StatsPage() {
   const [yearlyCategoryBreakdown, setYearlyCategoryBreakdown] = useState<CategorySummary[]>([]);
   const [yearlyPaymentMethodBreakdown, setYearlyPaymentMethodBreakdown] = useState<PaymentMethodSummary[]>([]);
 
-  // 추이 탭: 전체 라인 표시 토글
-  const [showTotalLine, setShowTotalLine] = useState(false);
+  // 추이 탭: 전체 라인 표시 토글 (기본값: 전체 선택)
+  const [showTotalLine, setShowTotalLine] = useState(true);
 
   // 수단별 모달
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodSummary | null>(null);

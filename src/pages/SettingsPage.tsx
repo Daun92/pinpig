@@ -29,11 +29,22 @@ export function SettingsPage() {
   } | null>(null);
   const [importMessage, setImportMessage] = useState('');
 
+  // 예산 표시 포맷 (천단위 콤마)
+  const formatBudgetDisplay = (value: string) => {
+    const num = parseInt(value.replace(/,/g, '')) || 0;
+    return num > 0 ? num.toLocaleString() : '';
+  };
+
+  // 예산 입력값에서 숫자만 추출
+  const parseBudgetInput = (value: string) => {
+    return value.replace(/[^0-9]/g, '');
+  };
+
   useEffect(() => {
     getSettings().then((s) => {
       if (s) {
         setSettings(s);
-        setBudget(s.monthlyBudget.toString());
+        setBudget(s.monthlyBudget > 0 ? s.monthlyBudget.toLocaleString() : '');
       }
     });
 
@@ -48,9 +59,16 @@ export function SettingsPage() {
   };
 
   const handleSaveBudget = async () => {
-    const newBudget = parseInt(budget) || 0;
+    const newBudget = parseInt(budget.replace(/,/g, '')) || 0;
     await updateSettings({ monthlyBudget: newBudget });
     setSettings((prev) => (prev ? { ...prev, monthlyBudget: newBudget } : null));
+    // 저장 후 포맷된 값으로 표시
+    setBudget(newBudget > 0 ? newBudget.toLocaleString() : '');
+  };
+
+  const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = parseBudgetInput(e.target.value);
+    setBudget(formatBudgetDisplay(rawValue));
   };
 
   const handleClearData = async () => {
@@ -110,9 +128,10 @@ export function SettingsPage() {
             <span className="text-body text-ink-black">월 예산</span>
             <div className="flex items-center gap-2">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={budget}
-                onChange={(e) => setBudget(e.target.value)}
+                onChange={handleBudgetChange}
                 onBlur={handleSaveBudget}
                 placeholder="0"
                 className="w-32 text-right bg-transparent text-body text-ink-mid outline-none"
@@ -190,7 +209,7 @@ export function SettingsPage() {
       </section>
 
       {/* Category & Payment Section */}
-      <section className="px-6 pt-6">
+      <section className="px-6 pt-6" data-tour="settings-category">
         <h2 className="text-sub text-ink-light mb-2">카테고리 & 수단</h2>
         <div className="border-b border-paper-mid">
           <button
@@ -219,7 +238,7 @@ export function SettingsPage() {
       </section>
 
       {/* Data Section */}
-      <section className="px-6 pt-6">
+      <section className="px-6 pt-6" data-tour="settings-data">
         <h2 className="text-sub text-ink-light mb-2">데이터</h2>
         <div className="border-b border-paper-mid">
           <button

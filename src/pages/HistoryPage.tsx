@@ -4,6 +4,7 @@ import { Search, ChevronDown, ChevronLeft, ChevronRight, X, Check } from 'lucide
 import { isFuture, startOfDay, getYear, getMonth } from 'date-fns';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectCategoryMap, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
+import { useCoachMark } from '@/components/coachmark';
 import { Icon } from '@/components/common';
 import { MonthSummaryCard } from '@/components/history';
 import { isToday, isYesterday, format, subMonths, addMonths } from 'date-fns';
@@ -109,6 +110,7 @@ function groupTransactionsByMonth(transactions: Transaction[]): MonthGroup[] {
 
 export function HistoryPage() {
   const navigate = useNavigate();
+  const { startTour } = useCoachMark();
   const { transactions, currentMonth, fetchTransactions, setCurrentMonth, searchAllTransactions, isLoading } = useTransactionStore();
   const { fetchCategories } = useCategoryStore();
   const categoryMap = useCategoryStore(selectCategoryMap);
@@ -147,6 +149,13 @@ export function HistoryPage() {
     fetchCategories();
     fetchTransactions(new Date());
   }, [fetchCategories, fetchTransactions]);
+
+  // Start history tour on first visit (after transactions loaded)
+  useEffect(() => {
+    if (transactions.length > 0) {
+      startTour('history');
+    }
+  }, [transactions.length, startTour]);
 
   // Scroll to target group after data loads
   const scrollToGroup = useCallback((targetRef: React.RefObject<HTMLDivElement>) => {
@@ -446,7 +455,7 @@ export function HistoryPage() {
             전체 기간
           </div>
         ) : (
-          <div className="flex items-center bg-paper-light rounded-lg">
+          <div className="flex items-center bg-paper-light rounded-lg" data-tour="history-month-nav">
             <button
               onClick={handlePrevMonth}
               className="w-9 h-9 flex items-center justify-center text-ink-dark"
@@ -510,6 +519,34 @@ export function HistoryPage() {
         </div>
       )}
 
+      {/* Monthly Summary - shown for single month view (not searching) */}
+      {!searchQuery && monthGroups.length === 1 && monthGroups[0] && (
+        <div className="px-4 py-3 bg-paper-white border-b border-paper-mid sticky top-[104px] z-20">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div>
+                <p className="text-caption text-ink-light">수입</p>
+                <p className="text-sub text-semantic-positive">
+                  +{monthGroups[0].summary.income.toLocaleString()}원
+                </p>
+              </div>
+              <div>
+                <p className="text-caption text-ink-light">지출</p>
+                <p className="text-sub text-ink-dark">
+                  {monthGroups[0].summary.expense.toLocaleString()}원
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-caption text-ink-light">합계</p>
+              <p className={`text-body font-medium ${monthGroups[0].summary.net >= 0 ? 'text-semantic-positive' : 'text-semantic-negative'}`}>
+                {monthGroups[0].summary.net >= 0 ? '+' : ''}{monthGroups[0].summary.net.toLocaleString()}원
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Swipe indicator for month navigation */}
       {swipeDirection && swipeDistance > 0 && (
         <div
@@ -548,20 +585,32 @@ export function HistoryPage() {
           {monthGroups.map((monthGroup) => {
             // Show month header only in search mode or when multiple months exist
             const showMonthHeader = searchQuery.trim() || monthGroups.length > 1;
+            // Show monthly summary only for single month view (not searching)
+            const showMonthlySummary = !searchQuery && monthGroups.length === 1;
             // Calculate sticky positions based on context
             // Header: 56px, Filter bar: ~52px = 108px base
-            // When search result info is shown, add ~32px more
+            // Monthly summary: ~60px, Search result info: ~32px
             const hasSearchInfo = searchQuery || selectedCategoryIds.length > 0;
-            const monthHeaderTop = hasSearchInfo ? 'top-[136px]' : 'top-[108px]';
-            const dateHeaderTop = showMonthHeader
-              ? (hasSearchInfo ? 'top-[176px]' : 'top-[148px]')
-              : (hasSearchInfo ? 'top-[136px]' : 'top-[108px]');
+            // Base position after header + filter bar
+            const baseTop = 108;
+            // Add monthly summary height for single month view
+            const summaryOffset = showMonthlySummary ? 60 : 0;
+            // Add search info height when searching/filtering
+            const searchInfoOffset = hasSearchInfo ? 32 : 0;
+
+            const monthHeaderTopPx = baseTop + searchInfoOffset;
+            const dateHeaderTopPx = showMonthHeader
+              ? baseTop + searchInfoOffset + 40 // month header is ~40px
+              : baseTop + summaryOffset;
 
             return (
             <div key={`${monthGroup.year}-${monthGroup.month}`} className="month-group">
               {/* Month Header - sticky at top, shows when scrolling through this month */}
               {showMonthHeader && (
-                <div className={`sticky ${monthHeaderTop} z-[15] bg-paper-white border-b border-paper-mid shadow-sm`}>
+                <div
+                  className="sticky z-[15] bg-paper-white border-b border-paper-mid shadow-sm"
+                  style={{ top: `${monthHeaderTopPx}px` }}
+                >
                   <div className="flex justify-between items-center px-4 py-2">
                     <span className="text-body font-medium text-ink-black">{monthGroup.label}</span>
                     <span className={`text-sub ${monthGroup.summary.net >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
@@ -607,7 +656,10 @@ export function HistoryPage() {
                     className="date-group relative"
                   >
                     {/* Date Group Header - sticky within its container */}
-                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light border-b border-paper-mid/50 sticky ${dateHeaderTop} z-10`}>
+                    <div
+                      className="flex justify-between items-center px-4 py-2.5 bg-paper-light border-b border-paper-mid/50 sticky z-10"
+                      style={{ top: `${dateHeaderTopPx}px` }}
+                    >
                       <span className="text-sub text-ink-dark">{group.label}</span>
                       <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
                         {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원
@@ -616,13 +668,18 @@ export function HistoryPage() {
 
                     {/* Transactions */}
                     <ul>
-                      {group.transactions.map((tx) => {
+                      {group.transactions.map((tx, txIndex) => {
                         const category = categoryMap.get(tx.categoryId);
+                        // Add tour attribute to first transaction of first date group of first month
+                        const isFirstTransaction = txIndex === 0 &&
+                          monthGroup.dateGroups[0] === group &&
+                          monthGroups[0] === monthGroup;
                         return (
                           <li
                             key={tx.id}
                             onClick={() => navigate(`/transaction/${tx.id}`)}
                             className="px-4 py-4 border-b border-paper-mid cursor-pointer active:bg-paper-light transition-colors"
+                            {...(isFirstTransaction && { 'data-tour': 'history-transaction' })}
                           >
                             <div className="flex items-start gap-3">
                               {/* Icon */}
@@ -634,7 +691,7 @@ export function HistoryPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-baseline">
                                   <span className="text-body text-ink-black truncate">
-                                    {tx.description || category?.name || '거래'}
+                                    {tx.memo || category?.name || '거래'}
                                   </span>
                                   <span className="text-caption text-ink-light ml-2 whitespace-nowrap">
                                     {tx.time}

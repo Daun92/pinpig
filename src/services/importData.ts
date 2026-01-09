@@ -57,13 +57,15 @@ export async function importTransactionsFromJSON(url: string): Promise<number> {
       const now = new Date();
       const txDate = new Date(item.date);
 
+      // description과 memo를 통합하여 memo에 저장
+      const combinedMemo = [item.description, item.memo].filter(Boolean).join(' ').trim() || undefined;
+
       transactions.push({
         id: generateId(),
         type: item.type,
         amount: item.amount,
         categoryId: category.id,
-        description: item.description,
-        memo: item.memo || undefined,
+        memo: combinedMemo,
         date: txDate,
         time: item.time,
         createdAt: now,

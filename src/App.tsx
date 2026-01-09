@@ -23,6 +23,7 @@ import { RecurringTransactionPage } from '@/pages/RecurringTransactionPage';
 import { RecurringTransactionEditPage } from '@/pages/RecurringTransactionEditPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
 import { TabBar } from '@/components/layout/TabBar';
+import { SplashScreen } from '@/components/layout/SplashScreen';
 import { CoachMarkProvider } from '@/components/coachmark';
 import { useTheme } from '@/hooks/useTheme';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
@@ -48,13 +49,9 @@ export default function App() {
     fetchSettings();
   }, [fetchSettings]);
 
-  // Show loading state while checking onboarding status
+  // Show splash screen while checking onboarding status
   if (isLoading && !settings) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-paper-white">
-        <div className="text-ink-mid">불러오는 중...</div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   // Show onboarding if not complete

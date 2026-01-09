@@ -422,13 +422,13 @@ export async function checkDuplicates(
   // 기존 거래 가져오기
   const existingTransactions = await db.transactions.toArray();
 
-  // 중복 체크용 Set 생성 (날짜-금액-설명 조합)
+  // 중복 체크용 Set 생성 (날짜-금액-메모 조합)
   const existingKeys = new Set<string>();
   for (const tx of existingTransactions) {
     const dateStr = tx.date instanceof Date
       ? tx.date.toISOString().split('T')[0]
       : new Date(tx.date).toISOString().split('T')[0];
-    const key = `${dateStr}-${tx.amount}-${tx.description}`;
+    const key = `${dateStr}-${tx.amount}-${tx.memo || ''}`;
     existingKeys.add(key);
   }
 
@@ -525,7 +525,7 @@ export async function importExcelData(
       const dateStr = tx.date instanceof Date
         ? tx.date.toISOString().split('T')[0]
         : new Date(tx.date).toISOString().split('T')[0];
-      const key = `${dateStr}-${tx.amount}-${tx.description}`;
+      const key = `${dateStr}-${tx.amount}-${tx.memo || ''}`;
       existingKeys.add(key);
     }
   }
@@ -740,14 +740,18 @@ export async function importExcelData(
         }
 
         const now = new Date();
+        // '내용'과 '추가입력'을 memo로 통합
+        const contentMemo = row['내용'] || '';
+        const additionalMemo = row['추가입력'] || '';
+        const combinedMemo = [contentMemo, additionalMemo].filter(Boolean).join(' ').trim() || undefined;
+
         transactions.push({
           id: generateId(),
           type,
           amount,
           categoryId: category.id,
           paymentMethodId: paymentMethod?.id,
-          description: row['내용'] || '',
-          memo: row['추가입력'] || undefined,
+          memo: combinedMemo,
           date,
           time: formatTime(date),
           createdAt: now,

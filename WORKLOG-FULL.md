@@ -1499,21 +1499,111 @@
     - `src/App.tsx`: CoachMarkProvider 래핑
 - **결과**: 타입체크/빌드 통과
 
-### #84 �º��� ������ ���� (v0.1.6)
-- **��û**: �̸��� ��� �� �׸��� ��︮�� ���� ������ ���
-- **����**:
-  - : �̸��� �� Lucide ������
-    - ?? �� Wallet, ?? �� CalendarDays, ?? �� TrendingUp
-  - : �̸��� �� Lucide ������
-    - ??? �� Utensils, \ �� Coins, ? �� Check
-    - LucideIcon Ÿ�� ���
-  - ��� ������ strokeWidth={1.5}�� ����
-- **���**: v0.1.6 ������, GitHub Ǫ�� + Vercel ���� �Ϸ�
+### #84 온보딩 아이콘 개선 (v0.1.6)
+- **요청**: 이모지 대신 앱 그래픽 테마와 어울리는 아이콘 사용
+- **변경**:
+  - OnboardingPage.tsx: 이모지 → Lucide 선형아이콘 (Wallet, CalendarDays, TrendingUp)
+  - AddFlowIllustration.tsx: 이모지 → Lucide 선형아이콘 (Utensils, Coins, Check)
+  - 모든 아이콘 strokeWidth=1.5로 통일
+- **결과**: v0.1.6 릴리즈, GitHub 푸시 + Vercel 배포 완료
 
-### #84 �º��� ������ ���� (v0.1.6)
-- **��û**: �̸��� ��� �� �׸��� ��︮�� ���� ������ ���
-- **����**:
-  - OnboardingPage.tsx: �̸����� Lucide ���������� ��ü (Wallet, CalendarDays, TrendingUp)
-  - AddFlowIllustration.tsx: �̸����� Lucide ���������� ��ü (Utensils, Coins, Check)
-  - ��� ������ strokeWidth=1.5�� ����
-- **���**: v0.1.6 ������, GitHub Ǫ�� + Vercel ���� �Ϸ�
+### #85 메모 표시 버그 수정 + 기록탭 월간 합계 (v0.1.7)
+- **요청**: 거래 메모가 분석/기록 탭에 표시되지 않는 문제 수정 + 기록탭 월간 합계 추가
+- **변경**:
+  - `src/components/report/CategoryTrendModal.tsx`:
+    - TOP5 항목에 메모 표시: `tx.description` → `tx.memo || tx.description`
+  - `src/pages/HistoryPage.tsx`:
+    - 거래 목록에 메모 표시: `tx.memo || tx.description || category?.name`
+    - 월간 합계 영역 추가 (수입/지출/합계 - sticky 헤더)
+    - sticky 위치 동적 계산 (인라인 스타일 사용)
+- **결과**: v0.1.7 릴리즈
+
+### #86 Transaction description/memo 필드 통합
+- **요청**: 분석탭 수단별 상세내역에서 입력사항이 반영되지 않는 문제 분석 및 개선
+- **원인**: description과 memo가 별도 필드로 존재하나 표시/저장이 불일치
+- **변경**:
+  - `src/types/index.ts`:
+    - Transaction.description 필드 제거, memo로 통합
+    - RecurringTransaction.description 제거
+    - ProjectedTransaction.description → memo
+    - TransactionExportRow.description 제거
+  - `src/services/database.ts`:
+    - DB v7 마이그레이션 추가 (description → memo 데이터 병합)
+  - 페이지/컴포넌트 수정:
+    - AddPage, EditTransactionPage, TransactionDetailPage: description 제거
+    - HistoryPage, HomePage: `tx.memo || category?.name` 로직
+    - RecurringTransactionPage, RecurringTransactionEditPage: description → memo
+    - PaymentMethodTrendModal, CategoryTrendModal: `tx.memo || '거래'`
+    - TransactionDetailModal: 가맹점 섹션 제거
+  - 서비스 수정:
+    - queries.ts: 검색/태그 추출에서 description 참조 제거
+    - exportData.ts: CSV 내보내기 memo만 사용
+    - importData.ts, excelImport.ts: description+memo 병합 저장
+    - seedDatabase.ts: 샘플 데이터 description → memo
+- **결과**: 타입체크 통과, DB 마이그레이션으로 기존 데이터 자동 병합
+
+### #87 결제수단 상세 모달 - 수입/지출 혼합 버그 수정
+- **요청**: 분석 > 수단별 세부 항목에서 지출 탭인데 수입 항목이 표시되는 문제
+- **원인**: `getTransactionsByPaymentMethod`, `getPaymentMethodTrend`, `getTopTransactionsByPaymentMethod` 쿼리에서 type 필터 누락
+- **변경**:
+  - `src/services/queries.ts`:
+    - `getTransactionsByPaymentMethod`: type 파라미터 추가, filter에 `tx.type === type` 조건
+    - `getPaymentMethodTrend`: type 파라미터 추가, 하위 함수에 전달
+    - `getTopTransactionsByPaymentMethod`: type 파라미터 추가
+  - `src/components/report/PaymentMethodTrendModal.tsx`:
+    - 쿼리 호출 시 type 전달
+    - useEffect dependency에 type 추가
+- **결과**: 지출/수입 탭에 맞는 항목만 정확히 표시
+
+### #88 TOP5 세로 레이아웃 개선 (카테고리/결제수단 모달)
+- **요청**: 긴 메모로 인한 레이아웃 깨짐, 억 단위 금액 대응
+- **변경**:
+  - `src/components/report/PaymentMethodTrendModal.tsx`:
+    - 가로 배치 → 세로 배치 변경
+    - 첫 줄: 순위 + 메모 (truncate 말줄임)
+    - 둘째 줄: 날짜(좌) + 금액(우)
+    - pl-8로 순위 아이콘과 정렬
+  - `src/components/report/CategoryTrendModal.tsx`:
+    - 동일한 세로 레이아웃 적용
+- **결과**: 두 모달 모두 어떤 길이의 메모/금액도 안정적 표시
+
+### #89 반복거래/설정 UI 개선 (v0.2.4)
+- **요청**: 4가지 개선 요청
+  1. 설정 탭 월예산 천단위 콤마
+  2. 반복거래 메모 필드 중복 제거 + 활성화 설명
+  3. 반복주기 순서 재배치
+  4. 관리 페이지 FAB 비활성화
+- **변경**:
+  - `src/pages/SettingsPage.tsx`:
+    - 월예산 input type="text" + inputMode="numeric"
+    - formatBudgetDisplay/parseBudgetInput 헬퍼 추가
+  - `src/pages/RecurringTransactionEditPage.tsx`:
+    - 중복 메모 입력 필드 제거
+    - FREQUENCY_OPTIONS 순서: monthly → yearly → weekly → biweekly → daily
+    - executionMode 옵션 추가 (on_date/start_of_month)
+    - 활성화 설명 동적 표시 (executionMode 기반)
+    - 지출/수입 토글 스타일 개선 (선택 시 dark bg)
+  - `src/components/layout/TabBar.tsx`:
+    - FAB_HIDDEN_PATTERNS 추가 (/settings/recurring, /settings/categories, /settings/methods)
+    - 관리 페이지에서 FAB 비활성화 상태 표시 (숨김 → 비활성)
+  - `src/pages/RecurringTransactionPage.tsx`:
+    - 활성/비활성 카드 스타일 통일 (배경 동일, 체크버튼만 구분)
+  - `src/types/index.ts`:
+    - RecurringExecutionMode 타입 추가
+    - RecurringTransaction.executionMode 필드 추가
+- **결과**: v0.2.4 릴리즈, 타입체크 통과
+
+### #90 반복거래 수입수단 선택 기능 추가
+- **요청**: 반복거래 등록/수정 화면에서 수입 타입 선택 시 수입수단 선택 기능 추가 (지출의 결제수단과 대칭)
+- **변경**:
+  - `src/types/index.ts`:
+    - `RecurringTransaction` 인터페이스에 `incomeSourceId?: string` 필드 추가
+  - `src/pages/RecurringTransactionEditPage.tsx`:
+    - `IncomeSource` 타입 import 추가
+    - `incomeSources` state 및 `formIncomeSourceId` state 추가
+    - `loadData`에서 `db.incomeSources` 로드
+    - 수입 타입일 때 수입수단 선택 UI 추가 (결제수단과 동일 패턴)
+    - `handleSubmit`에서 타입에 따라 `incomeSourceId` 또는 `paymentMethodId` 저장
+    - `loadExistingData`에서 기존 `incomeSourceId` 로드
+    - 타입 토글 시 기본 결제수단/수입수단 설정
+- **결과**: 타입체크 및 빌드 통과

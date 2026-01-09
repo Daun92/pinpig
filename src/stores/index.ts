@@ -27,6 +27,15 @@ export {
   selectPaymentMethodMap,
 } from './paymentMethodStore';
 
+// Income Source Store
+export {
+  useIncomeSourceStore,
+  selectIncomeSources,
+  selectDefaultIncomeSource,
+  selectIncomeSourceById,
+  selectIncomeSourceMap,
+} from './incomeSourceStore';
+
 // Settings Store
 export {
   useSettingsStore,

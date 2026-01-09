@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Calendar, Store, FileText } from 'lucide-react';
+import { X, Calendar, FileText } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import {
   useCategoryStore,
@@ -11,6 +11,10 @@ import {
   usePaymentMethodStore,
   selectPaymentMethods,
 } from '@/stores/paymentMethodStore';
+import {
+  useIncomeSourceStore,
+  selectIncomeSources,
+} from '@/stores/incomeSourceStore';
 import { useFabStore } from '@/stores/fabStore';
 import { Icon, DateTimePicker } from '@/components/common';
 import { db } from '@/services/database';
@@ -32,6 +36,8 @@ export function EditTransactionPage() {
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
   const paymentMethods = usePaymentMethodStore(selectPaymentMethods);
+  const { fetchIncomeSources } = useIncomeSourceStore();
+  const incomeSources = useIncomeSourceStore(selectIncomeSources);
 
   const [originalTransaction, setOriginalTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +45,7 @@ export function EditTransactionPage() {
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
-  const [description, setDescription] = useState('');
+  const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string>('');
   const [memo, setMemo] = useState('');
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
@@ -69,7 +75,7 @@ export function EditTransactionPage() {
         setAmount(transaction.amount.toString());
         setSelectedCategoryId(transaction.categoryId);
         setSelectedPaymentMethodId(transaction.paymentMethodId || '');
-        setDescription(transaction.description || '');
+        setSelectedIncomeSourceId(transaction.incomeSourceId || '');
         setMemo(transaction.memo || '');
         setDate(new Date(transaction.date));
         setTime(transaction.time);
@@ -83,8 +89,9 @@ export function EditTransactionPage() {
 
     fetchCategories();
     fetchPaymentMethods();
+    fetchIncomeSources();
     loadTransaction();
-  }, [id, navigate, fetchCategories, fetchPaymentMethods]);
+  }, [id, navigate, fetchCategories, fetchPaymentMethods, fetchIncomeSources]);
 
   // Handle category change when type changes
   useEffect(() => {
@@ -106,7 +113,7 @@ export function EditTransactionPage() {
         amount: parseInt(amount),
         categoryId: selectedCategoryId,
         paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
-        description: description || '',
+        incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
         memo: memo || '',
         date,
         time,
@@ -124,7 +131,7 @@ export function EditTransactionPage() {
     amount,
     selectedCategoryId,
     selectedPaymentMethodId,
-    description,
+    selectedIncomeSourceId,
     memo,
     date,
     time,
@@ -303,10 +310,39 @@ export function EditTransactionPage() {
           </>
         )}
 
+        {/* Income Source (income only) */}
+        {type === 'income' && incomeSources.length > 0 && (
+          <>
+            <div className="h-px bg-paper-mid mx-6" />
+            <div className="px-6 py-4">
+              <p className="text-caption text-ink-light mb-2">수입수단</p>
+              <div className="flex gap-2 flex-wrap">
+                {incomeSources.map((source) => {
+                  const isSelected = source.id === selectedIncomeSourceId;
+                  return (
+                    <button
+                      key={source.id}
+                      onClick={() => setSelectedIncomeSourceId(source.id)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-full text-caption transition-colors ${
+                        isSelected
+                          ? 'bg-ink-black text-paper-white'
+                          : 'bg-paper-light text-ink-mid'
+                      }`}
+                    >
+                      <Icon name={source.icon} size={14} />
+                      <span>{source.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Divider */}
         <div className="h-px bg-paper-mid mx-6" />
 
-        {/* Date & Description Inputs */}
+        {/* Date & Memo Inputs */}
         <div className="px-6">
           {/* Date/Time Picker Trigger */}
           <button
@@ -326,20 +362,6 @@ export function EditTransactionPage() {
             </div>
           </button>
 
-          {/* Description (Merchant Name) */}
-          <div className="flex items-center py-4 border-b border-paper-mid">
-            <div className="flex items-center gap-3 text-ink-mid flex-1">
-              <Store size={20} />
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="어디서? (선택)"
-                className="text-body text-ink-dark bg-transparent outline-none flex-1"
-              />
-            </div>
-          </div>
-
           {/* Memo */}
           <div className="flex items-center py-4">
             <div className="flex items-center gap-3 text-ink-mid flex-1">
@@ -348,7 +370,7 @@ export function EditTransactionPage() {
                 type="text"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
-                placeholder="메모 (선택)"
+                placeholder="메모 추가"
                 className="text-body text-ink-dark bg-transparent outline-none flex-1"
               />
             </div>

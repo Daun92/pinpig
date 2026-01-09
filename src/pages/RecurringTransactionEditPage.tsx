@@ -10,15 +10,20 @@ import {
   deleteRecurringTransaction,
 } from '@/services/queries';
 import { db } from '@/services/database';
-import type { Category, PaymentMethod, RecurrenceFrequency, TransactionType } from '@/types';
+import type { Category, PaymentMethod, IncomeSource, RecurrenceFrequency, RecurringExecutionMode, TransactionType } from '@/types';
 import { format } from 'date-fns';
 
 const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
   { value: 'monthly', label: '매월' },
+  { value: 'yearly', label: '매년' },
   { value: 'weekly', label: '매주' },
   { value: 'biweekly', label: '2주마다' },
-  { value: 'yearly', label: '매년' },
   { value: 'daily', label: '매일' },
+];
+
+const EXECUTION_MODE_OPTIONS: { value: RecurringExecutionMode; label: string; description: string }[] = [
+  { value: 'on_date', label: '실행일에 입력', description: '해당 날짜가 되면 거래가 자동 입력됩니다' },
+  { value: 'start_of_month', label: '월초 선반영', description: '매월 1일에 해당 월의 거래가 미리 입력됩니다' },
 ];
 
 export function RecurringTransactionEditPage() {
@@ -32,6 +37,7 @@ export function RecurringTransactionEditPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -40,13 +46,14 @@ export function RecurringTransactionEditPage() {
   const [formAmount, setFormAmount] = useState('');
   const [formCategoryId, setFormCategoryId] = useState('');
   const [formPaymentMethodId, setFormPaymentMethodId] = useState('');
-  const [formDescription, setFormDescription] = useState('');
+  const [formIncomeSourceId, setFormIncomeSourceId] = useState('');
   const [formMemo, setFormMemo] = useState('');
   const [formFrequency, setFormFrequency] = useState<RecurrenceFrequency>('monthly');
   const [formDayOfMonth, setFormDayOfMonth] = useState(new Date().getDate());
   const [formStartDate, setFormStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [formEndDate, setFormEndDate] = useState('');
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formExecutionMode, setFormExecutionMode] = useState<RecurringExecutionMode>('on_date');
 
   useEffect(() => {
     loadData();
@@ -55,19 +62,27 @@ export function RecurringTransactionEditPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [cats, methods] = await Promise.all([
+      const [cats, methods, sources] = await Promise.all([
         db.categories.toArray(),
         db.paymentMethods.orderBy('order').toArray(),
+        db.incomeSources.orderBy('order').toArray(),
       ]);
       setCategories(cats);
       setPaymentMethods(methods);
+      setIncomeSources(sources);
 
       // Set default category if adding new
       if (!isEditing) {
         const defaultCat = cats.find((c) => c.type === (typeParam || 'expense'));
         if (defaultCat) setFormCategoryId(defaultCat.id);
-        const defaultMethod = methods.find((p) => p.isDefault);
-        if (defaultMethod) setFormPaymentMethodId(defaultMethod.id);
+
+        if (typeParam === 'expense' || !typeParam) {
+          const defaultMethod = methods.find((p) => p.isDefault);
+          if (defaultMethod) setFormPaymentMethodId(defaultMethod.id);
+        } else {
+          const defaultSource = sources.find((s) => s.isDefault);
+          if (defaultSource) setFormIncomeSourceId(defaultSource.id);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -90,21 +105,22 @@ export function RecurringTransactionEditPage() {
       setFormAmount(item.amount.toString());
       setFormCategoryId(item.categoryId);
       setFormPaymentMethodId(item.paymentMethodId || '');
-      setFormDescription(item.description);
+      setFormIncomeSourceId(item.incomeSourceId || '');
       setFormMemo(item.memo || '');
       setFormFrequency(item.frequency);
       setFormDayOfMonth(item.dayOfMonth || 1);
       setFormStartDate(format(item.startDate, 'yyyy-MM-dd'));
       setFormEndDate(item.endDate ? format(item.endDate, 'yyyy-MM-dd') : '');
       setFormIsActive(item.isActive);
+      setFormExecutionMode(item.executionMode || 'on_date');
     }
   };
 
   const handleSubmit = useCallback(async () => {
     const amount = parseInt(formAmount) || 0;
-    if (amount <= 0 || !formCategoryId || !formDescription.trim() || isSaving) {
+    if (amount <= 0 || !formCategoryId || isSaving) {
       if (!isSaving) {
-        alert('금액, 카테고리, 설명을 입력해주세요.');
+        alert('금액과 카테고리를 입력해주세요.');
       }
       return;
     }
@@ -132,14 +148,15 @@ export function RecurringTransactionEditPage() {
           type: formType,
           amount,
           categoryId: formCategoryId,
-          paymentMethodId: formPaymentMethodId || undefined,
-          description: formDescription.trim(),
+          paymentMethodId: formType === 'expense' ? formPaymentMethodId || undefined : undefined,
+          incomeSourceId: formType === 'income' ? formIncomeSourceId || undefined : undefined,
           memo: formMemo.trim() || undefined,
           frequency: formFrequency,
           dayOfMonth: formFrequency === 'monthly' ? formDayOfMonth : undefined,
           startDate,
           endDate,
           isActive: formIsActive,
+          executionMode: formExecutionMode,
           nextExecutionDate,
         });
       } else {
@@ -147,14 +164,15 @@ export function RecurringTransactionEditPage() {
           type: formType,
           amount,
           categoryId: formCategoryId,
-          paymentMethodId: formPaymentMethodId || undefined,
-          description: formDescription.trim(),
+          paymentMethodId: formType === 'expense' ? formPaymentMethodId || undefined : undefined,
+          incomeSourceId: formType === 'income' ? formIncomeSourceId || undefined : undefined,
           memo: formMemo.trim() || undefined,
           frequency: formFrequency,
           dayOfMonth: formFrequency === 'monthly' ? formDayOfMonth : undefined,
           startDate,
           endDate,
           isActive: formIsActive,
+          executionMode: formExecutionMode,
           nextExecutionDate,
         });
       }
@@ -165,7 +183,7 @@ export function RecurringTransactionEditPage() {
   }, [
     formAmount,
     formCategoryId,
-    formDescription,
+    formMemo,
     formStartDate,
     formEndDate,
     formFrequency,
@@ -174,8 +192,9 @@ export function RecurringTransactionEditPage() {
     id,
     formType,
     formPaymentMethodId,
-    formMemo,
+    formIncomeSourceId,
     formIsActive,
+    formExecutionMode,
     isSaving,
     navigate,
   ]);
@@ -188,7 +207,7 @@ export function RecurringTransactionEditPage() {
   };
 
   const amount = parseInt(formAmount) || 0;
-  const canSubmit = amount > 0 && !!formCategoryId && !!formDescription.trim() && !isSaving;
+  const canSubmit = amount > 0 && !!formCategoryId && !isSaving;
 
   // FAB 저장 버튼 연동
   useEffect(() => {
@@ -245,17 +264,19 @@ export function RecurringTransactionEditPage() {
       {/* Form */}
       <div className="p-4 pb-24 space-y-4">
         {/* Type Toggle */}
-        <div className="flex bg-paper-light/50 rounded-lg p-1">
+        <div className="flex bg-paper-light dark:bg-ink-dark/30 rounded-lg p-1">
           <button
             onClick={() => {
               setFormType('expense');
               const cat = categories.find((c) => c.type === 'expense');
               if (cat) setFormCategoryId(cat.id);
+              const method = paymentMethods.find((p) => p.isDefault);
+              if (method) setFormPaymentMethodId(method.id);
             }}
-            className={`flex-1 py-2 rounded-md text-body transition-colors ${
+            className={`flex-1 py-2.5 rounded-md text-body transition-all ${
               formType === 'expense'
-                ? 'bg-paper-white text-ink-black'
-                : 'text-ink-mid'
+                ? 'bg-ink-black dark:bg-pig-pink text-paper-white font-medium shadow-sm'
+                : 'text-ink-light'
             }`}
           >
             지출
@@ -265,11 +286,13 @@ export function RecurringTransactionEditPage() {
               setFormType('income');
               const cat = categories.find((c) => c.type === 'income');
               if (cat) setFormCategoryId(cat.id);
+              const source = incomeSources.find((s) => s.isDefault);
+              if (source) setFormIncomeSourceId(source.id);
             }}
-            className={`flex-1 py-2 rounded-md text-body transition-colors ${
+            className={`flex-1 py-2.5 rounded-md text-body transition-all ${
               formType === 'income'
-                ? 'bg-paper-white text-ink-black'
-                : 'text-ink-mid'
+                ? 'bg-ink-black dark:bg-pig-pink text-paper-white font-medium shadow-sm'
+                : 'text-ink-light'
             }`}
           >
             수입
@@ -292,13 +315,13 @@ export function RecurringTransactionEditPage() {
           </div>
         </div>
 
-        {/* Description */}
+        {/* Memo */}
         <div>
-          <label className="text-sub text-ink-mid block mb-2">설명</label>
+          <label className="text-sub text-ink-mid block mb-2">메모 (선택)</label>
           <input
             type="text"
-            value={formDescription}
-            onChange={(e) => setFormDescription(e.target.value)}
+            value={formMemo}
+            onChange={(e) => setFormMemo(e.target.value)}
             placeholder="예: 넷플릭스, 월급, 월세"
             className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
           />
@@ -342,6 +365,29 @@ export function RecurringTransactionEditPage() {
                 >
                   <Icon name={method.icon} size={16} />
                   <span className="text-sub">{method.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Income Source (income only) */}
+        {formType === 'income' && (
+          <div>
+            <label className="text-sub text-ink-mid block mb-2">수입수단</label>
+            <div className="flex flex-wrap gap-2">
+              {incomeSources.map((source) => (
+                <button
+                  key={source.id}
+                  onClick={() => setFormIncomeSourceId(source.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-colors ${
+                    formIncomeSourceId === source.id
+                      ? 'border-ink-black dark:border-pig-pink bg-ink-black dark:bg-pig-pink text-paper-white'
+                      : 'border-paper-mid text-ink-mid'
+                  }`}
+                >
+                  <Icon name={source.icon} size={16} />
+                  <span className="text-sub">{source.name}</span>
                 </button>
               ))}
             </div>
@@ -409,21 +455,39 @@ export function RecurringTransactionEditPage() {
           <p className="text-caption text-ink-light mt-1">비워두면 무기한 반복됩니다</p>
         </div>
 
-        {/* Memo */}
+        {/* Execution Mode */}
         <div>
-          <label className="text-sub text-ink-mid block mb-2">메모 (선택)</label>
-          <input
-            type="text"
-            value={formMemo}
-            onChange={(e) => setFormMemo(e.target.value)}
-            placeholder="메모"
-            className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
-          />
+          <label className="text-sub text-ink-mid block mb-2">실행 방식</label>
+          <div className="space-y-2">
+            {EXECUTION_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setFormExecutionMode(opt.value)}
+                className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                  formExecutionMode === opt.value
+                    ? 'border-ink-black dark:border-pig-pink bg-paper-light dark:bg-ink-dark/30'
+                    : 'border-paper-mid'
+                }`}
+              >
+                <span className={`text-body ${formExecutionMode === opt.value ? 'text-ink-black' : 'text-ink-mid'}`}>
+                  {opt.label}
+                </span>
+                <p className="text-caption text-ink-light mt-0.5">{opt.description}</p>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Active Toggle */}
-        <div className="flex items-center justify-between py-2">
-          <span className="text-body text-ink-black">활성화</span>
+        <div className="flex items-center justify-between py-3">
+          <div className="flex-1 pr-4">
+            <span className="text-body text-ink-black">활성화</span>
+            <p className="text-caption text-ink-light mt-1">
+              {formExecutionMode === 'on_date'
+                ? '활성화하면 예상 거래로 표시되고, 해당 날짜에 실제 거래로 입력됩니다'
+                : '활성화하면 매월 1일에 해당 월의 거래가 미리 입력됩니다'}
+            </p>
+          </div>
           <button
             onClick={() => setFormIsActive(!formIsActive)}
             className={`w-12 h-6 rounded-full transition-colors ${

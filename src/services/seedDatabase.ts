@@ -171,7 +171,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
           type: 'income',
           amount: randomInt(2800000, 3200000),
           categoryId: salaryCategory.id,
-          description: '월급',
+          memo: '월급',
           date: salaryDate,
           time: '09:00',
           createdAt: salaryDate,
@@ -215,7 +215,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
         amount,
         categoryId: category.id,
         paymentMethodId: randomItem(methods).id,
-        description: randomItem(descriptions),
+        memo: randomItem(descriptions),
         date: txDate,
         time: formatTime(hours, minutes),
         createdAt: setTime(txDate, hours, minutes),
@@ -226,7 +226,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
     // 가끔 추가 수입 (용돈, 기타수입)
     if (Math.random() > 0.6) {
       const otherIncomeCategory = randomItem(incomeCategories.filter(c => c.name !== '급여'));
-      const descriptions = INCOME_DESCRIPTIONS[otherIncomeCategory.name as keyof typeof INCOME_DESCRIPTIONS] || ['기타수입'];
+      const memoDescriptions = INCOME_DESCRIPTIONS[otherIncomeCategory.name as keyof typeof INCOME_DESCRIPTIONS] || ['기타수입'];
       const incomeDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), randomInt(1, daysInMonth));
 
       if (incomeDate <= now) {
@@ -235,7 +235,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
           type: 'income',
           amount: randomInt(50000, 500000),
           categoryId: otherIncomeCategory.id,
-          description: randomItem(descriptions),
+          memo: randomItem(memoDescriptions),
           date: incomeDate,
           time: formatTime(randomInt(10, 18), randomInt(0, 59)),
           createdAt: incomeDate,
@@ -263,7 +263,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
         amount: 500000,
         categoryId: housingCategory.id,
         paymentMethodId: methods.find(m => m.name === '계좌이체')?.id,
-        description: '월세',
+        memo: '월세',
         frequency: 'monthly',
         dayOfMonth: 1,
         startDate: daysAgo(180),
@@ -280,7 +280,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
         amount: 65000,
         categoryId: housingCategory.id,
         paymentMethodId: cardMethod?.id,
-        description: 'KT 통신비',
+        memo: 'KT 통신비',
         frequency: 'monthly',
         dayOfMonth: 15,
         startDate: daysAgo(365),
@@ -299,7 +299,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
         amount: 17000,
         categoryId: entertainmentCategory.id,
         paymentMethodId: cardMethod?.id,
-        description: '넷플릭스',
+        memo: '넷플릭스',
         frequency: 'monthly',
         dayOfMonth: 10,
         startDate: daysAgo(365),
@@ -316,7 +316,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
         amount: 14900,
         categoryId: entertainmentCategory.id,
         paymentMethodId: cardMethod?.id,
-        description: '유튜브 프리미엄',
+        memo: '유튜브 프리미엄',
         frequency: 'monthly',
         dayOfMonth: 5,
         startDate: daysAgo(200),
@@ -334,7 +334,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
         type: 'income',
         amount: 3000000,
         categoryId: salaryCategory.id,
-        description: '월급',
+        memo: '월급',
         frequency: 'monthly',
         dayOfMonth: 25,
         startDate: daysAgo(365),
@@ -490,7 +490,7 @@ export async function seedRecentTransactions(): Promise<void> {
       amount: Math.round(randomInt(3000, 50000) / 100) * 100,
       categoryId: category.id,
       paymentMethodId: randomItem(methods).id,
-      description: randomItem(descriptions),
+      memo: randomItem(descriptions),
       date: now,
       time: formatTime(hours, randomInt(0, 59)),
       createdAt: setTime(now, hours, randomInt(0, 59)),
@@ -511,7 +511,7 @@ export async function seedRecentTransactions(): Promise<void> {
       amount: Math.round(randomInt(3000, 50000) / 100) * 100,
       categoryId: category.id,
       paymentMethodId: randomItem(methods).id,
-      description: randomItem(descriptions),
+      memo: randomItem(descriptions),
       date: yesterday,
       time: formatTime(randomInt(8, 22), randomInt(0, 59)),
       createdAt: yesterday,
@@ -523,9 +523,4 @@ export async function seedRecentTransactions(): Promise<void> {
   console.log(`✅ Created ${transactions.length} recent transactions`);
 }
 
-// Browser console에서 사용할 수 있도록 window에 노출
-if (typeof window !== 'undefined') {
-  (window as any).seedDatabase = seedDatabase;
-  (window as any).seedEmptyDatabase = seedEmptyDatabase;
-  (window as any).seedRecentTransactions = seedRecentTransactions;
-}
+// Browser console에서 사용할 수 있도록 window에 노출 (main.tsx에서 처리)

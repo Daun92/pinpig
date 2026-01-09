@@ -294,7 +294,7 @@ export function HomePage() {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <p className="text-body text-ink-dark truncate">
-                      {tx.description || tx.memo || category?.name || '거래'}
+                      {tx.memo || category?.name || '거래'}
                     </p>
                     <p className="text-caption text-ink-light">
                       {tx.time} · {category?.name}

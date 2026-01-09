@@ -11,8 +11,7 @@ export interface Transaction {
   categoryId: string;
   paymentMethodId?: string;      // 지출 시 결제수단
   incomeSourceId?: string;       // 수입 시 수입수단
-  description: string;           // 가맹점/상호명
-  memo?: string;
+  memo?: string;                 // 메모 (구 description + memo 통합)
   date: Date;
   time: string;                  // HH:mm 형식
   createdAt: Date;
@@ -67,6 +66,7 @@ export interface Settings {
   hasSeenAddTour: boolean;
   hasSeenStatsTour: boolean;
   hasSeenSettingsTour: boolean;
+  hasSeenHistoryTour: boolean;
   updatedAt: Date;
 }
 
@@ -82,6 +82,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updatedAt'> = {
   hasSeenAddTour: false,
   hasSeenStatsTour: false,
   hasSeenSettingsTour: false,
+  hasSeenHistoryTour: false,
 };
 
 export interface CategorySummary {
@@ -241,7 +242,6 @@ export interface TransactionExportRow {
   time: string;           // HH:mm
   type: string;           // '수입' | '지출'
   category: string;       // Category name
-  description: string;
   amount: number;
   memo: string;
 }
@@ -333,14 +333,19 @@ export interface CategoryComparison {
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
+// 반복 거래 실행 모드
+// - 'on_date': 해당 날짜가 되면 실제 거래로 자동 입력
+// - 'start_of_month': 월 초에 해당 월의 모든 반복 거래를 미리 입력
+export type RecurringExecutionMode = 'on_date' | 'start_of_month';
+
 export interface RecurringTransaction {
   id: string;
   type: TransactionType;
   amount: number;
   categoryId: string;
-  paymentMethodId?: string;
-  description: string;                // 거래 설명 (예: "넷플릭스", "월급")
-  memo?: string;
+  paymentMethodId?: string;           // 지출 시 결제수단
+  incomeSourceId?: string;            // 수입 시 수입수단
+  memo?: string;                      // 메모 (예: "넷플릭스", "월급")
 
   // Recurrence settings
   frequency: RecurrenceFrequency;     // 반복 주기
@@ -349,6 +354,7 @@ export interface RecurringTransaction {
   startDate: Date;                    // 시작일
   endDate?: Date;                     // 종료일 (없으면 무기한)
   isActive: boolean;                  // 활성화 여부
+  executionMode?: RecurringExecutionMode;  // 실행 모드 (기본값: 'on_date')
 
   // Tracking
   lastExecutedDate?: Date;            // 마지막으로 실행된 날짜
@@ -374,7 +380,7 @@ export interface ProjectedTransaction {
   categoryIcon: string;
   categoryColor: string;
   paymentMethodId?: string;
-  description: string;
+  memo?: string;
   scheduledDate: Date;                // 예정일
   isProjected: true;                  // 항상 true (실제 거래와 구분)
 }

@@ -8,9 +8,11 @@ import { initializeDatabase } from '@/services/database';
 // Development: Expose seed functions to window for console access
 if (import.meta.env.DEV) {
   import('@/services/seedDatabase').then(({ seedDatabase, seedEmptyDatabase, seedRecentTransactions }) => {
-    (window as any).seedDatabase = seedDatabase;
-    (window as any).seedEmptyDatabase = seedEmptyDatabase;
-    (window as any).seedRecentTransactions = seedRecentTransactions;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.seedDatabase = seedDatabase;
+    win.seedEmptyDatabase = seedEmptyDatabase;
+    win.seedRecentTransactions = seedRecentTransactions;
     console.log(`
 🌱 PinPig Dev Tools:
    seedDatabase()           - 6개월치 풀 테스트 데이터

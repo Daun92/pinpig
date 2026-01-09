@@ -8,6 +8,7 @@ import type {
   MonthlyTrend,
   AnnualTrend,
   CategoryTrend,
+  PaymentMethodTrend,
   TransactionExportRow,
   BudgetRecommendation,
   CategoryBudgetRecommendation,
@@ -266,6 +267,185 @@ export async function getCategoryTrend(
 }
 
 /**
+ * Get yearly summary (income, expense, balance for entire year)
+ */
+export async function getYearlySummary(year: number): Promise<MonthSummary> {
+  const transactions = await getTransactionsByYear(year);
+
+  const income = transactions
+    .filter((tx) => tx.type === 'income')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  const expense = transactions
+    .filter((tx) => tx.type === 'expense')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  return {
+    income,
+    expense,
+    balance: income - expense,
+    transactionCount: transactions.length,
+  };
+}
+
+/**
+ * Get category breakdown for entire year
+ */
+export async function getYearlyCategoryBreakdown(
+  year: number,
+  type: 'income' | 'expense' = 'expense'
+): Promise<CategorySummary[]> {
+  const transactions = await getTransactionsByYear(year);
+  const categories = await db.categories.where('type').equals(type).toArray();
+
+  const typeTransactions = transactions.filter((tx) => tx.type === type);
+  const totalAmount = typeTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+  const categoryMap = new Map<string, { amount: number; count: number }>();
+
+  for (const tx of typeTransactions) {
+    const current = categoryMap.get(tx.categoryId) || { amount: 0, count: 0 };
+    categoryMap.set(tx.categoryId, {
+      amount: current.amount + tx.amount,
+      count: current.count + 1,
+    });
+  }
+
+  return categories
+    .map((cat) => {
+      const data = categoryMap.get(cat.id) || { amount: 0, count: 0 };
+      return {
+        categoryId: cat.id,
+        categoryName: cat.name,
+        categoryIcon: cat.icon,
+        categoryColor: cat.color,
+        amount: data.amount,
+        percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
+        count: data.count,
+      };
+    })
+    .filter((summary) => summary.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Get payment method breakdown for entire year
+ */
+export async function getYearlyPaymentMethodBreakdown(
+  year: number,
+  type: 'income' | 'expense' = 'expense'
+): Promise<PaymentMethodSummary[]> {
+  const transactions = await getTransactionsByYear(year);
+  const paymentMethods = await db.paymentMethods.orderBy('order').toArray();
+
+  const typeTransactions = transactions.filter((tx) => tx.type === type);
+  const totalAmount = typeTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+  const methodMap = new Map<string, { amount: number; count: number }>();
+
+  for (const tx of typeTransactions) {
+    const pmId = tx.paymentMethodId || 'none';
+    const current = methodMap.get(pmId) || { amount: 0, count: 0 };
+    methodMap.set(pmId, {
+      amount: current.amount + tx.amount,
+      count: current.count + 1,
+    });
+  }
+
+  return paymentMethods
+    .map((pm) => {
+      const data = methodMap.get(pm.id) || { amount: 0, count: 0 };
+      const percentage = totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0;
+
+      return {
+        paymentMethodId: pm.id,
+        paymentMethodName: pm.name,
+        paymentMethodIcon: pm.icon,
+        paymentMethodColor: pm.color,
+        amount: data.amount,
+        percentage,
+        count: data.count,
+        budget: pm.budget,
+        budgetPercent: undefined,
+      };
+    })
+    .filter((summary) => summary.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Get payment method trend data for reports (6 months)
+ */
+export async function getPaymentMethodTrend(
+  paymentMethodId: string,
+  months: number = 6,
+  type: 'expense' | 'income' = 'expense'
+): Promise<PaymentMethodTrend[]> {
+  const trends: PaymentMethodTrend[] = [];
+  const now = new Date();
+
+  const paymentMethod = await db.paymentMethods.get(paymentMethodId);
+  if (!paymentMethod) {
+    return [];
+  }
+
+  for (let i = 0; i < months; i++) {
+    const targetDate = subMonths(now, i);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth() + 1;
+
+    const transactions = await getTransactionsByPaymentMethod(year, month, paymentMethodId, type);
+    const amount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+    trends.push({
+      year,
+      month,
+      paymentMethodId,
+      paymentMethodName: paymentMethod.name,
+      paymentMethodIcon: paymentMethod.icon,
+      paymentMethodColor: paymentMethod.color,
+      amount,
+      transactionCount: transactions.length,
+    });
+  }
+
+  return trends.reverse();
+}
+
+/**
+ * Get transactions by payment method for a specific month
+ */
+export async function getTransactionsByPaymentMethod(
+  year: number,
+  month: number,
+  paymentMethodId: string,
+  type: 'expense' | 'income' = 'expense'
+): Promise<Transaction[]> {
+  const start = new Date(year, month - 1, 1);
+  const end = endOfMonth(start);
+
+  return db.transactions
+    .where('date')
+    .between(start, end, true, true)
+    .filter((tx) => tx.paymentMethodId === paymentMethodId && tx.type === type)
+    .toArray();
+}
+
+/**
+ * Get top N transactions by amount for a payment method in a specific month
+ */
+export async function getTopTransactionsByPaymentMethod(
+  year: number,
+  month: number,
+  paymentMethodId: string,
+  limit: number = 5,
+  type: 'expense' | 'income' = 'expense'
+): Promise<Transaction[]> {
+  const transactions = await getTransactionsByPaymentMethod(year, month, paymentMethodId, type);
+  return transactions.sort((a, b) => b.amount - a.amount).slice(0, limit);
+}
+
+/**
  * Export transactions to CSV format
  */
 export async function exportTransactionsToCSV(
@@ -282,18 +462,17 @@ export async function exportTransactionsToCSV(
     time: tx.time,
     type: tx.type === 'income' ? '수입' : '지출',
     category: categoryMap.get(tx.categoryId) || '미분류',
-    description: tx.description,
     amount: tx.amount,
     memo: tx.memo || '',
   }));
 
   // CSV Header (Korean)
-  const header = '날짜,시간,구분,카테고리,내용,금액,메모';
+  const header = '날짜,시간,구분,카테고리,금액,메모';
 
   // CSV Rows with proper escaping
   const csvRows = rows.map(
     (row) =>
-      `${row.date},${row.time},${row.type},${row.category},"${row.description.replace(/"/g, '""')}",${row.amount},"${row.memo.replace(/"/g, '""')}"`
+      `${row.date},${row.time},${row.type},${row.category},${row.amount},"${row.memo.replace(/"/g, '""')}"`
   );
 
   return [header, ...csvRows].join('\n');
@@ -331,17 +510,13 @@ export async function getTopTransactionsByCategory(
 }
 
 /**
- * Search transactions by description or memo
+ * Search transactions by memo
  */
 export async function searchTransactions(query: string): Promise<Transaction[]> {
   const lowerQuery = query.toLowerCase();
 
   return db.transactions
-    .filter(
-      (tx) =>
-        tx.description.toLowerCase().includes(lowerQuery) ||
-        (tx.memo ? tx.memo.toLowerCase().includes(lowerQuery) : false)
-    )
+    .filter((tx) => tx.memo ? tx.memo.toLowerCase().includes(lowerQuery) : false)
     .reverse()
     .sortBy('date');
 }
@@ -507,9 +682,10 @@ export async function detectAnnualLargeExpenses(): Promise<AnnualExpensePattern[
       const category = categoryMap.get(tx.categoryId);
       if (!category) continue;
 
-      // Check if we already have this pattern (same description, same month)
+      // Check if we already have this pattern (same memo, same month)
+      const txMemo = tx.memo || '';
       const exists = largeExpenses.some(
-        (e) => e.description === tx.description && e.month === tx.date.getMonth() + 1
+        (e) => e.description === txMemo && e.month === tx.date.getMonth() + 1
       );
       if (exists) continue;
 
@@ -519,7 +695,7 @@ export async function detectAnnualLargeExpenses(): Promise<AnnualExpensePattern[
         categoryName: category.name,
         categoryIcon: category.icon,
         categoryColor: category.color,
-        description: tx.description,
+        description: tx.memo || '',
         month: tx.date.getMonth() + 1,
         day: tx.date.getDate(),
         amount: tx.amount,
@@ -803,8 +979,7 @@ export async function deleteRecurringTransaction(id: string): Promise<void> {
 export function calculateNextExecutionDate(
   frequency: RecurrenceFrequency,
   currentDate: Date,
-  dayOfMonth?: number,
-  _dayOfWeek?: number
+  dayOfMonth?: number
 ): Date {
   switch (frequency) {
     case 'daily':
@@ -859,8 +1034,7 @@ export async function getProjectedTransactions(
         currentDate = calculateNextExecutionDate(
           recurring.frequency,
           currentDate,
-          recurring.dayOfMonth,
-          recurring.dayOfWeek
+          recurring.dayOfMonth
         );
         continue;
       }
@@ -880,7 +1054,7 @@ export async function getProjectedTransactions(
         categoryIcon: category.icon,
         categoryColor: category.color,
         paymentMethodId: recurring.paymentMethodId,
-        description: recurring.description,
+        memo: recurring.memo,
         scheduledDate: new Date(currentDate),
         isProjected: true,
       });
@@ -889,8 +1063,7 @@ export async function getProjectedTransactions(
       currentDate = calculateNextExecutionDate(
         recurring.frequency,
         currentDate,
-        recurring.dayOfMonth,
-        recurring.dayOfWeek
+        recurring.dayOfMonth
       );
     }
   }
@@ -1049,7 +1222,6 @@ export async function executeRecurringTransaction(
     amount: recurring.amount,
     categoryId: recurring.categoryId,
     paymentMethodId: recurring.paymentMethodId,
-    description: recurring.description,
     memo: recurring.memo,
     date: now,
     time: format(now, 'HH:mm'),
@@ -1064,8 +1236,7 @@ export async function executeRecurringTransaction(
   const nextDate = calculateNextExecutionDate(
     recurring.frequency,
     now,
-    recurring.dayOfMonth,
-    recurring.dayOfWeek
+    recurring.dayOfMonth
   );
 
   await db.recurringTransactions.update(recurringId, {
@@ -1092,8 +1263,7 @@ export async function getRecentMemos(limit: number = 10): Promise<string[]> {
   const result: string[] = [];
 
   for (const tx of transactions) {
-    // Check both memo and description fields for backward compatibility
-    const memoText = tx.memo || tx.description;
+    const memoText = tx.memo;
     if (memoText && !memoSet.has(memoText)) {
       memoSet.add(memoText);
       result.push(memoText);
@@ -1140,7 +1310,7 @@ export async function getRecentTags(limit: number = 15): Promise<string[]> {
   const tagFrequency = new Map<string, number>();
 
   for (const tx of transactions) {
-    const memoText = tx.memo || tx.description;
+    const memoText = tx.memo || '';
     const tags = extractTagsFromMemo(memoText);
 
     for (const tag of tags) {
@@ -1175,7 +1345,7 @@ export async function getTagsByCategory(
   const tagFrequency = new Map<string, number>();
 
   for (const tx of transactions.slice(0, 100)) {
-    const memoText = tx.memo || tx.description;
+    const memoText = tx.memo || '';
     const tags = extractTagsFromMemo(memoText);
 
     for (const tag of tags) {

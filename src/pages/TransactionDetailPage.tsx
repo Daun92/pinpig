@@ -81,9 +81,8 @@ export function TransactionDetailPage() {
         setAmount(transaction.amount.toString());
         setSelectedCategoryId(transaction.categoryId);
         setSelectedPaymentMethodId(transaction.paymentMethodId || '');
-        // description과 memo를 통합하여 파싱
-        const savedMemo = [transaction.description, transaction.memo].filter(Boolean).join(' ').trim();
-        // 기존 데이터를 단어 단위로 태그로 분리
+        // memo를 단어 단위로 태그로 분리
+        const savedMemo = transaction.memo || '';
         if (savedMemo) {
           const words = savedMemo.split(/\s+/).filter(w => w.length >= 2);
           setTags(words);
@@ -157,7 +156,6 @@ export function TransactionDetailPage() {
         amount: parseInt(amount),
         categoryId: selectedCategoryId,
         paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
-        description: '', // deprecated, kept for backward compatibility
         memo: combinedMemo || '',
         date,
         time,

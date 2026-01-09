@@ -161,7 +161,6 @@ export function AddPage() {
       categoryId: selectedCategoryId,
       paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
       incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
-      description: '', // deprecated, kept for backward compatibility
       memo: combinedMemo || '',
       date,
       time,

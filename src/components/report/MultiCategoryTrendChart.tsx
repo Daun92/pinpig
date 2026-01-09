@@ -31,6 +31,7 @@ interface MultiCategoryTrendChartProps {
   annualData: AnnualTrend[];
   categoryLines: CategoryLine[];
   height?: number;
+  showTotalLine?: boolean;  // 전체 라인 표시 여부 (기본: false)
 }
 
 interface ChartDataPoint {
@@ -83,6 +84,7 @@ export function MultiCategoryTrendChart({
   annualData,
   categoryLines,
   height = 220,
+  showTotalLine = false,
 }: MultiCategoryTrendChartProps) {
   // Transform data based on period
   const chartData: ChartDataPoint[] = [];
@@ -94,6 +96,16 @@ export function MultiCategoryTrendChart({
         name: `${item.year}년`,
         total: item.expense,
       };
+
+      // Add category data if available
+      for (const catLine of categoryLines) {
+        // For annual view, sum up all months for each category
+        const yearTotal = catLine.data
+          .filter((d) => d.year === item.year)
+          .reduce((sum, d) => sum + d.amount, 0);
+        point[catLine.id] = yearTotal;
+      }
+
       chartData.push(point);
     }
   } else {
@@ -153,37 +165,38 @@ export function MultiCategoryTrendChart({
         />
         <Tooltip content={<CustomTooltip />} />
 
-        {/* Total expense line (always shown) */}
-        <Line
-          type="monotone"
-          dataKey="total"
-          name="전체"
-          stroke={CHART_COLORS.expense}
-          strokeWidth={CHART_DEFAULTS.strokeWidth}
-          dot={{ r: CHART_DEFAULTS.dotRadius, fill: CHART_COLORS.expense }}
-          activeDot={{ r: CHART_DEFAULTS.activeDotRadius }}
-          animationDuration={CHART_DEFAULTS.animationDuration}
-        />
+        {/* Total expense line (conditionally shown) */}
+        {showTotalLine && (
+          <Line
+            type="monotone"
+            dataKey="total"
+            name="전체"
+            stroke={CHART_COLORS.expense}
+            strokeWidth={CHART_DEFAULTS.strokeWidth}
+            dot={{ r: CHART_DEFAULTS.dotRadius, fill: CHART_COLORS.expense }}
+            activeDot={{ r: CHART_DEFAULTS.activeDotRadius }}
+            animationDuration={CHART_DEFAULTS.animationDuration}
+          />
+        )}
 
         {/* Category lines */}
-        {period !== 'annual' &&
-          categoryLines.map((catLine) => (
-            <Line
-              key={catLine.id}
-              type="monotone"
-              dataKey={catLine.id}
-              name={catLine.name}
-              stroke={catLine.color}
-              strokeWidth={CHART_DEFAULTS.strokeWidth}
-              strokeDasharray="4 2"
-              dot={{ r: 3, fill: catLine.color }}
-              activeDot={{ r: 5 }}
-              animationDuration={CHART_DEFAULTS.animationDuration}
-            />
-          ))}
+        {categoryLines.map((catLine) => (
+          <Line
+            key={catLine.id}
+            type="monotone"
+            dataKey={catLine.id}
+            name={catLine.name}
+            stroke={catLine.color}
+            strokeWidth={CHART_DEFAULTS.strokeWidth}
+            strokeDasharray="4 2"
+            dot={{ r: 3, fill: catLine.color }}
+            activeDot={{ r: 5 }}
+            animationDuration={CHART_DEFAULTS.animationDuration}
+          />
+        ))}
 
-        {/* Legend if categories selected */}
-        {categoryLines.length > 0 && period !== 'annual' && (
+        {/* Legend if any lines are shown */}
+        {(showTotalLine || categoryLines.length > 0) && (
           <Legend
             verticalAlign="bottom"
             height={36}
