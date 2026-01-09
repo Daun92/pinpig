@@ -1,7 +1,7 @@
 # PinPig 프로젝트 컨텍스트
 
-> **최종 갱신**: 2026-01-08
-> **버전**: 0.1.4
+> **최종 갱신**: 2026-01-09
+> **버전**: 0.1.6
 > **이 파일은 새 대화 시작 시 빠른 맥락 파악용입니다.**
 
 ---
@@ -10,8 +10,8 @@
 
 | 항목 | 값 |
 |------|-----|
-| 버전 | 0.1.4 |
-| MVP 완성도 | 92% |
+| 버전 | 0.1.6 |
+| MVP 완성도 | 98% |
 | 배포 URL | https://pinpig.vercel.app |
 | ESLint | 0 에러, 5 경고 (의도적) |
 | 빌드 | 통과 |
@@ -39,9 +39,9 @@
 - Recharts, date-fns, lucide-react
 
 구조:
-- 18 페이지 (src/pages/)
+- 20 페이지 (src/pages/)
 - 15 컴포넌트 (src/components/)
-- 6 스토어 (src/stores/)
+- 7 스토어 (src/stores/)
 - 35+ 쿼리 함수 (src/services/queries.ts)
 ```
 
@@ -54,6 +54,7 @@
 | `/history` | HistoryPage | 내역 (에스컬레이터 스크롤) |
 | `/stats` | StatsPage | 분석/리포트 |
 | `/settings` | SettingsPage | 설정 |
+| `/settings/methods` | MethodManagePage | 수단 관리 (지출/수입) |
 | `/settings/budget-wizard` | BudgetWizardPage | 예산 마법사 |
 | `/settings/recurring` | RecurringTransactionPage | 반복 거래 |
 | `/review` | MonthlyReviewPage | 월간 리뷰 |
@@ -62,43 +63,42 @@
 
 ## 최근 작업 (최신순)
 
-### #76 좌우 스와이프 월 이동 (2026-01-08)
-- 좌로 스와이프 = 다음 달, 우로 스와이프 = 이전 달
-- 스크롤 중에도 월 이동 가능
+### #84 온보딩 아이콘 개선 (2026-01-09) - v0.1.6
+- 이모지 → Lucide 선형 아이콘으로 교체
+- OnboardingPage: 💰→Wallet, 📊→CalendarDays, 📈→TrendingUp
+- AddFlowIllustration: 🍽️→Utensils, ₩→Coins, ✓→Check
+- 앱 테마와 일관된 strokeWidth={1.5}
 
-### #75 기록 탭 UX 개선 (2026-01-08)
-- 스크롤 시 최근 날짜로 강제 이동되는 버그 수정
+### #83 온보딩 시스템 업그레이드 (2026-01-09)
+- 5단계 슬라이드 온보딩 (웰컴 → 홈 → 기록 → 분석 → 예산)
+- CSS 애니메이션 일러스트 (숫자 카운트업, 도넛차트 등)
+- Coach Marks 시스템 (첫 진입 시 화면별 툴팁 가이드)
 
-### #74 설정 페이지 버전 동적 로드 (2026-01-08)
-- `__APP_VERSION__` 전역 상수로 package.json 버전 주입
-- SettingsPage에서 동적 표시
+### #82 온보딩 시스템 구현 (2026-01-09)
+- 3단계 온보딩 → 5단계로 확장
+- 카피: "오늘 얼마나 쓸 수 있지?" / "열면 바로 보여요"
+- 예산 설정 선택사항 (건너뛰기 가능)
 
-### #73 작업일지 이원화 구조 (2026-01-08)
-- `docs/CONTEXT.md` (맥락 유지용) + `WORKLOG-FULL.md` (작업 관리용) 분리
+### #81 기간별 추이 - 연간 모드 필터 수정 (2026-01-09)
+- 연간 모드에서 카테고리 필터 표시 (기존 미표시 버그 수정)
 
-### #72 앱 기획 완성도 평가 (2026-01-08)
-- 기획서 대비 완성도 분석
-- `docs/COMPLETION_REPORT.md` 생성
-- MVP 92% 완성 확인
+### #80 분석 탭 세부 개선 - 월간/연간 분석 (2026-01-09)
+- 기간설정을 지출/수입 토글 하단으로 이동
+- 월간/연간 모드 선택 + 기간 네비게이션 통합
+- 수단별 탭에 상세내역 모달 추가
 
-### #71 코드베이스 정비 (2026-01-08)
-- services/index.ts 누락 export 추가 (8→35개)
-- stores/index.ts 불완전 export 수정
-- ESLint 에러 0개로 정리
+### #79 수단 관리 통합 (2026-01-09)
+- 결제수단 + 수입수단 → "수단 관리" 통합
 
-### #70 Floating Header + Pull-to-load (2026-01-08)
-- HistoryPage 에스컬레이터 스크롤 UX
-- Intersection Observer 기반 단일 Floating Header
-- 양방향 월 이동 (#75에서 개선)
+### #78 수입 수단 (Income Source) 추가 (2026-01-09)
+- 결제 수단처럼 수입 수단 별도 관리
+
+### #77 분석 탭 스와이프 탭 이동 (2026-01-08)
+- 탭 좌우 스와이프 이동 (v0.1.5)
 
 ---
 
 ## 미완성 / 진행 예정
-
-### 🔴 필수 (MVP 100% 목표)
-- **온보딩 플로우** - 신규 사용자 첫 경험 부재
-  - `/onboarding` 라우트
-  - 웰컴 → 예산 설정 → 완료 → 홈
 
 ### 🟡 권장
 - 홈 인사이트 카드 - "💡 이번 주 인사이트" 영역
@@ -112,8 +112,7 @@
 
 ## 주의사항
 
-1. **온보딩 미구현** - 앱 첫 실행 시 예산 0원으로 시작
-2. **addPageStore.ts deprecated** - fabStore 직접 사용
+1. **addPageStore.ts deprecated** - fabStore 직접 사용
 
 ---
 

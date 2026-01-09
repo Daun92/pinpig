@@ -1371,3 +1371,149 @@
   - 수평/수직 제스처 구분 (1.5배 비율)
   - 스와이프 indicator: 화면 좌우 가장자리에 표시
 - **결과**: 타입체크/빌드 통과, 스크롤 중에도 자연스러운 월 이동 가능
+
+### #77 분석 탭 좌우 스와이프 탭 이동
+- **요청**: 분석 탭의 카테고리별/수단별/월별 추이 탭 좌우 스와이프 이동
+- **변경**: `src/pages/StatsPage.tsx`
+  - 탭 컨텐츠 영역에 터치 이벤트 추가
+  - 좌로 스와이프 = 다음 탭, 우로 스와이프 = 이전 탭
+  - 스와이프 indicator에 다음 탭 이름 표시
+- **결과**: 타입체크/빌드 통과, v0.1.5 배포
+
+---
+
+## 2026-01-09
+
+### #78 수입 수단 (Income Source) 추가
+- **요청**: 결제 수단처럼 수입 수단을 별도로 관리할 수 있도록 추가
+- **변경**:
+  - `src/types/index.ts`: `IncomeSource` 인터페이스, `DEFAULT_INCOME_SOURCES`, `Transaction.incomeSourceId` 추가
+  - `src/services/database.ts`: Schema v5로 `incomeSources` 테이블 추가, 초기화 함수
+  - `src/stores/incomeSourceStore.ts`: 신규 스토어 생성 (CRUD + reorder)
+  - `src/stores/index.ts`: export 추가
+  - `src/pages/AddPage.tsx`: 수입 선택 시 수입수단 선택 UI 추가
+  - `src/pages/EditTransactionPage.tsx`: 수입 수정 시 수입수단 선택 추가
+  - `src/pages/IncomeSourceManagePage.tsx`: 신규 (수입수단 목록 관리)
+  - `src/pages/IncomeSourceEditPage.tsx`: 신규 (수입수단 추가/수정)
+  - `src/pages/SettingsPage.tsx`: "수입수단 관리" 메뉴 추가
+  - `src/App.tsx`: 라우트 3개 추가 (`/settings/income-sources/*`)
+- **기본 수입수단**: 급여, 용돈, 부업, 기타
+- **결과**: 타입체크/빌드 통과
+- **피드백**: 수입 카테고리에 이미 급여/용돈이 있어 중복 → #79에서 개선
+
+### #79 수단 관리 통합 (지출/수입 탭)
+- **요청**: 수입수단 기본값을 계좌/카드/현금으로 변경, 결제수단/수입수단을 하나의 '수단 관리'로 통합 (카테고리 관리처럼)
+- **변경**:
+  - `src/types/index.ts`: `DEFAULT_INCOME_SOURCES`를 현금/카드/계좌이체로 변경 (결제수단과 동일)
+  - `src/pages/MethodManagePage.tsx`: 신규 통합 수단관리 페이지 (지출/수입 탭)
+  - `src/pages/SettingsPage.tsx`: 결제수단 관리 + 수입수단 관리 → "수단 관리" 하나로 통합
+  - `src/App.tsx`: `/settings/methods` 라우트 추가
+  - `src/services/database.ts`: Schema v6 마이그레이션 (기존 급여/용돈/부업/기타 → 현금/카드/계좌이체)
+- **결과**: 타입체크/빌드 통과, 기존 DB도 자동 마이그레이션
+
+### #80 분석 탭 세부 개선 (월간/연간 분석)
+- **요청**: 분석 탭을 월/연 단위로 분석할 수 있도록 개선
+  1. 기간설정 탭을 지출/수입 토글 하단으로 이동
+  2. 기간설정을 특정 월/년 선택 가능하도록 개선
+  3. '이번 달' 표현 대신 기간 선택에 맞는 톤으로 재구성 (예: 'X월 지출', '2026년 지출')
+  4. '월별 추이' 탭 명칭을 '기간별 추이'로 변경
+  5. 추이 탭 내 '전체 금액' 기본값 해제, 모든 카테고리 표시
+  6. 수단별 탭에 상세내역 모달 추가
+- **변경**:
+  - `src/types/index.ts`: `PaymentMethodTrend` 타입 추가
+  - `src/services/queries.ts`: 연간 집계 쿼리 3개 + 수단 추이 쿼리 2개 추가
+    - `getYearlySummary`, `getYearlyCategoryBreakdown`, `getYearlyPaymentMethodBreakdown`
+    - `getPaymentMethodTrend`, `getTopTransactionsByPaymentMethod`, `getTransactionsByPaymentMethod`
+  - `src/components/report/CategoryFilterChips.tsx`: props 확장 (`showAll`, `showTotalOption`, `isTotalSelected`, `onTotalToggle`)
+  - `src/components/report/MultiCategoryTrendChart.tsx`: `showTotalLine` prop 추가 (기본 false)
+  - `src/components/report/PaymentMethodTrendModal.tsx`: 신규 생성 (6개월 추이, 월평균, 최고지출월, TOP5)
+  - `src/components/report/index.ts`: export 추가
+  - `src/pages/StatsPage.tsx`: 대규모 UI 개선
+    - 상태 추가: `periodMode`, `selectedYear`, `yearlySummary`, `showTotalLine`, `selectedPaymentMethod`
+    - 헤더에서 월 네비게이션 제거, Summary 섹션으로 이동
+    - 월간/연간 토글 추가, 기간 네비게이션 UI 통합
+    - 탭 명칭 '월별 추이' → '기간별 추이'
+    - 카테고리 필터 개선: 전체 옵션 선택화, 모든 카테고리 표시
+    - 수단별 탭에 모달 연결
+- **결과**: 타입체크/빌드 통과
+- **피드백**: 기간별 추이 탭에서 연간 모드 시 필터 미표시 → #81에서 수정
+
+### #81 기간별 추이 - 연간 모드 필터 표시 수정
+- **요청**: 기간별 추이 탭에서 연간 모드 선택 시 필터가 없어 그래프 표현 불가
+- **변경**:
+  - `src/pages/StatsPage.tsx`:
+    - CategoryFilterChips에서 `trendPeriod !== 'annual'` 조건 제거
+    - 연간 모드에서 카테고리 트렌드 데이터 가져오도록 수정 (36개월 데이터)
+  - `src/components/report/MultiCategoryTrendChart.tsx`:
+    - 연간 데이터에 카테고리별 연간 합계 추가
+    - 카테고리 라인 렌더링에서 `period !== 'annual'` 조건 제거
+    - Legend 표시에서 `period !== 'annual'` 조건 제거
+- **결과**: 타입체크/빌드 통과
+
+### #82 온보딩 시스템 구현
+- **요청**: 신규 사용자를 위한 온보딩 플로우 + 빈 상태 메인 화면 설계/구현
+- **변경**:
+  - `src/pages/OnboardingPage.tsx`: 신규 생성
+    - 3단계 플로우: 웰컴 → 가치 제안 → 예산 설정
+    - 카피: "오늘 얼마나 쓸 수 있지?" / "열면 바로 보여요" / "이번 달 쓸 수 있는 돈은?"
+    - 예산 설정 선택사항 ("나중에 설정할게요" 버튼)
+    - PiggyBank 아이콘 사용 (TabBar와 동일)
+  - `src/App.tsx`: 온보딩 조건부 렌더링 추가
+    - `isOnboardingComplete === false`면 OnboardingPage 표시
+    - 설정 로딩 중 로딩 화면 표시
+  - `src/pages/HomePage.tsx`: 첫 사용자 빈 상태 메시지 추가
+    - transactions.length === 0: "새로운 시작이에요" + FAB 유도
+    - 기존 사용자 (오늘 거래만 없음): 기존 감성 메시지 유지
+- **결과**: 타입체크/빌드 통과
+
+### #83 온보딩 시스템 업그레이드 (5단계 + Coach Marks)
+- **요청**: 온보딩에 앱 기능 소개, 화면별 가이드, 사용 후 확인 가능한 것들 반영
+- **변경**:
+  - **슬라이드 온보딩 5단계 확장**:
+    - `src/pages/OnboardingPage.tsx`: 3단계 → 5단계 확장
+      1. 웰컴 - "오늘 얼마나 쓸 수 있지?" (아이콘 바운스)
+      2. 홈 기능 - "열면 바로 보여요" (숫자 카운트업 애니메이션)
+      3. 기록 기능 - "3번 터치로 끝" (순차 하이라이트)
+      4. 분석 기능 - "내 소비 패턴이 보여요" (도넛차트 채우기)
+      5. 예산 설정 - 기존 슬라이더 유지
+    - 단계 인디케이터 (점) 추가, 클릭 이동 가능
+  - **일러스트 컴포넌트** (CSS 애니메이션):
+    - `src/components/onboarding/illustrations/HomeIllustration.tsx`: 모의 홈 화면 + 숫자 카운트업
+    - `src/components/onboarding/illustrations/AddFlowIllustration.tsx`: 3단계 플로우 시각화
+    - `src/components/onboarding/illustrations/ChartIllustration.tsx`: 도넛 차트 + 추이선
+  - **Coach Marks 시스템** (첫 진입 시 화면별 가이드):
+    - `src/components/coachmark/CoachMarkProvider.tsx`: Context + Overlay 렌더링
+    - `src/components/coachmark/CoachMarkOverlay.tsx`: 스포트라이트 오버레이 (clip-path)
+    - `src/components/coachmark/tourConfigs.ts`: 화면별 투어 설정
+    - Settings에 투어 플래그 추가: `hasSeenHomeTour`, `hasSeenAddTour`, `hasSeenStatsTour`, `hasSeenSettingsTour`
+  - **각 페이지 통합**:
+    - `src/pages/HomePage.tsx`: home tour 트리거, data-tour 속성 추가
+    - `src/pages/AddPage.tsx`: add tour 트리거, data-tour 속성 추가
+    - `src/pages/StatsPage.tsx`: stats tour 트리거, data-tour 속성 추가
+    - `src/pages/SettingsPage.tsx`: settings tour 트리거, data-tour 속성 추가
+    - `src/components/layout/TabBar.tsx`: FAB에 data-tour 속성 추가
+  - **인프라**:
+    - `src/types/index.ts`: Settings에 투어 플래그 추가
+    - `src/stores/settingsStore.ts`: `markTourComplete` 액션, `selectHasSeenTour` 셀렉터 추가
+    - `tailwind.config.js`: 온보딩 애니메이션 키프레임 6개 추가
+    - `src/App.tsx`: CoachMarkProvider 래핑
+- **결과**: 타입체크/빌드 통과
+
+### #84 �º��� ������ ���� (v0.1.6)
+- **��û**: �̸��� ��� �� �׸��� ��︮�� ���� ������ ���
+- **����**:
+  - : �̸��� �� Lucide ������
+    - ?? �� Wallet, ?? �� CalendarDays, ?? �� TrendingUp
+  - : �̸��� �� Lucide ������
+    - ??? �� Utensils, \ �� Coins, ? �� Check
+    - LucideIcon Ÿ�� ���
+  - ��� ������ strokeWidth={1.5}�� ����
+- **���**: v0.1.6 ������, GitHub Ǫ�� + Vercel ���� �Ϸ�
+
+### #84 �º��� ������ ���� (v0.1.6)
+- **��û**: �̸��� ��� �� �׸��� ��︮�� ���� ������ ���
+- **����**:
+  - OnboardingPage.tsx: �̸����� Lucide ���������� ��ü (Wallet, CalendarDays, TrendingUp)
+  - AddFlowIllustration.tsx: �̸����� Lucide ���������� ��ü (Utensils, Coins, Check)
+  - ��� ������ strokeWidth=1.5�� ����
+- **���**: v0.1.6 ������, GitHub Ǫ�� + Vercel ���� �Ϸ�
