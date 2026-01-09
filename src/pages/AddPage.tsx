@@ -4,7 +4,9 @@ import { X, ChevronDown, ChevronUp, Calendar, CreditCard, Tag, MessageSquare, Pl
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
+import { useIncomeSourceStore, selectIncomeSources, selectDefaultIncomeSource } from '@/stores/incomeSourceStore';
 import { useFabStore } from '@/stores/fabStore';
+import { useCoachMark } from '@/components/coachmark';
 import { Icon, DateTimePicker } from '@/components/common';
 import { getTagSuggestions } from '@/services/queries';
 import type { TransactionType } from '@/types';
@@ -29,11 +31,15 @@ export function AddPage() {
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const { fetchCategories } = useCategoryStore();
   const { fetchPaymentMethods } = usePaymentMethodStore();
+  const { fetchIncomeSources } = useIncomeSourceStore();
   const { setSubmitHandler, setCanSubmit } = useFabStore();
+  const { startTour } = useCoachMark();
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
   const paymentMethods = usePaymentMethodStore(selectPaymentMethods);
   const defaultPaymentMethod = usePaymentMethodStore(selectDefaultPaymentMethod);
+  const incomeSources = useIncomeSourceStore(selectIncomeSources);
+  const defaultIncomeSource = useIncomeSourceStore(selectDefaultIncomeSource);
 
   // URL 파라미터에서 type 읽기 (iOS 단축어 딥링크 지원)
   const initialType = searchParams.get('type') === 'income' ? 'income' : 'expense';
@@ -41,6 +47,7 @@ export function AddPage() {
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
+  const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]); // 멀티 태그 배열
   const [customMemo, setCustomMemo] = useState(''); // 직접 입력 메모
   const [date, setDate] = useState(new Date());
@@ -58,11 +65,13 @@ export function AddPage() {
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
   const selectedCategory = currentCategories.find(c => c.id === selectedCategoryId);
   const selectedPaymentMethod = paymentMethods.find(p => p.id === selectedPaymentMethodId);
+  const selectedIncomeSource = incomeSources.find(s => s.id === selectedIncomeSourceId);
 
   useEffect(() => {
     fetchCategories();
     fetchPaymentMethods();
-  }, [fetchCategories, fetchPaymentMethods]);
+    fetchIncomeSources();
+  }, [fetchCategories, fetchPaymentMethods, fetchIncomeSources]);
 
   // 카테고리 변경 시 태그 제안 업데이트
   useEffect(() => {
@@ -78,7 +87,9 @@ export function AddPage() {
     if (amountInputRef.current) {
       amountInputRef.current.focus();
     }
-  }, []);
+    // Start add tour on first visit
+    startTour('add');
+  }, [startTour]);
 
   useEffect(() => {
     if (currentCategories.length > 0 && !selectedCategoryId) {
@@ -114,6 +125,12 @@ export function AddPage() {
     }
   }, [defaultPaymentMethod, selectedPaymentMethodId]);
 
+  useEffect(() => {
+    if (defaultIncomeSource && !selectedIncomeSourceId) {
+      setSelectedIncomeSourceId(defaultIncomeSource.id);
+    }
+  }, [defaultIncomeSource, selectedIncomeSourceId]);
+
   // 메모 섹션이 열릴 때 자동 포커스 (useEffect로 안정적 처리)
   const [shouldFocusMemo, setShouldFocusMemo] = useState(false);
   useEffect(() => {
@@ -143,6 +160,7 @@ export function AddPage() {
       amount: parseInt(amount),
       categoryId: selectedCategoryId,
       paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+      incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
       description: '', // deprecated, kept for backward compatibility
       memo: combinedMemo || '',
       date,
@@ -150,7 +168,7 @@ export function AddPage() {
     });
 
     navigate('/');
-  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, combinedMemo, date, time, addTransaction, navigate]);
+  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, selectedIncomeSourceId, combinedMemo, date, time, addTransaction, navigate]);
 
   useEffect(() => {
     setSubmitHandler(handleSubmit);
@@ -194,8 +212,11 @@ export function AddPage() {
       if (type === 'expense' && !hasUserSelectedPayment) {
         // 지출: 결제수단 선택으로 이동
         setExpandedSection('payment');
+      } else if (type === 'income' && !hasUserSelectedPayment) {
+        // 수입: 수입수단 선택으로 이동
+        setExpandedSection('payment');
       } else {
-        // 수입: 메모 입력창 자동 열기 + 커서 포커스
+        // 메모 입력창 자동 열기 + 커서 포커스
         setExpandedSection('extra');
         setShouldFocusMemo(true);
       }
@@ -204,6 +225,16 @@ export function AddPage() {
 
   const handlePaymentSelect = (paymentId: string) => {
     setSelectedPaymentMethodId(paymentId);
+    setHasUserSelectedPayment(true);
+    // 선택 후 메모 입력창 자동 열기 + 커서 포커스
+    setTimeout(() => {
+      setExpandedSection('extra');
+      setShouldFocusMemo(true);
+    }, 150);
+  };
+
+  const handleIncomeSourceSelect = (sourceId: string) => {
+    setSelectedIncomeSourceId(sourceId);
     setHasUserSelectedPayment(true);
     // 선택 후 메모 입력창 자동 열기 + 커서 포커스
     setTimeout(() => {
@@ -321,7 +352,7 @@ export function AddPage() {
         {/* ==================== */}
         {/* 2. 금액 입력 (Hero) */}
         {/* ==================== */}
-        <div className="flex flex-col items-center py-6">
+        <div className="flex flex-col items-center py-6" data-tour="add-amount">
           <div className="flex items-baseline justify-center gap-1 w-full">
             <input
               ref={amountInputRef}
@@ -352,7 +383,7 @@ export function AddPage() {
                 </button>
               )}
 
-              {/* 결제수단 미니 칩 */}
+              {/* 결제수단 미니 칩 (지출) */}
               {showPaymentAsChip && selectedPaymentMethod && type === 'expense' && (
                 <button
                   onClick={() => toggleSection('payment')}
@@ -360,6 +391,17 @@ export function AddPage() {
                 >
                   <Icon name={selectedPaymentMethod.icon} size={12} />
                   <span>{selectedPaymentMethod.name}</span>
+                </button>
+              )}
+
+              {/* 수입수단 미니 칩 (수입) */}
+              {showPaymentAsChip && selectedIncomeSource && type === 'income' && (
+                <button
+                  onClick={() => toggleSection('payment')}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-ink-black text-paper-white text-caption"
+                >
+                  <Icon name={selectedIncomeSource.icon} size={12} />
+                  <span>{selectedIncomeSource.name}</span>
                 </button>
               )}
 
@@ -393,7 +435,7 @@ export function AddPage() {
         {/* ================================ */}
         {/* 3. 카테고리 / 결제수단 (필수) */}
         {/* ================================ */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="add-category">
 
           {/* 카테고리 선택 */}
           {!showCategoryAsChip && (
@@ -520,6 +562,69 @@ export function AddPage() {
                         >
                           <Icon name={pm.icon} size={16} />
                           <span>{pm.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 수입수단 선택 (수입일 때만) */}
+          {type === 'income' && !showPaymentAsChip && (
+            <div>
+              <button
+                onClick={() => toggleSection('payment')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors ${
+                  expandedSection === 'payment' ? 'bg-paper-mid' : 'bg-paper-light'
+                }`}
+              >
+                {selectedIncomeSource ? (
+                  <>
+                    <div className="w-9 h-9 rounded-full bg-paper-mid flex items-center justify-center">
+                      <Icon name={selectedIncomeSource.icon} size={18} className="text-ink-mid" />
+                    </div>
+                    <span className="text-body text-ink-dark flex-1 text-left">
+                      {selectedIncomeSource.name}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-9 h-9 rounded-full bg-paper-mid flex items-center justify-center">
+                      <CreditCard size={18} className="text-ink-light" />
+                    </div>
+                    <span className="text-body text-ink-light flex-1 text-left">
+                      수입수단 선택
+                    </span>
+                  </>
+                )}
+                <ChevronDown
+                  size={16}
+                  className={`text-ink-light transition-transform ${
+                    expandedSection === 'payment' ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {/* 수입수단 목록 (펼침) */}
+              {expandedSection === 'payment' && (
+                <div className="mt-1.5 p-2.5 bg-paper-light rounded-xl animate-fade-in">
+                  <div className="flex flex-wrap gap-1.5">
+                    {incomeSources.map((source) => {
+                      const isSelected = source.id === selectedIncomeSourceId;
+                      return (
+                        <button
+                          key={source.id}
+                          onClick={() => handleIncomeSourceSelect(source.id)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sub transition-colors ${
+                            isSelected
+                              ? 'bg-ink-black text-paper-white'
+                              : 'bg-paper-white text-ink-mid'
+                          }`}
+                        >
+                          <Icon name={source.icon} size={16} />
+                          <span>{source.name}</span>
                         </button>
                       );
                     })}

@@ -79,3 +79,10 @@ export {
   getTagsByCategory,
   getTagSuggestions,
 } from './queries';
+
+// Seed Database (Development)
+export {
+  seedDatabase,
+  seedEmptyDatabase,
+  seedRecentTransactions,
+} from './seedDatabase';

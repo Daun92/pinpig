@@ -1,0 +1,6 @@
+﻿id,name,icon,color,order,budget
+6b4f4a1a-8819-433a-a574-51981df97e81,현금,Banknote,#4CAF50,0,
+9fa8fce6-1cc5-4354-9074-ff25b36259f2,신한카드,CreditCard,#0046FF,1,1200000
+a6f02194-95d2-4627-9f75-aaaf5e4f2c04,삼성카드,CreditCard,#1428A0,2,500000
+ff1c0770-3386-4f80-aab3-3ee9107ceeef,카카오페이,Smartphone,#FEE500,3,
+300a6463-c48e-4a04-a16e-fadd6e7caffd,계좌이체,Building,#9C27B0,4,

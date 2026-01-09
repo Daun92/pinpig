@@ -219,11 +219,13 @@ export function HistoryPage() {
     return monthGroups.flatMap(mg => mg.dateGroups);
   }, [monthGroups]);
 
-  // Pull-to-load for month navigation (up = previous, down = next)
-  const [pullDirection, setPullDirection] = useState<'up' | 'down' | null>(null);
-  const [pullDistance, setPullDistance] = useState(0);
+  // Horizontal swipe for month navigation (left = next, right = previous)
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const [swipeDistance, setSwipeDistance] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(0);
   const [touchStartY, setTouchStartY] = useState(0);
-  const pullThreshold = 80;
+  const [isHorizontalSwipe, setIsHorizontalSwipe] = useState<boolean | null>(null);
+  const swipeThreshold = 80;
 
   // Check if can go to next month (not beyond current month)
   const canGoToNextMonth = useMemo(() => {
@@ -232,81 +234,69 @@ export function HistoryPage() {
       (currentMonth.getFullYear() === now.getFullYear() && currentMonth.getMonth() < now.getMonth());
   }, [currentMonth]);
 
-  const isAtScrollTop = useCallback(() => {
-    if (!scrollContainerRef.current) return false;
-    return scrollContainerRef.current.scrollTop <= 0;
-  }, []);
-
-  const isAtScrollBottom = useCallback(() => {
-    if (!scrollContainerRef.current) return false;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    return scrollTop + clientHeight >= scrollHeight - 5; // 5px threshold
-  }, []);
-
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (searchQuery.trim()) return;
 
     const touch = e.touches[0];
+    setTouchStartX(touch.clientX);
     setTouchStartY(touch.clientY);
-
-    // Determine pull direction based on scroll position
-    // Top pull = next month (more recent), Bottom pull = previous month (older)
-    if (isAtScrollTop() && canGoToNextMonth) {
-      setPullDirection('up');
-    } else if (isAtScrollBottom()) {
-      setPullDirection('down');
-    } else {
-      setPullDirection(null);
-    }
-    setPullDistance(0);
-  }, [searchQuery, isAtScrollTop, isAtScrollBottom, canGoToNextMonth]);
+    setSwipeDirection(null);
+    setSwipeDistance(0);
+    setIsHorizontalSwipe(null);
+  }, [searchQuery]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!pullDirection || !scrollContainerRef.current) return;
+    if (searchQuery.trim()) return;
 
     const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartX;
     const deltaY = touch.clientY - touchStartY;
 
-    if (pullDirection === 'up') {
-      // Pulling down at top of page = go to previous month
-      if (!isAtScrollTop()) {
-        setPullDirection(null);
-        setPullDistance(0);
-        return;
+    // Determine swipe direction on first significant move
+    if (isHorizontalSwipe === null) {
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      if (absX > 10 || absY > 10) {
+        // If horizontal movement is dominant, it's a swipe
+        setIsHorizontalSwipe(absX > absY * 1.5);
       }
-      if (deltaY > 0) {
-        setPullDistance(Math.min(deltaY * 0.5, pullThreshold * 1.5));
-      }
-    } else if (pullDirection === 'down') {
-      // Pulling up at bottom of page = go to next month
-      if (!isAtScrollBottom()) {
-        setPullDirection(null);
-        setPullDistance(0);
-        return;
-      }
-      if (deltaY < 0) {
-        setPullDistance(Math.min(Math.abs(deltaY) * 0.5, pullThreshold * 1.5));
-      }
+      return;
     }
-  }, [pullDirection, touchStartY, isAtScrollTop, isAtScrollBottom]);
+
+    // Only handle horizontal swipes
+    if (!isHorizontalSwipe) return;
+
+    if (deltaX < 0) {
+      // Swiping left = next month (if allowed)
+      if (canGoToNextMonth) {
+        setSwipeDirection('left');
+        setSwipeDistance(Math.min(Math.abs(deltaX), swipeThreshold * 1.5));
+      }
+    } else if (deltaX > 0) {
+      // Swiping right = previous month
+      setSwipeDirection('right');
+      setSwipeDistance(Math.min(deltaX, swipeThreshold * 1.5));
+    }
+  }, [searchQuery, touchStartX, touchStartY, isHorizontalSwipe, canGoToNextMonth]);
 
   const handleTouchEnd = useCallback(() => {
-    if (pullDistance >= pullThreshold && pullDirection) {
-      if (pullDirection === 'up' && canGoToNextMonth) {
-        // Pull down at top = go to next month (more recent)
+    if (swipeDistance >= swipeThreshold && swipeDirection) {
+      if (swipeDirection === 'left' && canGoToNextMonth) {
+        // Swipe left = go to next month (more recent)
         const next = addMonths(currentMonth, 1);
         setCurrentMonth(next);
         fetchTransactions(next);
-      } else if (pullDirection === 'down') {
-        // Pull up at bottom = go to previous month (older)
+      } else if (swipeDirection === 'right') {
+        // Swipe right = go to previous month (older)
         const prev = subMonths(currentMonth, 1);
         setCurrentMonth(prev);
         fetchTransactions(prev);
       }
     }
-    setPullDirection(null);
-    setPullDistance(0);
-  }, [pullDistance, pullDirection, currentMonth, setCurrentMonth, fetchTransactions, canGoToNextMonth]);
+    setSwipeDirection(null);
+    setSwipeDistance(0);
+    setIsHorizontalSwipe(null);
+  }, [swipeDistance, swipeDirection, currentMonth, setCurrentMonth, fetchTransactions, canGoToNextMonth]);
 
   // Auto scroll to target when data loads (only when explicitly requested via URL param)
   useEffect(() => {
@@ -520,17 +510,21 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Pull to load indicator (top: next month - more recent) */}
-      {pullDirection === 'up' && pullDistance > 0 && (
+      {/* Swipe indicator for month navigation */}
+      {swipeDirection && swipeDistance > 0 && (
         <div
-          className="flex items-center justify-center py-4 text-ink-mid transition-opacity"
+          className={`fixed top-1/2 -translate-y-1/2 z-30 flex items-center gap-2 px-3 py-2 bg-ink-black/80 text-paper-white rounded-lg transition-opacity ${
+            swipeDirection === 'left' ? 'right-4' : 'left-4'
+          }`}
           style={{
-            opacity: Math.min(pullDistance / pullThreshold, 1),
-            transform: `translateY(${pullDistance * 0.3}px)`,
+            opacity: Math.min(swipeDistance / swipeThreshold, 1),
           }}
         >
           <span className="text-sub">
-            {pullDistance >= pullThreshold ? '놓으면 다음 달로' : '당겨서 다음 달 보기'}
+            {swipeDirection === 'left'
+              ? (swipeDistance >= swipeThreshold ? '→ 다음 달' : '다음 달')
+              : (swipeDistance >= swipeThreshold ? '← 이전 달' : '이전 달')
+            }
           </span>
         </div>
       )}
@@ -673,21 +667,6 @@ export function HistoryPage() {
             </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Pull to load indicator (bottom: previous month - older) */}
-      {pullDirection === 'down' && pullDistance > 0 && (
-        <div
-          className="flex items-center justify-center py-4 text-ink-mid transition-opacity"
-          style={{
-            opacity: Math.min(pullDistance / pullThreshold, 1),
-            transform: `translateY(${-pullDistance * 0.3}px)`,
-          }}
-        >
-          <span className="text-sub">
-            {pullDistance >= pullThreshold ? '놓으면 이전 달로' : '당겨서 이전 달 보기'}
-          </span>
         </div>
       )}
 

@@ -9,6 +9,8 @@ interface SettingsState {
   error: string | null;
 }
 
+type TourKey = 'hasSeenHomeTour' | 'hasSeenAddTour' | 'hasSeenStatsTour' | 'hasSeenSettingsTour';
+
 interface SettingsActions {
   fetchSettings: () => Promise<void>;
   updateSettings: (updates: Partial<Settings>) => Promise<void>;
@@ -17,6 +19,7 @@ interface SettingsActions {
   setStartDayOfMonth: (day: number) => Promise<void>;
   setTheme: (theme: ThemeMode) => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  markTourComplete: (tourKey: TourKey) => Promise<void>;
   clearError: () => void;
 }
 
@@ -108,6 +111,10 @@ export const useSettingsStore = create<SettingsStore>()(
         await get().updateSettings({ isOnboardingComplete: true });
       },
 
+      markTourComplete: async (tourKey: TourKey) => {
+        await get().updateSettings({ [tourKey]: true });
+      },
+
       clearError: () => set({ error: null }),
     }),
     { name: 'SettingsStore' }
@@ -134,3 +141,8 @@ export const selectCurrency = (state: SettingsStore) => ({
   currency: state.settings?.currency ?? 'KRW',
   symbol: state.settings?.currencySymbol ?? '원',
 });
+
+export const selectHasSeenTour = (tourKey: TourKey) => (state: SettingsStore) =>
+  state.settings?.[tourKey] ?? false;
+
+export type { TourKey };

@@ -1,0 +1,11 @@
+﻿id,name,icon,color,type,order,budget
+8ce3d172-0879-4516-a603-2dc3b7aaf3ba,식비,Utensils,#FF6B6B,expense,0,500000
+38b21d8d-dbe7-4580-b112-fefb7e185552,교통,Car,#4ECDC4,expense,1,150000
+18ed1b95-c82c-4421-895a-097ce9e96806,쇼핑,ShoppingBag,#45B7D1,expense,2,300000
+9f5da4c1-1b51-4ed7-ab70-88e9dbc333b1,문화/여가,Film,#96CEB4,expense,3,200000
+b9ef049e-0af8-42ec-bfb4-99eeeefcf6c3,의료/건강,Heart,#FFEAA7,expense,4,100000
+f71da7b7-a65b-4820-af51-f5d29eee14eb,주거/통신,Home,#DDA0DD,expense,5,850000
+afbb5893-0224-4dcc-a007-3b04dde917ba,기타,MoreHorizontal,#B8B8B8,expense,6,150000
+f5b4825f-34f3-4455-a1a0-f0993ee353d6,급여,Wallet,#4A7C59,income,0,
+ec65c325-8866-4001-b9cb-b2d6af7e8608,용돈,Gift,#FDA7DF,income,1,
+4b15c9d0-85a3-430c-b33f-1b3ec55ede75,기타수입,TrendingUp,#74B9FF,income,2,
