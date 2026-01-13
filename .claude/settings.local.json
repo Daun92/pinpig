@@ -33,7 +33,13 @@
       "Bash(powershell -c \"\\(Get-Item ''D:\\\\claude\\\\pinpig\\\\WORKLOG.md''\\).Length\")",
       "Bash(npm version:*)",
       "Bash(node scripts/generate-seed-csv.js:*)",
-      "Bash(node scripts/generate-seed-csv.cjs:*)"
+      "Bash(node scripts/generate-seed-csv.cjs:*)",
+      "Bash(powershell -c \"\\(Get-Item ''D:\\\\claude\\\\pinpig\\\\WORKLOG-FULL.md''\\).Length\")",
+      "Bash(powershell -c \"\\(Get-Content ''D:\\\\claude\\\\pinpig\\\\WORKLOG-FULL.md'' -Tail 60\\)\")",
+      "Bash(powershell -c:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh auth status:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

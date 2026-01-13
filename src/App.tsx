@@ -15,15 +15,23 @@ import { IncomeSourceManagePage } from '@/pages/IncomeSourceManagePage';
 import { IncomeSourceEditPage } from '@/pages/IncomeSourceEditPage';
 import { MethodManagePage } from '@/pages/MethodManagePage';
 import { BudgetWizardPage } from '@/pages/BudgetWizardPage';
+import { CategoryBudgetPage } from '@/pages/CategoryBudgetPage';
 import { AnnualExpensesPage } from '@/pages/AnnualExpensesPage';
 import { MonthlyReviewPage } from '@/pages/MonthlyReviewPage';
 import { ImportDataPage } from '@/pages/ImportDataPage';
 import { ExportDataPage } from '@/pages/ExportDataPage';
 import { RecurringTransactionPage } from '@/pages/RecurringTransactionPage';
 import { RecurringTransactionEditPage } from '@/pages/RecurringTransactionEditPage';
+import { InsightSettingsPage } from '@/pages/InsightSettingsPage';
+import { CategoryAlertSettingsPage } from '@/pages/CategoryAlertSettingsPage';
+import { BudgetAlertSettingsPage } from '@/pages/BudgetAlertSettingsPage';
+import { RecurringAlertSettingsPage } from '@/pages/RecurringAlertSettingsPage';
+import { PaymentMethodAlertSettingsPage } from '@/pages/PaymentMethodAlertSettingsPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
 import { TabBar } from '@/components/layout/TabBar';
+import { SplashScreen } from '@/components/layout/SplashScreen';
 import { CoachMarkProvider } from '@/components/coachmark';
+import { ToastContainer } from '@/components/common';
 import { useTheme } from '@/hooks/useTheme';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { useDeepLink } from '@/hooks/useDeepLink';
@@ -48,13 +56,9 @@ export default function App() {
     fetchSettings();
   }, [fetchSettings]);
 
-  // Show loading state while checking onboarding status
+  // Show splash screen while checking onboarding status
   if (isLoading && !settings) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-paper-white">
-        <div className="text-ink-mid">불러오는 중...</div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   // Show onboarding if not complete
@@ -85,16 +89,23 @@ export default function App() {
             <Route path="/settings/income-sources/new" element={<IncomeSourceEditPage />} />
             <Route path="/settings/income-sources/:id/edit" element={<IncomeSourceEditPage />} />
             <Route path="/settings/budget-wizard" element={<BudgetWizardPage />} />
+            <Route path="/settings/category-budget" element={<CategoryBudgetPage />} />
             <Route path="/settings/annual-expenses" element={<AnnualExpensesPage />} />
             <Route path="/settings/import" element={<ImportDataPage />} />
             <Route path="/settings/export" element={<ExportDataPage />} />
             <Route path="/settings/recurring" element={<RecurringTransactionPage />} />
             <Route path="/settings/recurring/new" element={<RecurringTransactionEditPage />} />
             <Route path="/settings/recurring/:id/edit" element={<RecurringTransactionEditPage />} />
+            <Route path="/settings/insights" element={<InsightSettingsPage />} />
+            <Route path="/settings/category-alerts" element={<CategoryAlertSettingsPage />} />
+            <Route path="/settings/budget-alerts" element={<BudgetAlertSettingsPage />} />
+            <Route path="/settings/recurring-alerts" element={<RecurringAlertSettingsPage />} />
+            <Route path="/settings/payment-method-alerts" element={<PaymentMethodAlertSettingsPage />} />
             <Route path="/review" element={<MonthlyReviewPage />} />
           </Routes>
         </main>
         <TabBar />
+        <ToastContainer />
       </div>
     </CoachMarkProvider>
   );

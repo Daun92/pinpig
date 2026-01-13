@@ -23,3 +23,13 @@ export {
 
 // Export utilities
 export { downloadCSV, generateExportFilename, exportAndDownload } from './export';
+
+// Tag utilities
+export {
+  parseMemoWithTags,
+  combineMemoWithTags,
+  getMemoPreview,
+  isValidTag,
+  normalizeTags,
+  type ParsedMemo,
+} from './tags';

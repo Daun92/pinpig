@@ -123,23 +123,27 @@ export function CategoryTrendModal({
               {topTransactions.map((tx, index) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between py-2 border-b border-paper-mid last:border-b-0"
+                  className="py-2 border-b border-paper-mid last:border-b-0"
                 >
+                  {/* 첫 줄: 순위 + 메모/태그 (말줄임) */}
                   <div className="flex items-center gap-3">
-                    <span className="w-5 h-5 rounded-full bg-paper-light flex items-center justify-center text-caption text-ink-mid">
+                    <span className="w-5 h-5 flex-shrink-0 rounded-full bg-paper-light flex items-center justify-center text-caption text-ink-mid">
                       {index + 1}
                     </span>
-                    <div>
-                      <p className="text-body text-ink-dark">{tx.description}</p>
-                      <p className="text-caption text-ink-light">
-                        {format(new Date(tx.date), 'M/d')}
-                      </p>
-                    </div>
+                    <p className="text-body text-ink-dark truncate">
+                      {tx.tags && tx.tags.length > 0 ? tx.tags[0] : (tx.memo || '거래')}
+                    </p>
                   </div>
-                  <span className={`text-amount ${type === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
-                    {type === 'income' && '+ '}
-                    {tx.amount.toLocaleString()}원
-                  </span>
+                  {/* 둘째 줄: 날짜 + 금액 */}
+                  <div className="flex items-center justify-between mt-1 pl-8">
+                    <p className="text-caption text-ink-light">
+                      {format(new Date(tx.date), 'M/d')}
+                    </p>
+                    <span className={`text-amount ${type === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
+                      {type === 'income' && '+ '}
+                      {tx.amount.toLocaleString()}원
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

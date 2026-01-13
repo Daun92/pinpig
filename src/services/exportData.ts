@@ -72,7 +72,7 @@ export async function exportTransactionsToCSV(options: ExportOptions = { format:
       const categoryStr = category?.name || '';
       const paymentStr = paymentMethod?.name || '';
       const amount = t.amount;
-      const memo = combineDescriptionMemo(t.description, t.memo);
+      const memo = t.memo || '';
 
       return [
         dateStr,
@@ -298,12 +298,6 @@ function escapeCSV(value: string): string {
   return value;
 }
 
-function combineDescriptionMemo(description: string, memo?: string): string {
-  const parts: string[] = [];
-  if (description) parts.push(description);
-  if (memo) parts.push(memo);
-  return parts.join(' | ');
-}
 
 function generateFilename(prefix: string, extension: string): string {
   const now = new Date();

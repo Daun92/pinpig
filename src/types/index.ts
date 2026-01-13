@@ -11,8 +11,8 @@ export interface Transaction {
   categoryId: string;
   paymentMethodId?: string;      // 지출 시 결제수단
   incomeSourceId?: string;       // 수입 시 수입수단
-  description: string;           // 가맹점/상호명
-  memo?: string;
+  memo?: string;                 // 메모 (태그 제외된 순수 텍스트)
+  tags?: string[];               // 태그 배열 (예: ["회식", "팀점심"])
   date: Date;
   time: string;                  // HH:mm 형식
   createdAt: Date;
@@ -53,6 +53,86 @@ export type CreatePaymentMethodInput = Omit<PaymentMethod, 'id' | 'createdAt' | 
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+// =========================================
+// Insight Widget Types (홈 인사이트 카드)
+// =========================================
+
+export type InsightWidgetType =
+  | 'caution'       // 주의 포인트 (카테고리 예산 70%+)
+  | 'room'          // 여유 영역 (카테고리 예산 <50%)
+  | 'compare'       // 전월 대비 변화
+  | 'interest'      // 이번 달 관심 (TOP 카테고리)
+  | 'upcoming';     // 예정 알림
+
+export const INSIGHT_WIDGET_CONFIG: Record<InsightWidgetType, {
+  label: string;
+  description: string;
+  requiresCategoryBudget: boolean;
+  requiresLastMonthData: boolean;
+  requiresUpcoming: boolean;
+}> = {
+  caution: {
+    label: '주의 포인트',
+    description: '예산 70% 이상 카테고리',
+    requiresCategoryBudget: true,
+    requiresLastMonthData: false,
+    requiresUpcoming: false,
+  },
+  room: {
+    label: '여유 영역',
+    description: '예산 50% 미만 카테고리',
+    requiresCategoryBudget: true,
+    requiresLastMonthData: false,
+    requiresUpcoming: false,
+  },
+  compare: {
+    label: '전월 대비',
+    description: '지난달과 비교',
+    requiresCategoryBudget: false,
+    requiresLastMonthData: true,
+    requiresUpcoming: false,
+  },
+  interest: {
+    label: '이번 달 관심',
+    description: '가장 많이 쓴 카테고리',
+    requiresCategoryBudget: false,
+    requiresLastMonthData: false,
+    requiresUpcoming: false,
+  },
+  upcoming: {
+    label: '예정 알림',
+    description: '이번 달 예정된 거래',
+    requiresCategoryBudget: false,
+    requiresLastMonthData: false,
+    requiresUpcoming: true,
+  },
+};
+
+export const DEFAULT_INSIGHT_WIDGETS: InsightWidgetType[] = ['caution', 'room', 'interest'];
+
+// 카테고리별 알림 설정
+export interface CategoryAlertSetting {
+  enabled: boolean;
+  thresholds: number[];              // 알림 임계값 (예: [70, 100])
+  lastAlertedThreshold?: number;     // 마지막 알림 임계값 (중복 방지)
+  lastAlertedMonth?: string;         // 마지막 알림 월 (YYYY-MM)
+}
+
+// 반복 거래별 알림 설정
+export interface RecurringAlertSetting {
+  enabled: boolean;
+  daysBefore?: number;               // 개별 설정 (없으면 전역 설정 사용)
+  lastAlertedDate?: string;          // 마지막 알림 날짜 (YYYY-MM-DD, 중복 방지)
+}
+
+// 결제수단별 알림 설정
+export interface PaymentMethodAlertSetting {
+  enabled: boolean;
+  thresholds: number[];              // 알림 임계값 (예: [70, 100])
+  lastAlertedThreshold?: number;     // 마지막 알림 임계값 (중복 방지)
+  lastAlertedMonth?: string;         // 마지막 알림 월 (YYYY-MM)
+}
+
 export interface Settings {
   id: string;
   monthlyBudget: number;
@@ -67,6 +147,25 @@ export interface Settings {
   hasSeenAddTour: boolean;
   hasSeenStatsTour: boolean;
   hasSeenSettingsTour: boolean;
+  hasSeenHistoryTour: boolean;
+  // 앱 내 알림 마스터 토글
+  notificationEnabled: boolean;      // 앱 내 알림 전체 활성화
+  // 예산 알림 설정
+  budgetAlertEnabled: boolean;       // 예산 알림 활성화
+  budgetAlertThresholds: number[];   // 알림 임계값 [50, 80, 100]
+  categoryAlertEnabled: boolean;     // 카테고리 알림 마스터 토글
+  categoryAlertSettings: Record<string, CategoryAlertSetting>;  // 카테고리별 개별 설정
+  lastAlertedThreshold?: number;     // 마지막 알림 임계값 (중복 방지)
+  lastAlertedMonth?: string;         // 마지막 알림 월 (YYYY-MM 형식, 월 1회)
+  // 반복 거래 알림 설정
+  recurringAlertEnabled: boolean;    // 반복 거래 알림 마스터 토글
+  recurringAlertDaysBefore: number;  // 기본 며칠 전 알림 (0=당일, 1, 3, 7 등)
+  recurringAlertSettings: Record<string, RecurringAlertSetting>;  // 개별 반복거래 설정
+  // 결제수단 알림 설정
+  paymentMethodAlertEnabled: boolean;  // 결제수단 알림 마스터 토글
+  paymentMethodAlertSettings: Record<string, PaymentMethodAlertSetting>;  // 결제수단별 개별 설정
+  // 홈 인사이트 설정
+  insightWidgets: InsightWidgetType[];  // 최대 3개 선택
   updatedAt: Date;
 }
 
@@ -82,7 +181,30 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updatedAt'> = {
   hasSeenAddTour: false,
   hasSeenStatsTour: false,
   hasSeenSettingsTour: false,
+  hasSeenHistoryTour: false,
+  // 앱 내 알림 기본값
+  notificationEnabled: true,         // 앱 내 알림 기본 활성화
+  // 예산 알림 기본값
+  budgetAlertEnabled: true,
+  budgetAlertThresholds: [50, 80, 100],
+  categoryAlertEnabled: true,
+  categoryAlertSettings: {},         // 카테고리별 개별 설정 (빈 객체 = 전체 기본값 사용)
+  // 반복 거래 알림 기본값
+  recurringAlertEnabled: true,
+  recurringAlertDaysBefore: 1,       // 기본 1일 전 알림
+  recurringAlertSettings: {},        // 개별 반복거래 설정 (빈 객체 = 전체 기본값 사용)
+  // 결제수단 알림 기본값
+  paymentMethodAlertEnabled: true,
+  paymentMethodAlertSettings: {},    // 결제수단별 개별 설정 (빈 객체 = 전체 기본값 사용)
+  // 홈 인사이트 기본값
+  insightWidgets: DEFAULT_INSIGHT_WIDGETS,
 };
+
+// 카테고리 알림 기본 임계값
+export const DEFAULT_CATEGORY_ALERT_THRESHOLDS = [70, 100];
+
+// 결제수단 알림 기본 임계값
+export const DEFAULT_PAYMENT_METHOD_ALERT_THRESHOLDS = [70, 100];
 
 export interface CategorySummary {
   categoryId: string;
@@ -241,7 +363,6 @@ export interface TransactionExportRow {
   time: string;           // HH:mm
   type: string;           // '수입' | '지출'
   category: string;       // Category name
-  description: string;
   amount: number;
   memo: string;
 }
@@ -333,14 +454,20 @@ export interface CategoryComparison {
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
+// 반복 거래 실행 모드
+// - 'on_date': 해당 날짜가 되면 실제 거래로 자동 입력
+// - 'start_of_month': 월 초에 해당 월의 모든 반복 거래를 미리 입력
+export type RecurringExecutionMode = 'on_date' | 'start_of_month';
+
 export interface RecurringTransaction {
   id: string;
   type: TransactionType;
   amount: number;
   categoryId: string;
-  paymentMethodId?: string;
-  description: string;                // 거래 설명 (예: "넷플릭스", "월급")
-  memo?: string;
+  paymentMethodId?: string;           // 지출 시 결제수단
+  incomeSourceId?: string;            // 수입 시 수입수단
+  memo?: string;                      // 메모 (태그 제외된 순수 텍스트)
+  tags?: string[];                    // 태그 배열 (예: ["고정비", "구독"])
 
   // Recurrence settings
   frequency: RecurrenceFrequency;     // 반복 주기
@@ -349,6 +476,7 @@ export interface RecurringTransaction {
   startDate: Date;                    // 시작일
   endDate?: Date;                     // 종료일 (없으면 무기한)
   isActive: boolean;                  // 활성화 여부
+  executionMode?: RecurringExecutionMode;  // 실행 모드 (기본값: 'on_date')
 
   // Tracking
   lastExecutedDate?: Date;            // 마지막으로 실행된 날짜
@@ -374,7 +502,7 @@ export interface ProjectedTransaction {
   categoryIcon: string;
   categoryColor: string;
   paymentMethodId?: string;
-  description: string;
+  memo?: string;
   scheduledDate: Date;                // 예정일
   isProjected: true;                  // 항상 true (실제 거래와 구분)
 }
@@ -405,3 +533,117 @@ export interface CategoryBudgetSummary {
   remainingBudget: number;            // 남은 예산
   percentUsed: number;                // 사용 비율
 }
+
+// =========================================
+// Insight Detail Types (인사이트 상세 뷰)
+// =========================================
+
+// URL 파라미터용 인사이트 타입
+export type InsightType = 'caution' | 'room' | 'interest' | 'compare' | 'upcoming';
+
+// URL 파라미터 인터페이스
+export interface InsightParams {
+  insight?: InsightType;
+  categoryId?: string;
+  month?: string;       // 'YYYY-MM' or 'current'
+}
+
+// 1. Caution (주의 포인트) 상세 데이터
+export interface CautionDetailData {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  budgetAmount: number;
+  currentSpent: number;
+  percentUsed: number;
+  remaining: number;
+  remainingDays: number;
+  dailyRecommended: number;
+  topTransactionIds: string[];  // 금액 상위 3건 ID (하이라이트용)
+  insightMessage: string;
+}
+
+// 2. Room (여유 영역) 상세 데이터
+export interface RoomDetailData {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  budgetAmount: number;
+  currentSpent: number;
+  percentUsed: number;
+  remaining: number;
+  lastMonthSamePoint?: number;  // 지난달 같은 일자까지의 지출
+  insightMessage: string;
+}
+
+// 3. Interest (관심 카테고리) 상세 데이터
+export interface InterestDetailData {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  totalCount: number;
+  totalAmount: number;
+  averageAmount: number;
+  peakDayOfWeek?: string;   // 가장 많이 쓴 요일 (월~일)
+  peakTimeRange?: string;   // 가장 많이 쓴 시간대 (아침/점심/저녁/밤)
+  insightMessage: string;
+}
+
+// 4. Compare (전월 대비) 상세 데이터
+export interface CompareDetailData {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  currentMonth: {
+    year: number;
+    month: number;
+    amount: number;
+    count: number;
+  };
+  lastMonth: {
+    year: number;
+    month: number;
+    amount: number;
+    count: number;
+  };
+  difference: number;
+  percentChange: number;
+  isIncrease: boolean;
+  insightMessage: string;
+}
+
+// 5. Upcoming (예정 거래) 상세 데이터
+export interface UpcomingDetailItem {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  memo?: string;
+  scheduledDate: Date;
+  daysUntil: number;
+}
+
+export interface UpcomingDetailData {
+  totalCount: number;
+  totalExpense: number;
+  totalIncome: number;
+  netImpact: number;
+  items: UpcomingDetailItem[];
+  nextItem?: UpcomingDetailItem;
+  insightMessage: string;
+}
+
+// 통합 인사이트 상세 데이터 유니온 타입
+export type InsightDetailData =
+  | { type: 'caution'; data: CautionDetailData }
+  | { type: 'room'; data: RoomDetailData }
+  | { type: 'interest'; data: InterestDetailData }
+  | { type: 'compare'; data: CompareDetailData }
+  | { type: 'upcoming'; data: UpcomingDetailData };

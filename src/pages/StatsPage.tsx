@@ -31,6 +31,9 @@ import {
 } from '@/components/report';
 import type { Settings, CategorySummary, CategoryTrend, PaymentMethodSummary, MonthSummary } from '@/types';
 
+// Tab swipe navigation TABS - defined outside component to avoid dependency issues
+const TABS = ['category', 'paymentMethod', 'trend'] as const;
+
 export function StatsPage() {
   const navigate = useNavigate();
   const { startTour } = useCoachMark();
@@ -53,8 +56,8 @@ export function StatsPage() {
   const [yearlyCategoryBreakdown, setYearlyCategoryBreakdown] = useState<CategorySummary[]>([]);
   const [yearlyPaymentMethodBreakdown, setYearlyPaymentMethodBreakdown] = useState<PaymentMethodSummary[]>([]);
 
-  // 추이 탭: 전체 라인 표시 토글
-  const [showTotalLine, setShowTotalLine] = useState(false);
+  // 추이 탭: 전체 라인 표시 토글 (기본값: 전체 선택)
+  const [showTotalLine, setShowTotalLine] = useState(true);
 
   // 수단별 모달
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodSummary | null>(null);
@@ -266,7 +269,6 @@ export function StatsPage() {
   const insights = generateInsights();
 
   // Tab swipe navigation
-  const tabs: Array<'category' | 'paymentMethod' | 'trend'> = ['category', 'paymentMethod', 'trend'];
   const tabContentRef = useRef<HTMLDivElement>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [touchStartY, setTouchStartY] = useState(0);
@@ -274,6 +276,45 @@ export function StatsPage() {
   const [swipeDistance, setSwipeDistance] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const swipeThreshold = 60;
+
+  // Fixed header height: Header (56px + 1px border) + Income/Expense Tab (44px + 1px border) = 102px
+  const fixedHeaderHeight = 102;
+  const topAnchorRef = useRef<HTMLDivElement>(null);
+  const tabBarRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top helper
+  const scrollToTop = useCallback(() => {
+    topAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Handle transaction type tab click (with scroll to top on re-click)
+  const handleTransactionTypeClick = useCallback((type: 'expense' | 'income') => {
+    if (transactionType === type) {
+      // Same tab clicked - scroll to top
+      scrollToTop();
+    } else {
+      // Different tab - switch and scroll to top
+      setTransactionType(type);
+      scrollToTop();
+    }
+  }, [transactionType, scrollToTop]);
+
+  // Scroll to tab bar (for category/paymentMethod/trend TABS)
+  const scrollToTabBar = useCallback(() => {
+    tabBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Handle active tab click (category/paymentMethod/trend) with scroll to tab bar
+  const handleActiveTabClick = useCallback((tab: 'category' | 'paymentMethod' | 'trend') => {
+    if (activeTab === tab) {
+      // Same tab clicked - scroll to tab bar
+      scrollToTabBar();
+    } else {
+      // Different tab - switch and scroll to tab bar
+      setActiveTab(tab);
+      scrollToTabBar();
+    }
+  }, [activeTab, scrollToTabBar]);
 
   const handleTabTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -301,9 +342,9 @@ export function StatsPage() {
 
     if (!isHorizontalSwipe) return;
 
-    const currentIdx = tabs.indexOf(activeTab);
+    const currentIdx = TABS.indexOf(activeTab);
 
-    if (deltaX < 0 && currentIdx < tabs.length - 1) {
+    if (deltaX < 0 && currentIdx < TABS.length - 1) {
       // Swiping left = next tab
       setSwipeDirection('left');
       setSwipeDistance(Math.min(Math.abs(deltaX), swipeThreshold * 1.5));
@@ -312,22 +353,22 @@ export function StatsPage() {
       setSwipeDirection('right');
       setSwipeDistance(Math.min(deltaX, swipeThreshold * 1.5));
     }
-  }, [touchStartX, touchStartY, isHorizontalSwipe, activeTab, tabs]);
+  }, [touchStartX, touchStartY, isHorizontalSwipe, activeTab]);
 
   const handleTabTouchEnd = useCallback(() => {
     if (swipeDistance >= swipeThreshold && swipeDirection) {
-      const currentIdx = tabs.indexOf(activeTab);
+      const currentIdx = TABS.indexOf(activeTab);
 
-      if (swipeDirection === 'left' && currentIdx < tabs.length - 1) {
-        setActiveTab(tabs[currentIdx + 1]);
+      if (swipeDirection === 'left' && currentIdx < TABS.length - 1) {
+        setActiveTab(TABS[currentIdx + 1]);
       } else if (swipeDirection === 'right' && currentIdx > 0) {
-        setActiveTab(tabs[currentIdx - 1]);
+        setActiveTab(TABS[currentIdx - 1]);
       }
     }
     setSwipeDirection(null);
     setSwipeDistance(0);
     setIsHorizontalSwipe(null);
-  }, [swipeDistance, swipeDirection, activeTab, tabs]);
+  }, [swipeDistance, swipeDirection, activeTab]);
 
   if (isLoading && !monthSummary) {
     return (
@@ -339,34 +380,40 @@ export function StatsPage() {
 
   return (
     <div className="min-h-screen bg-paper-white pb-nav">
-      {/* Header */}
-      <header className="h-14 flex items-center px-4 border-b border-paper-mid">
-        <h1 className="text-title text-ink-black pl-2">분석</h1>
-      </header>
+      {/* Fixed Header + Income/Expense Tab */}
+      <div className="fixed top-0 left-0 right-0 z-20 bg-paper-white">
+        {/* Header */}
+        <header className="h-14 flex items-center px-4 border-b border-paper-mid">
+          <h1 className="text-title text-ink-black pl-2">분석</h1>
+        </header>
 
-      {/* Income/Expense Tab Bar */}
-      <div className="flex border-b border-paper-mid">
-        <button
-          onClick={() => setTransactionType('expense')}
-          className={`flex-1 py-3 text-center text-body transition-colors ${
-            transactionType === 'expense'
-              ? 'text-ink-black border-b-2 border-ink-black'
-              : 'text-ink-mid'
-          }`}
-        >
-          지출
-        </button>
-        <button
-          onClick={() => setTransactionType('income')}
-          className={`flex-1 py-3 text-center text-body transition-colors ${
-            transactionType === 'income'
-              ? 'text-semantic-positive border-b-2 border-ink-black'
-              : 'text-ink-mid'
-          }`}
-        >
-          수입
-        </button>
+        {/* Income/Expense Tab Bar */}
+        <div className="flex border-b border-paper-mid">
+          <button
+            onClick={() => handleTransactionTypeClick('expense')}
+            className={`flex-1 py-3 text-center text-body transition-colors ${
+              transactionType === 'expense'
+                ? 'text-ink-black border-b-2 border-ink-black'
+                : 'text-ink-mid'
+            }`}
+          >
+            지출
+          </button>
+          <button
+            onClick={() => handleTransactionTypeClick('income')}
+            className={`flex-1 py-3 text-center text-body transition-colors ${
+              transactionType === 'income'
+                ? 'text-semantic-positive border-b-2 border-ink-black'
+                : 'text-ink-mid'
+            }`}
+          >
+            수입
+          </button>
+        </div>
       </div>
+
+      {/* Spacer for fixed header (also serves as scroll anchor) */}
+      <div ref={topAnchorRef} style={{ height: `${fixedHeaderHeight}px` }} />
 
       {/* Summary Section */}
       <section className="px-6 py-6">
@@ -567,10 +614,20 @@ export function StatsPage() {
         )}
       </section>
 
-      {/* Tab Bar */}
-      <div className="flex border-b border-paper-mid" data-tour="stats-tabs">
+      {/* Tab Bar Scroll Anchor */}
+      <div
+        ref={tabBarRef}
+        style={{ scrollMarginTop: `${fixedHeaderHeight}px` }}
+      />
+
+      {/* Tab Bar - Sticky */}
+      <div
+        className="flex border-b border-paper-mid bg-paper-white sticky z-10"
+        style={{ top: `${fixedHeaderHeight}px` }}
+        data-tour="stats-TABS"
+      >
         <button
-          onClick={() => setActiveTab('category')}
+          onClick={() => handleActiveTabClick('category')}
           className={`flex-1 py-3 text-center text-body ${
             activeTab === 'category'
               ? 'text-ink-black border-b-2 border-ink-black'
@@ -580,7 +637,7 @@ export function StatsPage() {
           카테고리별
         </button>
         <button
-          onClick={() => setActiveTab('paymentMethod')}
+          onClick={() => handleActiveTabClick('paymentMethod')}
           className={`flex-1 py-3 text-center text-body ${
             activeTab === 'paymentMethod'
               ? 'text-ink-black border-b-2 border-ink-black'
@@ -590,7 +647,7 @@ export function StatsPage() {
           수단별
         </button>
         <button
-          onClick={() => setActiveTab('trend')}
+          onClick={() => handleActiveTabClick('trend')}
           className={`flex-1 py-3 text-center text-body ${
             activeTab === 'trend'
               ? 'text-ink-black border-b-2 border-ink-black'

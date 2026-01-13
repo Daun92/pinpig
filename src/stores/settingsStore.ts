@@ -9,7 +9,7 @@ interface SettingsState {
   error: string | null;
 }
 
-type TourKey = 'hasSeenHomeTour' | 'hasSeenAddTour' | 'hasSeenStatsTour' | 'hasSeenSettingsTour';
+type TourKey = 'hasSeenHomeTour' | 'hasSeenAddTour' | 'hasSeenStatsTour' | 'hasSeenSettingsTour' | 'hasSeenHistoryTour';
 
 interface SettingsActions {
   fetchSettings: () => Promise<void>;

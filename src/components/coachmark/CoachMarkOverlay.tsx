@@ -24,6 +24,25 @@ export function CoachMarkOverlay({ tour, onComplete, onSkip }: CoachMarkOverlayP
   const currentMark = tour.marks[currentIndex];
   const isLastMark = currentIndex === tour.marks.length - 1;
 
+  // Scroll target into view if needed
+  const scrollTargetIntoView = useCallback((target: Element) => {
+    const rect = target.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const headerOffset = 120; // Account for sticky headers
+    const bottomPadding = 200; // Space for tooltip below
+
+    // Check if element is outside visible area
+    const isAboveViewport = rect.top < headerOffset;
+    const isBelowViewport = rect.bottom > viewportHeight - bottomPadding;
+
+    if (isAboveViewport || isBelowViewport) {
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, []);
+
   const updateTargetRect = useCallback(() => {
     if (!currentMark) return;
 
@@ -42,9 +61,27 @@ export function CoachMarkOverlay({ tour, onComplete, onSkip }: CoachMarkOverlayP
     }
   }, [currentMark]);
 
+  // Scroll to target and update rect when step changes
   useEffect(() => {
-    updateTargetRect();
+    if (!currentMark) return;
 
+    const target = document.querySelector(currentMark.targetSelector);
+    if (target) {
+      // First scroll into view
+      scrollTargetIntoView(target);
+
+      // Then update rect after scroll animation
+      const scrollTimer = setTimeout(() => {
+        updateTargetRect();
+      }, 350); // Wait for scroll animation
+
+      return () => clearTimeout(scrollTimer);
+    } else {
+      updateTargetRect();
+    }
+  }, [currentMark, scrollTargetIntoView, updateTargetRect]);
+
+  useEffect(() => {
     // Update on resize/scroll
     window.addEventListener('resize', updateTargetRect);
     window.addEventListener('scroll', updateTargetRect, true);

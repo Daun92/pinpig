@@ -131,13 +131,9 @@ export function RecurringTransactionPage() {
                     <SwipeToDelete
                       key={item.id}
                       onDelete={() => handleDelete(item.id, true)}
-                      confirmMessage={`"${item.description}" 반복 거래를 삭제하시겠습니까?`}
+                      confirmMessage={`"${item.memo || '반복 거래'}"를 삭제하시겠습니까?`}
                     >
-                      <div
-                        className={`flex items-center gap-3 p-3 bg-paper-light dark:bg-ink-dark/30 rounded-lg ${
-                          !item.isActive ? 'opacity-50' : ''
-                        }`}
-                      >
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-paper-light dark:bg-ink-dark/30">
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: (cat?.color || '#4A7C59') + '20' }}
@@ -145,7 +141,7 @@ export function RecurringTransactionPage() {
                           <Icon name={cat?.icon || 'Wallet'} size={20} style={{ color: cat?.color }} />
                         </div>
                         <div className="flex-1 min-w-0" onClick={() => goToEdit(item)}>
-                          <p className="text-body text-ink-black truncate">{item.description}</p>
+                          <p className="text-body text-ink-black truncate">{item.memo || '반복 거래'}</p>
                           <div className="flex items-center gap-2 text-caption text-ink-light">
                             <Repeat size={12} />
                             <span>{FREQUENCY_LABELS[item.frequency]}</span>
@@ -161,15 +157,15 @@ export function RecurringTransactionPage() {
                         </div>
                         <button
                           onClick={() => handleToggleActive(item.id, item.isActive)}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
                             item.isActive
-                              ? 'bg-green-100 dark:bg-green-900/30'
+                              ? 'bg-green-500 dark:bg-green-600'
                               : 'bg-paper-mid dark:bg-ink-dark/50'
                           }`}
                         >
                           <Check
                             size={16}
-                            className={item.isActive ? 'text-green-600 dark:text-green-400' : 'text-ink-light'}
+                            className={item.isActive ? 'text-paper-white' : 'text-ink-light'}
                           />
                         </button>
                       </div>
@@ -191,13 +187,9 @@ export function RecurringTransactionPage() {
                     <SwipeToDelete
                       key={item.id}
                       onDelete={() => handleDelete(item.id, true)}
-                      confirmMessage={`"${item.description}" 반복 거래를 삭제하시겠습니까?`}
+                      confirmMessage={`"${item.memo || '반복 거래'}"를 삭제하시겠습니까?`}
                     >
-                      <div
-                        className={`flex items-center gap-3 p-3 bg-paper-light dark:bg-ink-dark/30 rounded-lg ${
-                          !item.isActive ? 'opacity-50' : ''
-                        }`}
-                      >
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-paper-light dark:bg-ink-dark/30">
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: (cat?.color || '#FF6B6B') + '20' }}
@@ -205,7 +197,9 @@ export function RecurringTransactionPage() {
                           <Icon name={cat?.icon || 'CreditCard'} size={20} style={{ color: cat?.color }} />
                         </div>
                         <div className="flex-1 min-w-0" onClick={() => goToEdit(item)}>
-                          <p className="text-body text-ink-black truncate">{item.description}</p>
+                          <p className="text-body text-ink-black truncate">
+                            {item.memo || '반복 거래'}
+                          </p>
                           <div className="flex items-center gap-2 text-caption text-ink-light">
                             <Repeat size={12} />
                             <span>{FREQUENCY_LABELS[item.frequency]}</span>
@@ -221,15 +215,15 @@ export function RecurringTransactionPage() {
                         </div>
                         <button
                           onClick={() => handleToggleActive(item.id, item.isActive)}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
                             item.isActive
-                              ? 'bg-green-100 dark:bg-green-900/30'
+                              ? 'bg-green-500 dark:bg-green-600'
                               : 'bg-paper-mid dark:bg-ink-dark/50'
                           }`}
                         >
                           <Check
                             size={16}
-                            className={item.isActive ? 'text-green-600 dark:text-green-400' : 'text-ink-light'}
+                            className={item.isActive ? 'text-paper-white' : 'text-ink-light'}
                           />
                         </button>
                       </div>

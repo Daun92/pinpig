@@ -4,11 +4,22 @@ import { Search, ChevronDown, ChevronLeft, ChevronRight, X, Check } from 'lucide
 import { isFuture, startOfDay, getYear, getMonth } from 'date-fns';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectCategoryMap, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
+import { usePaymentMethodStore, selectPaymentMethodMap } from '@/stores/paymentMethodStore';
+import { useCoachMark } from '@/components/coachmark';
 import { Icon } from '@/components/common';
-import { MonthSummaryCard } from '@/components/history';
+import {
+  MonthSummaryCard,
+  InsightDetailHeader,
+  CautionSummary,
+  RoomSummary,
+  InterestSummary,
+  CompareSummary,
+  UpcomingSummary,
+} from '@/components/history';
+import { getInsightDetail } from '@/services/queries';
 import { isToday, isYesterday, format, subMonths, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import type { Transaction, DateGroup, MonthGroup } from '@/types';
+import type { Transaction, DateGroup, MonthGroup, InsightType, InsightDetailData } from '@/types';
 
 function getDateLabel(date: Date): string {
   if (isToday(date)) return '오늘';
@@ -107,19 +118,24 @@ function groupTransactionsByMonth(transactions: Transaction[]): MonthGroup[] {
   });
 }
 
+// Fixed header height: Header (56px + 1px border) + Filter bar (59px + 1px border) = 116px
+const FIXED_HEADER_HEIGHT = 116;
+
 export function HistoryPage() {
   const navigate = useNavigate();
+  const { startTour } = useCoachMark();
   const { transactions, currentMonth, fetchTransactions, setCurrentMonth, searchAllTransactions, isLoading } = useTransactionStore();
   const { fetchCategories } = useCategoryStore();
   const categoryMap = useCategoryStore(selectCategoryMap);
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
+  const { fetchPaymentMethods } = usePaymentMethodStore();
+  const paymentMethodMap = usePaymentMethodStore(selectPaymentMethodMap);
 
   // Search state
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Transaction[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
 
   // Filter state
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -131,46 +147,103 @@ export function HistoryPage() {
 
   // Scroll refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const todayGroupRef = useRef<HTMLDivElement>(null);
-  const yesterdayGroupRef = useRef<HTMLDivElement>(null);
-  const futureGroupRef = useRef<HTMLDivElement>(null);
-  const [hasScrolledToTarget, setHasScrolledToTarget] = useState(false);
-
-  // Date group refs for scroll target
-  const dateGroupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const scrollToTargetProcessed = useRef<string | null>(null);
 
   // URL query params
   const [searchParams, setSearchParams] = useSearchParams();
   const scrollToTarget = searchParams.get('scrollTo'); // 'yesterday' | 'future' | null
+  const categoryIdParam = searchParams.get('categoryId'); // 홈 인사이트에서 카테고리 클릭 시
+  const insightParam = searchParams.get('insight') as InsightType | null; // 인사이트 타입
+
+  // Insight detail state
+  const [insightData, setInsightData] = useState<InsightDetailData | null>(null);
+  const [isLoadingInsight, setIsLoadingInsight] = useState(false);
 
   useEffect(() => {
     fetchCategories();
+    fetchPaymentMethods();
     fetchTransactions(new Date());
-  }, [fetchCategories, fetchTransactions]);
+  }, [fetchCategories, fetchPaymentMethods, fetchTransactions]);
 
-  // Scroll to target group after data loads
-  const scrollToGroup = useCallback((targetRef: React.RefObject<HTMLDivElement>) => {
-    if (targetRef.current) {
-      // Use scrollIntoView for more accurate positioning
-      targetRef.current.scrollIntoView({
+  // Handle URL parameters (categoryId and insight)
+  useEffect(() => {
+    if (categoryIdParam) {
+      setSelectedCategoryIds([categoryIdParam]);
+    }
+
+    // Load insight data if insight param exists
+    if (insightParam) {
+      setIsLoadingInsight(true);
+      const now = new Date();
+      getInsightDetail(insightParam, categoryIdParam || undefined, now.getFullYear(), now.getMonth() + 1)
+        .then((data) => {
+          setInsightData(data);
+          setIsLoadingInsight(false);
+        })
+        .catch(() => {
+          setInsightData(null);
+          setIsLoadingInsight(false);
+        });
+    } else {
+      setInsightData(null);
+    }
+  }, [categoryIdParam, insightParam]);
+
+  // Dismiss insight header
+  const handleDismissInsight = useCallback(() => {
+    setInsightData(null);
+    // Keep categoryId filter but remove insight param
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('insight');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // Start history tour on first visit (after transactions loaded)
+  useEffect(() => {
+    if (transactions.length > 0) {
+      startTour('history');
+    }
+  }, [transactions.length, startTour]);
+
+  // Scroll to target group using data attribute selector
+  const scrollToGroupBySelector = useCallback((selector: string, target: string) => {
+    // DOM에서 직접 요소 찾기
+    const element = document.querySelector(selector) as HTMLElement | null;
+    if (!element) {
+      return;
+    }
+
+    // 실제 스크롤 컨테이너 찾기 (App.tsx의 main 요소)
+    const scrollContainer = document.querySelector('main.overflow-y-auto') as HTMLElement | null;
+    if (!scrollContainer) {
+      return;
+    }
+
+    // 먼저 스크롤 컨테이너 상단으로 리셋
+    scrollContainer.scrollTop = 0;
+
+    // 다음 프레임에서 정확한 위치 계산
+    requestAnimationFrame(() => {
+      // 요소의 위치를 스크롤 컨테이너 기준으로 계산
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+
+      // 요소가 컨테이너 내에서 얼마나 떨어져 있는지 계산
+      const relativeTop = elementRect.top - containerRect.top + scrollContainer.scrollTop;
+      const headerOffset = FIXED_HEADER_HEIGHT;
+
+      scrollContainer.scrollTo({
+        top: relativeTop - headerOffset,
         behavior: 'auto',
-        block: 'start',
       });
 
-      // Adjust for sticky headers (header 56px + filter bar ~52px = 108px)
-      if (scrollContainerRef.current) {
-        const headerOffset = 108;
-        scrollContainerRef.current.scrollTop -= headerOffset;
-      }
-
-      setHasScrolledToTarget(true);
+      // 처리 완료 표시
+      scrollToTargetProcessed.current = target;
 
       // Clear the scrollTo param after scrolling
-      if (scrollToTarget) {
-        setSearchParams({}, { replace: true });
-      }
-    }
-  }, [scrollToTarget, setSearchParams]);
+      setSearchParams({}, { replace: true });
+    });
+  }, [setSearchParams]);
 
   // Search all transactions when query changes
   useEffect(() => {
@@ -180,10 +253,8 @@ export function HistoryPage() {
     }
 
     const searchTimer = setTimeout(async () => {
-      setIsSearching(true);
       const results = await searchAllTransactions(searchQuery);
       setSearchResults(results);
-      setIsSearching(false);
     }, 300); // Debounce 300ms
 
     return () => clearTimeout(searchTimer);
@@ -300,25 +371,24 @@ export function HistoryPage() {
 
   // Auto scroll to target when data loads (only when explicitly requested via URL param)
   useEffect(() => {
-    // Only scroll when explicitly requested via scrollTo param
-    // This prevents unwanted auto-scroll when returning to the tab
-    if (!hasScrolledToTarget && allDateGroups.length > 0 && !searchQuery && scrollToTarget) {
-      let targetRef: React.RefObject<HTMLDivElement> | null = null;
+    // scrollToTarget이 있고, 아직 처리되지 않았으며, 데이터가 로드된 경우
+    if (scrollToTarget && scrollToTargetProcessed.current !== scrollToTarget && allDateGroups.length > 0 && !searchQuery) {
+      let selector = '';
       if (scrollToTarget === 'yesterday') {
-        targetRef = yesterdayGroupRef;
+        selector = '[data-scroll-target="yesterday"]';
       } else if (scrollToTarget === 'future') {
-        targetRef = futureGroupRef;
+        selector = '[data-scroll-target="future"]';
       } else if (scrollToTarget === 'today') {
-        targetRef = todayGroupRef;
+        selector = '[data-scroll-target="today"]';
       }
 
-      if (targetRef) {
-        // Small delay to ensure DOM is rendered
-        const timer = setTimeout(() => scrollToGroup(targetRef!), 100);
+      if (selector) {
+        // DOM이 완전히 렌더링될 때까지 대기 후 스크롤
+        const timer = setTimeout(() => scrollToGroupBySelector(selector, scrollToTarget), 300);
         return () => clearTimeout(timer);
       }
     }
-  }, [allDateGroups.length, hasScrolledToTarget, searchQuery, scrollToTarget, scrollToGroup]);
+  }, [allDateGroups.length, searchQuery, scrollToTarget, scrollToGroupBySelector]);
 
   // Quick month navigation (without modal)
   const handlePrevMonth = () => {
@@ -370,9 +440,17 @@ export function HistoryPage() {
     );
   };
 
-  const clearCategoryFilter = () => {
+  const clearCategoryFilter = useCallback(() => {
     setSelectedCategoryIds([]);
-  };
+    // Also dismiss insight view when clearing filters
+    if (insightData) {
+      setInsightData(null);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('insight');
+      newParams.delete('categoryId');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [insightData, searchParams, setSearchParams]);
 
   const selectedCategoryLabel = useMemo(() => {
     if (selectedCategoryIds.length === 0) return '전체 카테고리';
@@ -395,119 +473,170 @@ export function HistoryPage() {
   return (
     <div
       ref={scrollContainerRef}
-      className="min-h-screen bg-paper-white pb-nav overflow-y-auto scroll-smooth"
+      className="min-h-screen bg-paper-white pb-nav"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid sticky top-0 bg-paper-white z-20">
-        {isSearchMode ? (
-          <>
-            <div className="flex-1 flex items-center gap-2">
-              <Search size={20} className="text-ink-light" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="거래 내역 검색..."
-                className="flex-1 bg-transparent text-body text-ink-black outline-none placeholder:text-ink-light"
-                autoFocus
-              />
+      {/* Fixed Header Area - only Header + Filter Bar */}
+      <div className="fixed top-0 left-0 right-0 z-30 bg-paper-white">
+        {/* Header */}
+        <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
+          {isSearchMode ? (
+            <>
+              <div className="flex-1 flex items-center gap-2">
+                <Search size={20} className="text-ink-light" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="거래 내역 검색..."
+                  className="flex-1 bg-transparent text-body text-ink-black outline-none placeholder:text-ink-light"
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setIsSearchMode(false);
+                  setSearchQuery('');
+                }}
+                className="w-10 h-10 flex items-center justify-center text-ink-mid"
+              >
+                <X size={20} />
+              </button>
+            </>
+          ) : (
+            <>
+              <h1 className="text-title text-ink-black pl-2">기록</h1>
+              <button
+                onClick={() => setIsSearchMode(true)}
+                className="w-10 h-10 flex items-center justify-center text-ink-mid"
+              >
+                <Search size={20} />
+              </button>
+            </>
+          )}
+        </header>
+
+        {/* Filter Bar */}
+        <div className="flex gap-2 px-4 py-3 bg-paper-white border-b border-paper-mid">
+          {/* Month Navigation - hidden when searching */}
+          {searchQuery.trim() ? (
+            <div className="flex items-center px-3 py-2 bg-paper-light rounded-lg text-sub text-ink-mid">
+              전체 기간
             </div>
-            <button
-              onClick={() => {
-                setIsSearchMode(false);
-                setSearchQuery('');
-              }}
-              className="w-10 h-10 flex items-center justify-center text-ink-mid"
-            >
-              <X size={20} />
-            </button>
-          </>
-        ) : (
-          <>
-            <h1 className="text-title text-ink-black pl-2">기록</h1>
-            <button
-              onClick={() => setIsSearchMode(true)}
-              className="w-10 h-10 flex items-center justify-center text-ink-mid"
-            >
-              <Search size={20} />
-            </button>
-          </>
-        )}
-      </header>
+          ) : (
+            <div className="flex items-center bg-paper-light rounded-lg" data-tour="history-month-nav">
+              <button
+                onClick={handlePrevMonth}
+                className="w-9 h-9 flex items-center justify-center text-ink-dark"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={openMonthPicker}
+                className="flex items-center gap-1 px-1 py-2 text-sub text-ink-dark"
+              >
+                {currentMonthLabel}
+                <ChevronDown size={14} />
+              </button>
+              <button
+                onClick={handleNextMonth}
+                disabled={!canGoNext}
+                className="w-9 h-9 flex items-center justify-center text-ink-dark disabled:text-ink-light"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
 
-      {/* Filter Bar */}
-      <div className="flex gap-2 px-4 py-3 bg-paper-white border-b border-paper-mid sticky top-14 z-20">
-        {/* Month Navigation - hidden when searching */}
-        {searchQuery.trim() ? (
-          <div className="flex items-center px-3 py-2 bg-paper-light rounded-lg text-sub text-ink-mid">
-            전체 기간
-          </div>
-        ) : (
-          <div className="flex items-center bg-paper-light rounded-lg">
-            <button
-              onClick={handlePrevMonth}
-              className="w-9 h-9 flex items-center justify-center text-ink-dark"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              onClick={openMonthPicker}
-              className="flex items-center gap-1 px-1 py-2 text-sub text-ink-dark"
-            >
-              {currentMonthLabel}
-              <ChevronDown size={14} />
-            </button>
-            <button
-              onClick={handleNextMonth}
-              disabled={!canGoNext}
-              className="w-9 h-9 flex items-center justify-center text-ink-dark disabled:text-ink-light"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        )}
-
-        {/* Category Filter */}
-        <button
-          onClick={() => setShowCategoryPicker(true)}
-          className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sub ${
-            selectedCategoryIds.length > 0
-              ? 'bg-ink-black text-paper-white'
-              : 'bg-paper-light text-ink-dark'
-          }`}
-        >
-          {selectedCategoryLabel}
-          <ChevronDown size={16} />
-        </button>
-
-        {/* Clear filters */}
-        {selectedCategoryIds.length > 0 && (
+          {/* Category Filter */}
           <button
-            onClick={clearCategoryFilter}
-            className="flex items-center gap-1 px-3 py-2 text-sub text-ink-mid"
+            onClick={() => setShowCategoryPicker(true)}
+            className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sub ${
+              selectedCategoryIds.length > 0
+                ? 'bg-ink-black text-paper-white'
+                : 'bg-paper-light text-ink-dark'
+            }`}
           >
-            초기화
+            {selectedCategoryLabel}
+            <ChevronDown size={16} />
           </button>
-        )}
+
+          {/* Clear filters */}
+          {selectedCategoryIds.length > 0 && (
+            <button
+              onClick={clearCategoryFilter}
+              className="flex items-center gap-1 px-3 py-2 text-sub text-ink-mid"
+            >
+              초기화
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Spacer for fixed header */}
+      <div style={{ height: `${FIXED_HEADER_HEIGHT}px` }} />
 
       {/* Search Result Info */}
       {(searchQuery || selectedCategoryIds.length > 0) && (
-        <div className="px-4 py-2 bg-paper-light border-b border-paper-mid sticky top-[104px] z-20">
+        <div className="px-4 py-2 bg-paper-light border-b border-paper-mid">
           <p className="text-caption text-ink-mid">
-            {isSearching ? (
-              '검색 중...'
-            ) : (
-              <>
-                {filteredTransactions.length}건의 거래
-                {searchQuery && ` · "${searchQuery}" 전체 기간 검색`}
-              </>
-            )}
+            {filteredTransactions.length}건의 거래
+            {searchQuery && ` · "${searchQuery}" 전체 기간 검색`}
           </p>
         </div>
+      )}
+
+      {/* Monthly Summary - shown for single month view (not searching) and no insight */}
+      {!searchQuery && !insightData && monthGroups.length === 1 && monthGroups[0] && (
+        <div className="px-4 py-3 bg-paper-white border-b border-paper-mid">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div>
+                <p className="text-caption text-ink-light">수입</p>
+                <p className="text-sub text-semantic-positive">
+                  +{monthGroups[0].summary.income.toLocaleString()}원
+                </p>
+              </div>
+              <div>
+                <p className="text-caption text-ink-light">지출</p>
+                <p className="text-sub text-ink-dark">
+                  {monthGroups[0].summary.expense.toLocaleString()}원
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-caption text-ink-light">합계</p>
+              <p className={`text-body font-medium ${monthGroups[0].summary.net >= 0 ? 'text-semantic-positive' : 'text-semantic-negative'}`}>
+                {monthGroups[0].summary.net >= 0 ? '+' : ''}{monthGroups[0].summary.net.toLocaleString()}원
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Insight Detail Header - shown when insight param exists */}
+      {insightData && !isLoadingInsight && (
+        <InsightDetailHeader
+          type={insightData.type}
+          categoryName={
+            insightData.type !== 'upcoming' ? insightData.data.categoryName : undefined
+          }
+          categoryIcon={
+            insightData.type !== 'upcoming' ? insightData.data.categoryIcon : undefined
+          }
+          categoryColor={
+            insightData.type !== 'upcoming' ? insightData.data.categoryColor : undefined
+          }
+          onDismiss={handleDismissInsight}
+        >
+          {insightData.type === 'caution' && <CautionSummary data={insightData.data} />}
+          {insightData.type === 'room' && <RoomSummary data={insightData.data} />}
+          {insightData.type === 'interest' && <InterestSummary data={insightData.data} />}
+          {insightData.type === 'compare' && <CompareSummary data={insightData.data} />}
+          {insightData.type === 'upcoming' && <UpcomingSummary data={insightData.data} />}
+        </InsightDetailHeader>
       )}
 
       {/* Swipe indicator for month navigation */}
@@ -548,23 +677,18 @@ export function HistoryPage() {
           {monthGroups.map((monthGroup) => {
             // Show month header only in search mode or when multiple months exist
             const showMonthHeader = searchQuery.trim() || monthGroups.length > 1;
-            // Calculate sticky positions based on context
-            // Header: 56px, Filter bar: ~52px = 108px base
-            // When search result info is shown, add ~32px more
-            const hasSearchInfo = searchQuery || selectedCategoryIds.length > 0;
-            const monthHeaderTop = hasSearchInfo ? 'top-[136px]' : 'top-[108px]';
-            const dateHeaderTop = showMonthHeader
-              ? (hasSearchInfo ? 'top-[176px]' : 'top-[148px]')
-              : (hasSearchInfo ? 'top-[136px]' : 'top-[108px]');
 
             return (
-            <div key={`${monthGroup.year}-${monthGroup.month}`} className="month-group">
-              {/* Month Header - sticky at top, shows when scrolling through this month */}
+            <div
+              key={`${monthGroup.year}-${monthGroup.month}`}
+              className="month-group"
+            >
+              {/* Month Header - visual separator */}
               {showMonthHeader && (
-                <div className={`sticky ${monthHeaderTop} z-[15] bg-paper-white border-b border-paper-mid shadow-sm`}>
-                  <div className="flex justify-between items-center px-4 py-2">
+                <div className="bg-paper-white border-b border-paper-mid">
+                  <div className="flex justify-between items-center px-4 py-2.5">
                     <span className="text-body font-medium text-ink-black">{monthGroup.label}</span>
-                    <span className={`text-sub ${monthGroup.summary.net >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
+                    <span className={`text-body font-medium ${monthGroup.summary.net >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
                       {monthGroup.summary.net >= 0 ? '+' : ''}{monthGroup.summary.net.toLocaleString()}원
                     </span>
                   </div>
@@ -578,51 +702,52 @@ export function HistoryPage() {
                 const isFutureGroup = isFuture(startOfDay(group.date));
                 const groupKey = `${monthGroup.year}-${monthGroup.month}-${format(group.date, 'dd')}`;
 
-                // Determine ref for this group
-                const isClosestFuture = isFutureGroup && !allDateGroups.slice(
-                  allDateGroups.findIndex(g => g === group) + 1
-                ).some(g => isFuture(startOfDay(g.date)));
+                // Determine scroll target attribute
+                // 가장 가까운 미래: 날짜 내림차순이므로 미래 그룹들 중 마지막 (이후에 미래가 없는 것)
+                const groupIndex = allDateGroups.findIndex(g => g === group);
+                const isClosestFuture = isFutureGroup && !allDateGroups.slice(groupIndex + 1).some(g => isFuture(startOfDay(g.date)));
 
-                // Combined ref callback for both scroll target and intersection observer
-                const setGroupRef = (el: HTMLDivElement | null) => {
-                  if (el) {
-                    dateGroupRefs.current.set(groupKey, el);
-                    // Also set scroll target refs
-                    if (isTodayGroup && todayGroupRef) {
-                      (todayGroupRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-                    } else if (isYesterdayGroup && yesterdayGroupRef) {
-                      (yesterdayGroupRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-                    } else if (isClosestFuture && futureGroupRef) {
-                      (futureGroupRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-                    }
-                  } else {
-                    dateGroupRefs.current.delete(groupKey);
-                  }
-                };
+                // data attribute for scroll target
+                const scrollTargetAttr = isTodayGroup
+                  ? 'today'
+                  : isYesterdayGroup
+                  ? 'yesterday'
+                  : isClosestFuture
+                  ? 'future'
+                  : undefined;
 
                 return (
                   <div
                     key={groupKey}
-                    ref={setGroupRef}
                     className="date-group relative"
+                    data-scroll-target={scrollTargetAttr}
                   >
-                    {/* Date Group Header - sticky within its container */}
-                    <div className={`flex justify-between items-center px-4 py-2.5 bg-paper-light border-b border-paper-mid/50 sticky ${dateHeaderTop} z-10`}>
-                      <span className="text-sub text-ink-dark">{group.label}</span>
-                      <span className={`text-sub ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
+                    {/* Date Group Header - sticky below fixed header */}
+                    <div
+                      className="flex justify-between items-center px-4 py-2 bg-paper-light border-b border-paper-mid/50 sticky z-10"
+                      style={{ top: `${FIXED_HEADER_HEIGHT}px` }}
+                    >
+                      <span className="text-body text-ink-dark">{group.label}</span>
+                      <span className={`text-body font-medium ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
                         {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원
                       </span>
                     </div>
 
                     {/* Transactions */}
                     <ul>
-                      {group.transactions.map((tx) => {
+                      {group.transactions.map((tx, txIndex) => {
                         const category = categoryMap.get(tx.categoryId);
+                        const paymentMethod = tx.paymentMethodId ? paymentMethodMap.get(tx.paymentMethodId) : null;
+                        // Add tour attribute to first transaction of first date group of first month
+                        const isFirstTransaction = txIndex === 0 &&
+                          monthGroup.dateGroups[0] === group &&
+                          monthGroups[0] === monthGroup;
                         return (
                           <li
                             key={tx.id}
                             onClick={() => navigate(`/transaction/${tx.id}`)}
                             className="px-4 py-4 border-b border-paper-mid cursor-pointer active:bg-paper-light transition-colors"
+                            {...(isFirstTransaction && { 'data-tour': 'history-transaction' })}
                           >
                             <div className="flex items-start gap-3">
                               {/* Icon */}
@@ -632,19 +757,43 @@ export function HistoryPage() {
 
                               {/* Content */}
                               <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-baseline">
-                                  <span className="text-body text-ink-black truncate">
-                                    {tx.description || category?.name || '거래'}
-                                  </span>
-                                  <span className="text-caption text-ink-light ml-2 whitespace-nowrap">
+                                {/* 1행: 메모 + 태그 | 시간 */}
+                                <div className="flex justify-between items-start gap-2 leading-tight">
+                                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1">
+                                    {tx.memo && (
+                                      <span className="text-sub text-ink-black truncate max-w-[120px]">
+                                        {tx.memo}
+                                      </span>
+                                    )}
+                                    {tx.tags && tx.tags.length > 0 && tx.tags.flatMap((tag) =>
+                                      // #으로 시작하거나 포함된 경우 분리 처리
+                                      tag.includes('#')
+                                        ? tag.replace(/#/g, ' #').trim().split(/\s+/).filter(t => t.startsWith('#')).map(t => t.slice(1))
+                                        : [tag]
+                                    ).filter(t => t.length > 0).map((tag) => (
+                                      <span
+                                        key={tag}
+                                        className="px-1.5 py-0.5 rounded bg-paper-mid text-caption text-ink-mid whitespace-nowrap"
+                                      >
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                    {!tx.memo && (!tx.tags || tx.tags.length === 0) && (
+                                      <span className="text-sub text-ink-light">-</span>
+                                    )}
+                                  </div>
+                                  <span className="text-caption text-ink-light whitespace-nowrap">
                                     {tx.time}
                                   </span>
                                 </div>
-                                <div className="flex justify-between items-baseline mt-1">
-                                  <span className="text-sub text-ink-mid">
+
+                                {/* 2행: 카테고리 · 결제수단 | 금액 */}
+                                <div className="flex justify-between items-baseline">
+                                  <span className="text-caption text-ink-light truncate">
                                     {category?.name || '기타'}
+                                    {paymentMethod && <span> · {paymentMethod.name}</span>}
                                   </span>
-                                  <span className={`text-amount whitespace-nowrap ${
+                                  <span className={`text-body font-medium whitespace-nowrap ${
                                     tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
                                   }`}>
                                     {tx.type === 'income' ? '+ ' : ''}{tx.amount.toLocaleString()}원

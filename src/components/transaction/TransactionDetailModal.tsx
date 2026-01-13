@@ -1,4 +1,4 @@
-import { X, Edit3, Trash2, Calendar, Store, FileText, CreditCard } from 'lucide-react';
+import { X, Edit3, Trash2, Calendar, FileText, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/common';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
@@ -139,21 +139,6 @@ export function TransactionDetailModal({
                 <div>
                   <p className="text-caption text-ink-light">결제수단</p>
                   <p className="text-body text-ink-black">{paymentMethod.name}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Description (Merchant) */}
-            {transaction.description && (
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-paper-light flex items-center justify-center">
-                  <Store size={20} className="text-ink-mid" />
-                </div>
-                <div>
-                  <p className="text-caption text-ink-light">가맹점</p>
-                  <p className="text-body text-ink-black">
-                    {transaction.description}
-                  </p>
                 </div>
               </div>
             )}
