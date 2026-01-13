@@ -723,15 +723,33 @@ export function HistoryPage() {
                     data-scroll-target={scrollTargetAttr}
                   >
                     {/* Date Group Header - sticky below fixed header */}
-                    <div
-                      className="flex justify-between items-center px-4 py-2 bg-paper-light border-b border-paper-mid/50 sticky z-10"
-                      style={{ top: `${FIXED_HEADER_HEIGHT}px` }}
-                    >
-                      <span className="text-body text-ink-dark">{group.label}</span>
-                      <span className={`text-body font-medium ${group.dailyTotal >= 0 ? 'text-semantic-positive' : 'text-ink-mid'}`}>
-                        {group.dailyTotal >= 0 ? '+' : ''}{group.dailyTotal.toLocaleString()}원
-                      </span>
-                    </div>
+                    {(() => {
+                      const dailyIncome = group.transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+                      const dailyExpense = group.transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+                      return (
+                        <div
+                          className="flex justify-between items-center px-4 py-2 bg-paper-light border-b border-paper-mid/50 sticky z-10"
+                          style={{ top: `${FIXED_HEADER_HEIGHT}px` }}
+                        >
+                          <span className="text-body text-ink-dark">{group.label}</span>
+                          <div className="flex items-center gap-3">
+                            {dailyIncome > 0 && (
+                              <span className="text-sub text-semantic-positive">
+                                수입 +{dailyIncome.toLocaleString()}
+                              </span>
+                            )}
+                            {dailyExpense > 0 && (
+                              <span className="text-sub text-ink-dark">
+                                지출 {dailyExpense.toLocaleString()}
+                              </span>
+                            )}
+                            {dailyIncome === 0 && dailyExpense === 0 && (
+                              <span className="text-sub text-ink-light">-</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Transactions */}
                     <ul>

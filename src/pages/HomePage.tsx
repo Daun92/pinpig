@@ -276,13 +276,13 @@ export function HomePage() {
             {todaySummary.count > 0 && (
               <div className="flex items-center gap-3">
                 {todaySummary.income > 0 && (
-                  <span className="text-body font-medium text-semantic-positive">
-                    +{todaySummary.income.toLocaleString()}
+                  <span className="text-sub text-semantic-positive">
+                    수입 +{todaySummary.income.toLocaleString()}
                   </span>
                 )}
                 {todaySummary.expense > 0 && (
-                  <span className="text-body font-medium text-ink-dark">
-                    -{todaySummary.expense.toLocaleString()}
+                  <span className="text-sub text-ink-dark">
+                    지출 {todaySummary.expense.toLocaleString()}
                   </span>
                 )}
               </div>
