@@ -76,6 +76,11 @@ export default {
         'fill-donut': 'fillDonut 1s ease-out forwards',
         'step-highlight': 'stepHighlight 0.5s ease-out forwards',
         'spotlight': 'spotlight 0.2s ease-out forwards',
+        // Escalator scroll animations
+        'slide-in-up': 'slideInUp 0.25s ease-out forwards',
+        'slide-out-up': 'slideOutUp 0.25s ease-out forwards',
+        'slide-in-down': 'slideInDown 0.25s ease-out forwards',
+        'slide-out-down': 'slideOutDown 0.25s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -118,6 +123,23 @@ export default {
         spotlight: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        // Escalator scroll keyframes
+        slideInUp: {
+          '0%': { transform: 'translateY(100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideOutUp: {
+          '0%': { transform: 'translateY(0)', opacity: '1' },
+          '100%': { transform: 'translateY(-100%)', opacity: '0' },
+        },
+        slideInDown: {
+          '0%': { transform: 'translateY(-100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideOutDown: {
+          '0%': { transform: 'translateY(0)', opacity: '1' },
+          '100%': { transform: 'translateY(100%)', opacity: '0' },
         },
       },
     },

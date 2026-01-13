@@ -24,7 +24,8 @@ export function MonthlyReviewPage() {
 
   useEffect(() => {
     loadReview();
-  }, [currentDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate]); // loadReview uses currentDate internally
 
   const loadReview = async () => {
     setIsLoading(true);

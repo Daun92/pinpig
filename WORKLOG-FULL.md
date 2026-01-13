@@ -1607,3 +1607,653 @@
     - `loadExistingData`에서 기존 `incomeSourceId` 로드
     - 타입 토글 시 기본 결제수단/수입수단 설정
 - **결과**: 타입체크 및 빌드 통과
+
+---
+
+## 2026-01-13
+
+### #91 예산 마법사 개선 - 기본값 지원 및 빠른 설정
+- **요청**: 이전 사용내역이 0원일 때에도 예산 카테고리 기본값 세팅, 예산 마법사 스킵 버튼
+- **변경**:
+  - `src/services/queries.ts`:
+    - `DEFAULT_BUDGET_RATIOS` 상수 추가 (식비 30%, 교통 10%, 쇼핑 15%, 문화/여가 10%, 의료/건강 5%, 주거/통신 20%, 기타 10%)
+    - `getBudgetRecommendation()` - 지출 데이터 없어도 기본 비율로 모든 카테고리 추천
+  - `src/pages/BudgetWizardPage.tsx`:
+    - `redistributeBudgets()` - avgExpense3Months 체크 제거 (데이터 없어도 동작)
+    - Step 1에 "바로 예산 설정하기" 버튼 추가 → Step 4로 스킵
+- **결과**: 신규 사용자도 예산 마법사 정상 이용 가능
+
+### #92 카테고리 편집 - 예산 천단위 콤마 표시
+- **요청**: 카테고리 관리 > 세부 항목 편집 시 예산 입력에 천단위 구분표기(,) 추가
+- **변경**:
+  - `src/pages/CategoryEditPage.tsx`:
+    - `budgetInput` state 추가 (포맷된 표시용)
+    - `formatBudgetDisplay()`, `parseBudgetInput()` 헬퍼 추가
+    - input type="number" → type="text" inputMode="numeric" 변경
+- **결과**: 예산 입력 시 천단위 콤마 자동 표시
+
+### #93 카테고리별 예산 페이지 종합 개선
+- **요청**: 월예산 자동배분, % 입력모드, 카테고리 삭제/관리 통합
+- **변경**:
+  - `src/pages/CategoryBudgetPage.tsx` (전면 재설계):
+    - `InputMode` 타입 ('amount' | 'percent')
+    - `CategoryBudgetEntry` 인터페이스 (budget + percentage 동시 관리)
+    - SegmentedControl로 금액/% 모드 전환
+    - 자동 배분 토글 (Info 툴팁 포함)
+    - SwipeToDelete로 카테고리 인라인 삭제 (기본 카테고리 제외)
+    - 요약 섹션 (총예산, 배분합계, 미배분/초과)
+    - "카테고리 관리" 버튼 (CategoryManagePage 이동)
+    - 실시간 저장 (blur/Enter)
+  - `src/pages/SettingsPage.tsx`:
+    - PieChart 아이콘 import
+    - "카테고리별 예산" 메뉴 항목 추가
+  - `src/App.tsx`:
+    - `/settings/category-budget` 라우트 추가
+- **핵심 로직**:
+  - % → 금액: `Math.round((percentage / 100) * monthlyBudget)`
+  - 금액 → %: `Math.round((budget / monthlyBudget) * 1000) / 10`
+  - 자동 배분: 총예산 변경 시 기존 비율 유지하며 재계산
+  - 개별 수정 시 자동 배분 OFF
+- **결과**: 예산 마법사와 차별화된 일상적 예산 관리 경험 제공
+
+### #94 거래 태그 시스템 구현
+- **요청**: 메모 입력 시 해시태그로 태그 자동 구분, 화면별 차등 표시, 태그 검색
+- **변경**:
+  - `src/types/index.ts`:
+    - Transaction 인터페이스에 `tags?: string[]` 필드 추가
+  - `src/services/database.ts`:
+    - Schema v8 추가: `*tags` MultiEntry 인덱스 (태그별 검색 최적화)
+    - 마이그레이션: 기존 메모의 #해시태그 → tags 배열로 자동 분리
+  - `src/utils/tags.ts` (신규):
+    - `parseMemoWithTags()` - 해시태그 파싱
+    - `combineMemoWithTags()` - 수정 시 다시 합치기
+    - `getMemoPreview()` - 목록 표시용 미리보기
+    - `isValidTag()`, `normalizeTags()` - 유효성 검사
+  - `src/pages/AddPage.tsx`:
+    - tags를 별도 배열로 저장 (memo와 분리)
+  - `src/pages/TransactionDetailPage.tsx`:
+    - tags 필드 로드/저장 분리
+    - 메모 버튼에 `#태그 메모` 형식 표시
+  - `src/pages/EditTransactionPage.tsx`:
+    - 태그 섹션 UI 추가 (선택된 태그, 카테고리별 제안, 자주 사용)
+    - 태그 입력/추가/삭제 기능
+  - `src/pages/HistoryPage.tsx`, `src/pages/HomePage.tsx`:
+    - 목록에서 첫 번째 태그 또는 메모 표시
+  - `src/components/report/CategoryTrendModal.tsx`, `PaymentMethodTrendModal.tsx`:
+    - 리포트에서도 태그/메모 적절히 표시
+  - `src/services/queries.ts`:
+    - `getRecentTags()`, `getTagsByCategory()` - tags 필드에서 직접 조회
+    - `getTransactionsByTag()` - 태그로 거래 검색 (신규)
+    - `getAllTags()` - 전체 태그 목록 (신규)
+    - `searchTransactions()` 개선 - 태그/메모/금액 검색 지원
+- **검색 기능**:
+  - 일반 검색: 태그 → 메모 → 금액 순서로 검색
+  - `#태그명`: 태그 전용 검색
+  - 숫자 검색: 금액에서 부분 일치
+- **결과**: 타입체크/빌드 통과, 태그 기반 분류 시스템 완성
+
+### #95 반복거래 태그 지원 추가
+- **요청**: 반복거래(RecurringTransaction)에도 태그 시스템 적용
+- **변경**:
+  - `src/types/index.ts`:
+    - RecurringTransaction 인터페이스에 `tags?: string[]` 필드 추가
+  - `src/pages/RecurringTransactionEditPage.tsx`:
+    - 태그 입력 UI 추가 (`#태그` 형식 입력)
+    - `parseMemoWithTags()`, `combineMemoWithTags()` 유틸리티 사용
+    - 태그 칩 표시 및 개별 삭제 기능
+    - 저장 시 `tags` 필드 별도 저장
+  - `src/services/queries.ts`:
+    - `executeRecurringTransaction()` 함수에서 `tags`, `incomeSourceId` 복사 추가
+    - 반복거래 실행 시 생성되는 거래에 태그 자동 포함
+- **결과**: 반복거래에서도 해시태그 입력 가능, 실행 시 거래에 태그 자동 복사
+
+### #96 메모/태그 한 줄 입력 UI 단순화
+- **요청**: 지출/수입 기록 시 한줄 입력에서 #으로 자동태그 구분
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - 기존 복잡한 태그 선택 UI 제거 (카테고리 제안, 자주 사용 태그 등)
+    - `메모 내용 #태그1 #태그2` 형태의 단일 입력 필드로 단순화
+    - `parseMemoWithTags()`, `combineMemoWithTags()` 유틸리티 활용
+  - `src/pages/TransactionDetailPage.tsx`:
+    - 동일하게 한 줄 입력으로 단순화
+    - 태그 미리보기 칩 유지 (시각적 확인용)
+  - `src/pages/EditTransactionPage.tsx`:
+    - 태그 섹션 UI 제거 (`tagInput`, `showTagSection` 등 상태 제거)
+    - 메모와 태그를 하나의 입력 필드로 통합
+    - 하단에 태그 칩 미리보기 표시
+- **UX 개선**:
+  - 기존: 메모 입력 → 태그 섹션 열기 → 태그 선택/입력 (3단계)
+  - 개선: `점심 #회식 #팀` 한 줄 입력 (1단계)
+- **결과**: 3개 페이지 모두 일관된 한 줄 입력 UX 적용, 타입체크 통과
+
+### #97 카테고리별 예산 페이지 UX 개선
+- **요청**: 사용자 입력 유지, 자동배분 버튼화, 슬라이더 추가, inputMode 반영
+- **변경**:
+  - `src/pages/CategoryBudgetPage.tsx`:
+    - `isInitialLoad` ref 추가 - categoryData 초기 로드 후 사용자 입력 유지
+    - 자동배분 토글 → "비율대로 배분", "균등 배분" 두 버튼으로 변경
+    - 슬라이더 추가 (예산 마법사와 동일한 UX)
+    - 슬라이더 thumb 오버레이로 카테고리 색상 적용
+    - inputMode(금액/%) 토글이 버튼 텍스트와 슬라이더에 반영되도록 개선
+    - SwipeToDelete 제거 (예산 페이지에서 실수 삭제 방지)
+- **결과**: 직관적인 예산 조정 UX, 사용자 입력 보존
+
+### #98 예산 마법사 UX 개선
+- **요청**: 자동배분 툴팁, 천단위 표기, 비율 표시 명확화
+- **변경**:
+  - `src/pages/BudgetWizardPage.tsx`:
+    - 슬라이더 thumb 가시성 개선 (카테고리 색상 오버레이)
+    - 자동 배분 Info 아이콘에 호버 툴팁 추가
+      - "각 카테고리 비율은 과거 3개월 지출 패턴을 기준으로 자동 계산됩니다."
+      - 왼쪽 정렬로 화면 밖 벗어남 방지
+    - 예산 입력란: `type="number"` → `type="text"` + 천단위 콤마
+    - "월 평균 • %" → "과거 3개월 평균: {금액}" + "예산의 {동적%}%" 로 명확화
+      - 기존: 고정된 추천 비율 표시
+      - 개선: 현재 설정 금액의 총예산 대비 비율 실시간 표시
+- **결과**: 예산 설정 시 맥락 이해 용이, 사용자 친화적 UX
+
+### #99 메모/태그 입력 개선 - 추천 태그 칩 + 버그 수정
+- **요청**: B안(입력 + 추천 태그 칩) 구현, EditTransactionPage 메모 순서 버그 수정
+- **버그 수정**:
+  - `src/utils/tags.ts`:
+    - `combineMemoWithTags()` 함수의 순서 문제 수정
+    - 기존: `${memoText} ${tagsText}` (메모가 앞)
+    - 수정: `${tagsText} ${memoText}` (태그가 앞 - 입력 UX와 일관성 유지)
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - `getRecentTags()` 쿼리로 자주 사용하는 태그 로드
+    - `suggestedTags`, `availableSuggestedTags` 상태 추가
+    - 메모 입력 패널에 "자주 사용" 태그 칩 영역 추가
+    - 탭하면 즉시 태그 추가, 선택된 태그는 검은색 칩으로 구분
+  - `src/pages/TransactionDetailPage.tsx`:
+    - 동일한 추천 태그 칩 UI 추가
+  - `src/pages/EditTransactionPage.tsx`:
+    - 동일한 추천 태그 칩 UI 추가
+- **UI 구조**:
+  ```
+  [메모 입력 필드]
+  #으로 태그 추가 (예: 점심 #회식 #팀)
+
+  자주 사용:  [#회식] [#정기] [#카페]  ← 추천 칩 (탭하면 추가)
+
+  선택된 태그: [#회식] [#팀]             ← 검은색 칩
+  ```
+- **결과**: 한 줄 입력 + 추천 태그로 빠른 태그 선택, 메모 순서 버그 해결
+
+### #100 예산 마법사 자동배분 툴팁 개선
+- **요청**: 자동배분 Info 툴팁에 실제 배분 비율 표시
+- **변경**:
+  - `src/pages/BudgetWizardPage.tsx`:
+    - 추상적 설명 → 구체적 비율 표시로 변경
+    - 기존: "각 카테고리 비율은 과거 3개월 지출 패턴을 기준으로 자동 계산됩니다."
+    - 개선: 상위 4개 카테고리의 실제 배분 비율 표시
+      ```
+      배분 비율 (과거 3개월 기준)
+      식비          30%
+      교통          10%
+      쇼핑          15%
+      문화/여가      10%
+      외 3개
+      ```
+- **결과**: 자동 배분 결과 예측 가능, 사용자 이해도 향상
+
+### #101 메모/태그 분리형 UI 개선 (A안)
+- **요청**: "자주 사용" 칩이 보이지 않는 문제 해결, 메모와 태그 분리 UI 구현
+- **문제점**: 태그 데이터가 없으면 `getRecentTags()`가 빈 배열 반환 → 추천 태그 미표시
+- **변경**:
+  - `src/services/queries.ts`:
+    - `DEFAULT_SUGGESTED_TAGS` 기본 추천 태그 배열 추가
+    - `getRecentTags()`: 태그 데이터 없을 시 기본 태그 반환하도록 수정
+  - `src/pages/AddPage.tsx`:
+    - 한 줄 통합 입력 → 분리형 UI로 변경
+    - 메모: 순수 텍스트 입력 필드
+    - 태그: 선택된 태그 칩(삭제 가능) + 직접 입력 필드 + 추천 태그
+  - `src/pages/TransactionDetailPage.tsx`:
+    - 동일한 분리형 UI 적용
+  - `src/pages/EditTransactionPage.tsx`:
+    - 동일한 분리형 UI 적용
+- **UI 구조**:
+  ```
+  ┌─ 메모 ──────────────────────────────────┐
+  │ 점심 맛집에서                            │  ← 순수 텍스트
+  └─────────────────────────────────────────┘
+
+  ┌─ 태그 ──────────────────────────────────┐
+  │ [#회식 ×] [#팀 ×]  [태그입력___] [+]   │  ← 선택된 태그 + 직접 입력
+  ├─────────────────────────────────────────┤
+  │ 자주 사용: [정기] [회식] [선물] [카페]   │  ← 탭하면 추가
+  └─────────────────────────────────────────┘
+  ```
+- **기본 추천 태그**: 정기, 회식, 선물, 카페, 구독, 배달, 외식, 대중교통
+- **결과**: 데이터 없어도 추천 태그 표시, 메모/태그 명확한 분리로 UX 개선
+
+### #102 기능 연관 맵 문서 생성
+- **요청**: 기능 수정 시 연관 항목 체계적 관리 구조
+- **생성**:
+  - `docs/FEATURE_MAP.md`:
+    - 7개 기능 그룹 정의 (예산, 카테고리, 거래입력, 태그/메모, 결제수단, 통계, 반복거래)
+    - 각 그룹별 연관 파일 트리 구조
+    - 공유 개념 테이블 (타입, 위치, 설명)
+    - 수정 시 체크리스트
+    - 빠른 참조: 파일별 연관 기능 표
+- **변경**:
+  - `CLAUDE.md`:
+    - 작업 시작 전 3번 항목 추가: FEATURE_MAP.md 확인
+    - Reference Documents에 FEATURE_MAP.md 추가
+  - `docs/CONTEXT.md`:
+    - 참조 문서 테이블에 FEATURE_MAP.md 추가
+- **사용 방법**:
+  ```
+  1. 수정 전: 해당 기능 그룹의 체크리스트 확인
+  2. 수정 중: 연관 파일들 함께 수정
+  3. 수정 후: 체크리스트 항목 검증
+  ```
+- **결과**: 기능 수정 시 일관성 유지를 위한 체계적 관리 구조 확립
+
+### #103 거래 목록 UI 구조 변경
+- **요청**: 거래 목록에서 "1행 메모+태그 | 시간 / 2행 카테고리 | 금액" 구조로 개선
+- **기존 구조**: 1행 카테고리 | 시간+금액, 2행 메모, 3행 태그칩
+- **신규 구조**:
+  ```
+  1행: [메모텍스트] [#태그1] [#태그2] ...  |  시간
+  2행: 카테고리                            |  금액
+  ```
+- **변경**:
+  - `src/pages/HistoryPage.tsx`: 거래 목록 아이템 레이아웃 변경
+  - `src/pages/HomePage.tsx`: 오늘 거래 목록 레이아웃 동일하게 변경
+- **특징**:
+  - 메모가 있으면 1행 좌측에 표시, 태그가 있으면 메모 옆에 칩으로 표시
+  - 메모/태그 둘 다 없으면 "-" 표시
+  - 카테고리는 2행에서 보조 정보로 표시 (text-sub text-ink-mid)
+  - 금액은 2행 우측에 강조 (text-amount)
+- **결과**: 사용자 정의 정보(메모/태그)를 1행에서 바로 파악 가능, 카테고리는 보조 정보로 위치
+
+### #104 거래 상세/입력 페이지 태그 칩 분리 표시
+- **요청**: TransactionDetailPage, AddPage에서도 태그를 개별 칩으로 표시
+- **기존**: 메모/태그가 `combinedMemoDisplay` 문자열로 합쳐져 표시
+- **변경**:
+  - `src/pages/TransactionDetailPage.tsx`: 미니 칩 영역에서 메모/태그 분리 표시
+  - `src/pages/AddPage.tsx`: 동일하게 미니 칩 영역 분리 표시
+- **구조**:
+  ```
+  [메모아이콘 메모텍스트] [#태그1] [#태그2] ...
+  ```
+- **결과**: 거래 목록, 거래 상세, 거래 입력 페이지에서 태그가 일관되게 개별 칩으로 표시
+
+### #105 예산 알림 시스템 및 히어로 캐러셀 구현
+- **요청**: 예산 현황 확인 및 행동 조절을 위한 알림 시스템
+- **신규 파일**:
+  - `src/stores/toastStore.ts`: 토스트 상태 관리 (Zustand)
+  - `src/components/common/Toast.tsx`: 토스트 UI 컴포넌트 (success/warning/danger/info)
+  - `src/services/budgetAlert.ts`: 예산 알림 로직 (getBudgetInsight, getOverBudgetCategories, checkBudgetAlerts)
+  - `src/components/home/HeroCarousel.tsx`: 스와이프 가능한 히어로존 캐러셀
+  - `src/components/home/BudgetInsightCard.tsx`: 예산 인사이트 카드
+- **변경**:
+  - `src/types/index.ts`: Settings에 알림 설정 필드 추가 (budgetAlertEnabled, budgetAlertThresholds, categoryAlertEnabled, lastAlertedThreshold, lastAlertedMonth)
+  - `src/pages/HomePage.tsx`: HeroCarousel 적용, 알림 체크 로직 추가 (useRef로 StrictMode 중복 방지)
+  - `src/pages/SettingsPage.tsx`: 알림 설정 토글 UI 추가
+  - `src/App.tsx`: ToastContainer 추가
+- **히어로 캐러셀 구성**:
+  - 1페이지: 예산 현황 카드 (남은 예산, 진행률 바, 일 평균 추천액)
+  - 2페이지: TOP 카테고리 (이번 달 상위 3개)
+  - 3페이지: 예산 초과 카테고리 (있을 경우만 표시)
+- **알림 임계값**: 50%, 80%, 100% (월 1회)
+- **결과**: 인앱 토스트 알림 시스템 + 스와이프 히어로존 완성
+
+### #106 알림 주기 및 인사이트 UI 개선
+- **요청**: 토스트 알림 월 1회, % 표기 소숫점 1자리, 초과 카테고리 시각화 개선
+- **변경**:
+  - `src/types/index.ts`: lastAlertedMonth (YYYY-MM 형식) - 모든 알림 월 1회 통일
+  - `src/services/budgetAlert.ts`: 월 단위 알림 제한 로직
+  - `src/components/home/HeroCarousel.tsx`:
+    - 히어로 섹션 위치 조정 (pt-12 → pt-16, pb-6 → pb-8)
+    - TopCategoryCard % 표기: `{cat.percentage.toFixed(1)}%`
+    - OverCategoryCard 프로그레스바 색상 개선: 그라디언트 방식 (카테고리색 → 빨강)
+- **OverCategoryCard 시각화**:
+  ```
+  🍽️ 식비              115,000원 / 100,000원
+  ━━━━━━━━[카테고리색]━━━[빨강]━━━  (초과분 빨간색)
+  115.3%                          +15,000원 초과
+  ```
+- **결과**: 예산 초과 상태를 직관적으로 파악 가능한 시각화 완성
+
+### #107 인사이트 카드 → 히스토리 페이지 네비게이션
+- **요청**: 홈 인사이트 카드(TOP 카테고리, 초과 카테고리) 클릭 시 해당 카테고리 필터 적용된 히스토리 페이지로 이동
+- **변경**:
+  - `src/pages/HistoryPage.tsx`:
+    - `categoryId` URL 파라미터 처리 추가
+    - useEffect에서 파라미터 감지 → `setSelectedCategoryIds([categoryId])`
+  - `src/components/home/HeroCarousel.tsx`:
+    - `onCategoryClick?: (categoryId: string) => void` prop 추가
+    - TopCategoryCard: `<div>` → `<button>` + onClick 핸들러
+    - OverCategoryCard: `<div>` → `<button>` + onClick 핸들러
+    - 클릭 피드백 스타일 추가 (`active:bg-paper-mid`, `active:bg-semantic-negative/10`)
+  - `src/pages/HomePage.tsx`:
+    - `onCategoryClick` 핸들러 전달: `navigate('/history?categoryId=${id}')`
+- **동작 흐름**:
+  ```
+  홈 → TOP/초과 카테고리 클릭 → /history?categoryId={id} → 필터 적용된 거래 목록
+  ```
+- **결과**: 인사이트 카드에서 바로 해당 카테고리 거래 내역 확인 가능
+
+### #108 History 탭 에스컬레이터 스크롤 UX 개선
+- **요청**: 월/일 요약 헤더가 스크롤 시 에스컬레이터처럼 자연스럽게 전환되며 맥락 유지
+- **변경**:
+  - `src/hooks/useScrollSpy.ts` (신규):
+    - 스크롤 위치 기반 월/일 섹션 추적
+    - requestAnimationFrame 최적화
+    - 전환 방향(up/down) 감지
+  - `src/components/history/StickyContextHeader.tsx` (신규):
+    - 현재 월/일 맥락 표시 영역
+    - 에스컬레이터 전환 애니메이션 (slide-in-up, slide-out-up 등)
+    - 검색/필터 정보 표시
+    - fallback 월 정보 지원 (단일 월 뷰)
+  - `tailwind.config.js`:
+    - 에스컬레이터 애니메이션 keyframes 추가
+  - `src/pages/HistoryPage.tsx`:
+    - useScrollSpy 훅 통합
+    - StickyContextHeader 적용
+    - 기존 sticky 월/일 헤더를 일반 헤더로 변경
+- **UX 개선**:
+  ```
+  스크롤 다운 시:
+  [현재 월 헤더] ← animate-slide-out-up (위로 밀려나감)
+  [다음 월 헤더] ← animate-slide-in-up (아래서 올라옴)
+  
+  스크롤 업 시:
+  [현재 월 헤더] ← animate-slide-out-down (아래로 밀려나감)
+  [이전 월 헤더] ← animate-slide-in-down (위에서 내려옴)
+  ```
+- **결과**: 스크롤 중에도 현재 보고 있는 월/일 맥락 항상 유지, 부드러운 전환 효과
+
+### #109 History 탭 Fixed Header + Sticky Date Header 완성
+- **요청**: #108 에스컬레이터 스크롤 개선 - nested overflow로 sticky 동작 안함 → fixed 방식으로 전환
+- **문제**: `overflow-y-auto` 중첩으로 sticky가 가장 가까운 스크롤 컨테이너 기준으로 동작
+- **해결**:
+  - Header + Filter Bar → `fixed` (z-30)
+  - 일자별 헤더 → `sticky` (top: 116px, z-10)
+  - spacer div로 fixed 영역 높이만큼 여백 확보
+- **변경**:
+  - `src/pages/HistoryPage.tsx`:
+    - `fixedHeaderHeight = 116` (Header 57px + Filter bar 59px)
+    - Fixed 영역: Header + Filter Bar
+    - Sticky date headers: `style={{ top: \`\${fixedHeaderHeight}px\` }}`
+  - StickyContextHeader, useScrollSpy 훅은 생성되었으나 현재 미사용 (향후 활용 가능)
+- **구조**:
+  ```
+  ┌─────────────────────────┐ ← Fixed (z-30)
+  │ Header (56px + 1px)     │
+  │ Filter Bar (59px + 1px) │
+  └─────────────────────────┘ ← 116px
+  ┌─────────────────────────┐ ← Sticky (top: 116px)
+  │ 일자별 헤더             │
+  ├─────────────────────────┤
+  │ 거래 목록 (스크롤)      │
+  └─────────────────────────┘
+  ```
+- **결과**: 스크롤 시 일자별 헤더가 fixed 영역 바로 아래에 붙어서 맥락 유지
+
+### #110 홈 인사이트 카드 UX 개선 (2026-01-13)
+- **요청**: 인디케이터 표시 개선, 스크롤 힌트 위치, 순환 애니메이션 자연스럽게
+- **변경**:
+  - `src/components/home/InsightCard.tsx`:
+    - 인디케이터 상단 이동 + 모든 도트 표시 (현재 위치만 w-4로 강조)
+    - 무한 순환 캐러셀 구현 (클론 카드 방식)
+    - `[마지막 클론] [카드1~N] [첫번째 클론]` 구조로 자연스러운 3→1, 1→3 전환
+    - displayIndex/currentIndex 분리로 트랜지션 제어
+    - 표준 Tailwind 색상 사용 (neutral-800/300) - 커스텀 CSS 변수 opacity 문제 해결
+  - `src/pages/HomePage.tsx`:
+    - ScrollHint 위치 개선 (absolute → flex-shrink-0, justify-between)
+    - 오늘 내역 리스트 종결 표시 추가 (pill 형태 구분선)
+    - 어제/예정 카드 영역 구분 강화 (배경색 + 상단 테두리)
+- **구조**:
+  ```
+  인디케이터: ○ ● ○ (상단, 현재 위치만 확대)
+
+  캐러셀 구조 (카드 3개 기준):
+  [카드3'] [카드1] [카드2] [카드3] [카드1']
+           ↑ displayIndex=1 (시작)
+
+  3→1 이동: displayIndex 3→4 슬라이드 → 완료 후 displayIndex=1로 즉시 이동
+  1→3 이동: displayIndex 1→0 슬라이드 → 완료 후 displayIndex=3으로 즉시 이동
+  ```
+- **결과**: 인사이트 카드 모든 방향 자연스러운 슬라이드, 명확한 인디케이터 표시
+
+### #111 분석 탭 Sticky 헤더 + Scroll to Top (2026-01-13)
+- **요청**: 분석 탭에서 지출/수입, 카테고리별/수단별/기간별 탭을 sticky하게, 탭 클릭 시 스크롤 이동
+- **변경**:
+  - `src/pages/StatsPage.tsx`:
+    - Fixed: Header + 지출/수입 탭 (102px)
+    - Sticky: 카테고리별/수단별/기간별 탭 (top: 102px)
+    - `scrollToTop()`: 페이지 맨 위로 스크롤 (scrollIntoView 사용)
+    - `scrollToTabBar()`: 탭 바로 스크롤 (scroll-margin-top으로 fixed 헤더 보정)
+    - 지출/수입 탭 클릭 → 맨 위로 스크롤
+    - 카테고리별/수단별/기간별 탭 클릭 → 탭 바가 상단에 위치하도록 스크롤
+    - 같은 탭 재클릭 시에도 스크롤 동작
+- **구조**:
+  ```
+  ┌──────────────────────────┐ ← Fixed (z-20, 102px)
+  │   Header (56px + 1px)    │
+  │   지출 | 수입 (44px+1px) │
+  └──────────────────────────┘
+  │   Summary Section        │ ← 스크롤 가능
+  ├──────────────────────────┤ ← Scroll Anchor (scroll-margin-top: 102px)
+  ├──────────────────────────┤ ← Sticky (top: 102px)
+  │ 카테고리별|수단별|기간별 │
+  ├──────────────────────────┤
+  │   Tab Content            │ ← 스크롤 가능
+  └──────────────────────────┘
+  ```
+- **기술적 해결**:
+  - `window.scrollTo()` 대신 `scrollIntoView()` 사용 (내부 스크롤 컨테이너 대응)
+  - sticky 요소 직접 scrollIntoView 시 원래 DOM 위치로 스크롤되는 문제
+    → 별도 앵커 div + `scroll-margin-top`으로 해결
+- **결과**: 스크롤 시 탭 맥락 유지, 탭 클릭으로 빠른 네비게이션
+
+### #112 인사이트 상세 뷰 시스템 구현 (2026-01-13)
+- **요청**: 홈 인사이트 카드에서 상세보기 연결 강화, 맥락 유지 + 액션 가능한 정보 제공
+- **변경**:
+  - `src/types/index.ts`:
+    - `InsightType` ('caution' | 'room' | 'interest' | 'compare' | 'upcoming')
+    - `InsightParams`, `CautionDetailData`, `RoomDetailData`, `InterestDetailData`, `CompareDetailData`, `UpcomingDetailData` 타입 추가
+    - `InsightDetailData` 유니온 타입 (discriminated union)
+  - `src/services/queries.ts`:
+    - 헬퍼 함수: `getRemainingDaysInMonth()`, `getDayOfWeekLabel()`, `getTimeRangeLabel()`
+    - 쿼리 함수: `getCautionDetail()`, `getRoomDetail()`, `getInterestDetail()`, `getCompareDetail()`, `getUpcomingDetail()`, `getInsightDetail()`
+  - `src/components/history/InsightDetailHeader.tsx`: 공통 래퍼 컴포넌트 (카테고리 정보 + dismiss)
+  - `src/components/history/CautionSummary.tsx`: 예산 주의 요약 (남은 예산, 일 권장, TOP 지출)
+  - `src/components/history/RoomSummary.tsx`: 여유 요약 (사용률, 남은 금액)
+  - `src/components/history/InterestSummary.tsx`: 관심 요약 (소비 패턴, TOP 거래)
+  - `src/components/history/CompareSummary.tsx`: 전월 비교 요약 (변화량, 건수 비교)
+  - `src/components/history/UpcomingSummary.tsx`: 예정 요약 (남은 건수, 총액)
+  - `src/components/history/index.ts`: 새 컴포넌트 export
+  - `src/pages/HistoryPage.tsx`: URL 파라미터 (`?insight=`) 처리, InsightDetailHeader 통합
+  - `src/components/home/insights/*.tsx`: 네비게이션 URL 패턴 업데이트
+    - CautionInsight: `/history?insight=caution&categoryId=xxx`
+    - RoomInsight: `/history?insight=room&categoryId=xxx`
+    - InterestInsight: `/history?insight=interest&categoryId=xxx`
+    - CompareInsight: `/history?insight=compare&categoryId=xxx`
+    - UpcomingInsight: `/history?insight=upcoming`
+- **구조**:
+  ```
+  홈 인사이트 카드 클릭
+      ↓
+  /history?insight=caution&categoryId=xxx
+      ↓
+  HistoryPage
+      ├─ URL 파라미터 파싱 (insight, categoryId)
+      ├─ getInsightDetail() 호출
+      └─ InsightDetailHeader 렌더링
+           └─ CautionSummary (타입별 Summary 컴포넌트)
+  ```
+- **결과**: 인사이트 카드 → 상세 뷰 연결 완료, 맥락 유지 + 액션 가능한 정보 제공
+
+### #113 인사이트 상세 뷰 닫기 개선 (2026-01-13)
+- **요청**: X 버튼 외에도 상단 필터 초기화 클릭 시 인사이트 뷰도 함께 닫히도록
+- **변경**:
+  - `src/pages/HistoryPage.tsx`:
+    - `clearCategoryFilter` 함수 확장: 필터 초기화 시 인사이트 뷰도 닫기
+    - URL 파라미터에서 `insight`, `categoryId` 모두 제거
+- **동작**:
+  - X 버튼 클릭 → 인사이트 뷰 닫힘 (기존)
+  - 필터바 "초기화" 버튼 클릭 → 카테고리 필터 + 인사이트 뷰 모두 닫힘
+  - 카테고리 모달 "초기화" 버튼 클릭 → 동일하게 동작
+- **결과**: 사용자가 필터를 초기화할 때 인사이트 맥락도 함께 해제되어 일관된 UX
+
+### #114 반복 거래 알림 시스템 완성 (2026-01-13)
+- **요청**: 반복 거래 예정 알림 기능 완성 (이전 세션에서 시작)
+- **변경**:
+  - `src/types/index.ts`:
+    - `RecurringAlertSetting` 인터페이스 추가 (enabled, daysBefore)
+    - Settings에 `recurringAlertEnabled`, `recurringAlertDaysBefore`, `recurringAlertSettings` 추가
+  - `src/services/database.ts`:
+    - Migration v10: recurringAlertSettings 추가
+  - `src/pages/RecurringAlertSettingsPage.tsx`:
+    - 마스터 토글 (전체 알림 on/off)
+    - 기본 알림 시점 선택 (당일, 1일 전, 3일 전, 7일 전)
+    - 개별 반복 거래별 알림 설정 (on/off, 커스텀 시점)
+    - 다음 실행일 표시
+  - `src/services/budgetAlert.ts`:
+    - `checkRecurringAlerts()` 함수 추가 - 앱 실행 시 다가오는 반복 거래 확인
+  - `src/pages/HomePage.tsx`: 앱 실행 시 `checkRecurringAlerts()` 호출
+  - `src/pages/SettingsPage.tsx`: 반복 거래 알림 메뉴 항목 추가
+  - `src/App.tsx`: `/settings/recurring-alerts` 라우트 추가
+- **결과**: 반복 거래 예정일 사전 알림 기능 완성
+
+### #115 결제수단별 알림 시스템 구현 (2026-01-13)
+- **요청**: "수단별 알람" - 결제수단 예산 초과 시 알림
+- **변경**:
+  - `src/types/index.ts`:
+    - `PaymentMethodAlertSetting` 인터페이스 추가 (enabled, thresholds[], lastAlertedThreshold, lastAlertedMonth)
+    - Settings에 `paymentMethodAlertEnabled`, `paymentMethodAlertSettings` 추가
+    - `DEFAULT_PAYMENT_METHOD_ALERT_THRESHOLDS` 상수 추가 ([70, 100])
+  - `src/services/database.ts`:
+    - Migration v11: paymentMethodAlertSettings 추가
+  - `src/pages/PaymentMethodAlertSettingsPage.tsx`:
+    - 마스터 토글 (전체 알림 on/off)
+    - 예산 설정된 결제수단만 표시
+    - 개별 결제수단별 알림 설정 (on/off, 임계값 50~100%)
+    - 예산 미설정 결제수단 안내
+    - 결제수단 관리 페이지 링크
+  - `src/services/budgetAlert.ts`:
+    - `checkPaymentMethodAlerts()` 함수 추가 - 앱 실행 시 결제수단별 예산 확인
+    - `checkPaymentMethodAfterTransaction()` 함수 추가 - 거래 후 즉시 확인
+  - `src/pages/HomePage.tsx`: 앱 실행 시 `checkPaymentMethodAlerts()` 호출
+  - `src/pages/SettingsPage.tsx`: 결제수단별 알림 메뉴 항목 추가
+  - `src/App.tsx`: `/settings/payment-method-alerts` 라우트 추가
+- **구조**:
+  ```
+  결제수단 예산 알림 흐름:
+  1. 앱 실행 → checkPaymentMethodAlerts() → 임계값 초과 시 Toast
+  2. 거래 저장 → checkPaymentMethodAfterTransaction() → 즉시 Toast
+
+  설정 구조:
+  paymentMethodAlertSettings: {
+    [methodId]: {
+      enabled: true,
+      thresholds: [70, 100],
+      lastAlertedThreshold: 70,
+      lastAlertedMonth: "2026-01"
+    }
+  }
+  ```
+- **결과**: 카드/계좌별 개별 예산 알림 시스템 완성
+
+### #116 카테고리 편집 시 알림 설정 연계 (2026-01-13)
+- **요청**: "카테고리 생성 시 알람여부 연계"
+- **변경**:
+  - `src/pages/CategoryEditPage.tsx`:
+    - 예산 입력 시 알림 설정 UI 자동 표시
+    - Bell/BellOff 아이콘으로 알림 on/off 토글
+    - 임계값 선택 (50%, 60%, 70%, 80%, 90%, 100%)
+    - 카테고리 저장 시 알림 설정도 함께 저장
+- **구조**:
+  ```
+  카테고리 편집 화면:
+  ┌─────────────────────────────────┐
+  │ 이름: [식비          ]          │
+  │ 예산: [300,000      ]원         │
+  ├─────────────────────────────────┤
+  │ 🔔 예산 알림                [●] │ ← 예산 입력 시만 표시
+  │ 알림 받을 시점:                  │
+  │ [70%] [80%] [●100%]            │
+  └─────────────────────────────────┘
+  ```
+- **UX 개선**: 카테고리 생성/수정 시 알림 설정을 별도 페이지 이동 없이 바로 설정
+
+### #117 알림 설정 페이지 UI 개선 (2026-01-13)
+- **요청**: UI 스타일 불일치 및 불필요한 정보 제거
+- **변경**:
+  - `src/pages/PaymentMethodAlertSettingsPage.tsx`:
+    - "결제수단 예산 설정하기" 버튼 스타일 개선 (밑줄 링크 → 아이콘+버튼 형태)
+    - RecurringAlertSettingsPage와 일관된 스타일 적용
+  - `src/pages/RecurringAlertSettingsPage.tsx`:
+    - 금액 표기 제거 (불필요한 정보 정리)
+- **Before/After**:
+  ```
+  결제수단 알림 - 빈 상태:
+  Before: "결제수단 예산 설정하기" (밑줄 텍스트)
+  After:  [💳 결제수단 관리] (아이콘+버튼 형태)
+
+  반복 거래 알림 - 항목:
+  Before: "매월 15일 · 100,000원"
+  After:  "매월 15일"
+  ```
+- **결과**: 알림 설정 페이지 간 일관된 UI, 불필요한 정보 정리
+
+### #118 앱 내 알림 마스터 토글 추가 (2026-01-13)
+- **요청**: 설정 화면 알림 영역에 앱 내 알림 전체 on/off 토글 추가
+- **변경**:
+  - `src/types/index.ts`:
+    - Settings 인터페이스에 `notificationEnabled: boolean` 추가
+    - DEFAULT_SETTINGS에 `notificationEnabled: true` 기본값 추가
+  - `src/pages/SettingsPage.tsx`:
+    - 알림 섹션 최상단에 "앱 내 알림" 마스터 토글 추가
+    - 토글 스타일: `bg-ink-black dark:bg-pig-pink` (활성화), `bg-paper-mid` (비활성화)
+    - 마스터 토글 OFF 시 세부 알림 설정(예산/카테고리/반복거래/결제수단) 숨김
+- **구조**:
+  ```
+  알림 섹션:
+  ┌─────────────────────────────────┐
+  │ 🔔 앱 내 알림            [●───] │ ← 마스터 토글
+  ├─────────────────────────────────┤
+  │ (마스터 토글 ON일 때만 표시)     │
+  │ 🔔 예산 알림                  > │
+  │ 🔔 카테고리별 알림            > │
+  │ 🔔 반복 거래 알림             > │
+  │ 🔔 결제수단별 알림            > │
+  └─────────────────────────────────┘
+  ```
+- **결과**: 앱 내 알림 전체를 한 번에 끄고 켤 수 있는 마스터 토글 추가
+
+### #119 예정 지출 기록 및 날짜 탐색 개선 (2026-01-13)
+- **요청**:
+  1. AddPage에서 미래 날짜 선택 가능하도록 개선
+  2. DateTimePicker 달력을 일~토 구조로 변경 + 주말 색상 구분
+  3. HomePage의 "어제"/"예정" 요약카드 클릭 시 HistoryPage 해당 위치로 스크롤
+- **변경**:
+  - `src/pages/AddPage.tsx`:
+    - `disableFuture={false}`로 변경하여 미래 날짜 선택 허용
+    - 미래 날짜 선택 시 파란색 스타일링 + "예정" 라벨
+    - "내일" 라벨 지원 추가 (isTomorrow)
+  - `src/components/common/DateTimePicker.tsx`:
+    - 달력 구조 변경: 일~토 요일 헤더 추가
+    - 일요일 빨간색, 토요일 파란색 색상 구분
+    - 1일 전 빈 셀 추가로 정확한 달력 표시
+  - `src/pages/HomePage.tsx`:
+    - "어제" 카드: `/history?scrollTo=yesterday` 네비게이션
+    - "예정" 카드: `/history?scrollTo=future` 네비게이션
+  - `src/pages/HistoryPage.tsx`:
+    - 스크롤 컨테이너 수정: `window` → `main.overflow-y-auto`
+    - `data-scroll-target` 속성으로 날짜 그룹 식별
+    - FIXED_HEADER_HEIGHT(116px) 오프셋 적용으로 정확한 위치 스크롤
+- **핵심 수정** (스크롤 이슈):
+  ```tsx
+  // App.tsx의 <main className="overflow-y-auto">가 실제 스크롤 컨테이너
+  const scrollContainer = document.querySelector('main.overflow-y-auto');
+  scrollContainer.scrollTo({
+    top: relativeTop - FIXED_HEADER_HEIGHT,
+    behavior: 'auto'
+  });
+  ```
+- **결과**: 예정 지출 기록 가능, 달력 UI 개선, 요약카드 → 히스토리 탐색 연결

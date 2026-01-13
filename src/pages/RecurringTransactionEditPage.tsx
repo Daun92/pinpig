@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, X } from 'lucide-react';
 import { useFabStore } from '@/stores/fabStore';
 import { Icon } from '@/components/common';
 import {
@@ -12,6 +12,7 @@ import {
 import { db } from '@/services/database';
 import type { Category, PaymentMethod, IncomeSource, RecurrenceFrequency, RecurringExecutionMode, TransactionType } from '@/types';
 import { format } from 'date-fns';
+import { parseMemoWithTags, combineMemoWithTags } from '@/utils/tags';
 
 const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
   { value: 'monthly', label: '매월' },
@@ -48,6 +49,7 @@ export function RecurringTransactionEditPage() {
   const [formPaymentMethodId, setFormPaymentMethodId] = useState('');
   const [formIncomeSourceId, setFormIncomeSourceId] = useState('');
   const [formMemo, setFormMemo] = useState('');
+  const [formTags, setFormTags] = useState<string[]>([]);
   const [formFrequency, setFormFrequency] = useState<RecurrenceFrequency>('monthly');
   const [formDayOfMonth, setFormDayOfMonth] = useState(new Date().getDate());
   const [formStartDate, setFormStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -57,7 +59,8 @@ export function RecurringTransactionEditPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   const loadData = async () => {
     setIsLoading(true);
@@ -94,7 +97,8 @@ export function RecurringTransactionEditPage() {
     if (isEditing && !isLoading) {
       loadExistingData();
     }
-  }, [isEditing, isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, isLoading]); // Only trigger on edit mode and loading state
 
   const loadExistingData = async () => {
     if (!id) return;
@@ -107,6 +111,7 @@ export function RecurringTransactionEditPage() {
       setFormPaymentMethodId(item.paymentMethodId || '');
       setFormIncomeSourceId(item.incomeSourceId || '');
       setFormMemo(item.memo || '');
+      setFormTags(item.tags || []);
       setFormFrequency(item.frequency);
       setFormDayOfMonth(item.dayOfMonth || 1);
       setFormStartDate(format(item.startDate, 'yyyy-MM-dd'));
@@ -151,6 +156,7 @@ export function RecurringTransactionEditPage() {
           paymentMethodId: formType === 'expense' ? formPaymentMethodId || undefined : undefined,
           incomeSourceId: formType === 'income' ? formIncomeSourceId || undefined : undefined,
           memo: formMemo.trim() || undefined,
+          tags: formTags.length > 0 ? formTags : undefined,
           frequency: formFrequency,
           dayOfMonth: formFrequency === 'monthly' ? formDayOfMonth : undefined,
           startDate,
@@ -167,6 +173,7 @@ export function RecurringTransactionEditPage() {
           paymentMethodId: formType === 'expense' ? formPaymentMethodId || undefined : undefined,
           incomeSourceId: formType === 'income' ? formIncomeSourceId || undefined : undefined,
           memo: formMemo.trim() || undefined,
+          tags: formTags.length > 0 ? formTags : undefined,
           frequency: formFrequency,
           dayOfMonth: formFrequency === 'monthly' ? formDayOfMonth : undefined,
           startDate,
@@ -184,6 +191,7 @@ export function RecurringTransactionEditPage() {
     formAmount,
     formCategoryId,
     formMemo,
+    formTags,
     formStartDate,
     formEndDate,
     formFrequency,
@@ -315,16 +323,41 @@ export function RecurringTransactionEditPage() {
           </div>
         </div>
 
-        {/* Memo */}
+        {/* Memo with Tags */}
         <div>
-          <label className="text-sub text-ink-mid block mb-2">메모 (선택)</label>
+          <label className="text-sub text-ink-mid block mb-2">메모 & 태그 (선택)</label>
           <input
             type="text"
-            value={formMemo}
-            onChange={(e) => setFormMemo(e.target.value)}
-            placeholder="예: 넷플릭스, 월급, 월세"
+            value={combineMemoWithTags(formMemo, formTags)}
+            onChange={(e) => {
+              const { memo, tags } = parseMemoWithTags(e.target.value);
+              setFormMemo(memo);
+              setFormTags(tags);
+            }}
+            placeholder="예: 넷플릭스 #구독 #고정비"
             className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
           />
+          <p className="text-caption text-ink-light mt-1">#으로 태그 추가 (예: #구독 #고정비)</p>
+
+          {/* Tag Pills */}
+          {formTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formTags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-paper-mid dark:bg-ink-dark/50 rounded-full text-caption text-ink-mid"
+                >
+                  #{tag}
+                  <button
+                    onClick={() => setFormTags(formTags.filter((_, i) => i !== idx))}
+                    className="ml-0.5 hover:text-ink-black"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Category */}

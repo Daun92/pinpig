@@ -1,14 +1,16 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock } from 'lucide-react';
-import { useTransactionStore, selectBudgetStatus } from '@/stores/transactionStore';
+import { useTransactionStore, selectBudgetStatus, selectCategoryBreakdown } from '@/stores/transactionStore';
 import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
 import { useCoachMark } from '@/components/coachmark';
 import { Icon } from '@/components/common';
-import { formatCurrency } from '@/utils/format';
+import { HeroSection, InsightCard, ScrollHint } from '@/components/home';
 import { isToday, isYesterday, isFuture, startOfDay, endOfMonth, startOfMonth } from 'date-fns';
 import { getMonthlyBudgetStructure } from '@/services/queries';
+import { checkBudgetAlerts, checkRecurringAlerts, checkPaymentMethodAlerts } from '@/services/budgetAlert';
+import { DEFAULT_INSIGHT_WIDGETS } from '@/types';
 import type { Transaction, MonthlyBudgetStructure } from '@/types';
 
 // 감성적 메시지 생성
@@ -95,23 +97,32 @@ function getEmptyTodayMessage(): { main: string; sub: string } {
 export function HomePage() {
   const navigate = useNavigate();
   const { transactions, fetchTransactions, isLoading } = useTransactionStore();
-  const { fetchSettings } = useSettingsStore();
+  const { fetchSettings, settings } = useSettingsStore();
   const { fetchCategories } = useCategoryStore();
   const { startTour } = useCoachMark();
 
   const monthlyBudget = useSettingsStore(selectMonthlyBudget);
   const budgetStatus = useTransactionStore(selectBudgetStatus(monthlyBudget));
   const categoryMap = useCategoryStore(selectCategoryMap);
+  const categoryBreakdown = useTransactionStore(selectCategoryBreakdown);
+  const fetchCategoryBreakdown = useTransactionStore((state) => state.fetchCategoryBreakdown);
 
   const [budgetStructure, setBudgetStructure] = useState<MonthlyBudgetStructure | null>(null);
   const [emptyMessage] = useState(() => getEmptyTodayMessage());
+  const alertCheckedRef = useRef(false);
+
+  // Get insight widgets from settings (fallback to defaults)
+  const insightWidgets = settings?.insightWidgets ?? DEFAULT_INSIGHT_WIDGETS;
 
   useEffect(() => {
     fetchSettings();
     fetchCategories();
     fetchTransactions(new Date());
     loadBudgetData();
-  }, [fetchSettings, fetchCategories, fetchTransactions]);
+    // 이번 달 카테고리 breakdown 로드
+    const now = new Date();
+    fetchCategoryBreakdown(now.getFullYear(), now.getMonth() + 1);
+  }, [fetchSettings, fetchCategories, fetchTransactions, fetchCategoryBreakdown]);
 
   // Start home tour on first visit
   useEffect(() => {
@@ -119,6 +130,21 @@ export function HomePage() {
       startTour('home');
     }
   }, [isLoading, startTour]);
+
+  // Check budget alerts when budget data changes (once per page load)
+  useEffect(() => {
+    if (!isLoading && settings && !alertCheckedRef.current) {
+      alertCheckedRef.current = true;
+      // 예산 알림 체크 (예산이 설정된 경우만)
+      if (monthlyBudget > 0) {
+        checkBudgetAlerts(budgetStatus, settings);
+      }
+      // 반복 거래 알림 체크
+      checkRecurringAlerts(settings);
+      // 결제수단별 알림 체크
+      checkPaymentMethodAlerts(settings);
+    }
+  }, [isLoading, settings, monthlyBudget, budgetStatus]);
 
   const loadBudgetData = async () => {
     try {
@@ -189,7 +215,6 @@ export function HomePage() {
   const remaining = budgetStructure
     ? Math.max(budgetStatus.remaining + budgetStructure.expectedIncome - budgetStructure.fixedExpenses, 0)
     : budgetStatus.remaining;
-  const percentUsed = budgetStatus.percentUsed;
   const remainingDays = budgetStatus.remainingDays;
   const dailyRecommended = remainingDays > 0 ? Math.round(remaining / remainingDays) : 0;
 
@@ -207,53 +232,62 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-paper-white pb-nav flex flex-col">
-      {/* Hero Zone - 상단 1/3 영역 */}
-      <section className="px-6 pt-16 pb-8">
-        {/* Date Display */}
-        <div className="text-center">
-          <span className="text-sub text-ink-mid">
-            {currentDateLabel}
-          </span>
+      {/* Screen 1: Hero + Insight (한 화면, 중앙 밀집형) */}
+      <section className="h-[calc(100dvh-60px)] flex flex-col justify-between relative pt-8 pb-4">
+        {/* 상단 여백 */}
+        <div className="flex-shrink-0" />
+
+        {/* 중앙 컨텐츠 그룹 */}
+        <div className="flex flex-col gap-6">
+          {/* Hero Zone - 예산 현황 */}
+          <HeroSection
+            budgetStatus={budgetStatus}
+            remaining={remaining}
+            dailyRecommended={dailyRecommended}
+            currentDateLabel={currentDateLabel}
+          />
+
+          {/* Insight Card - 상황별 인사이트 캐러셀 */}
+          <InsightCard
+            monthlyBudget={monthlyBudget}
+            topCategories={categoryBreakdown}
+            selectedWidgets={insightWidgets}
+            onNavigate={navigate}
+          />
         </div>
 
-        {/* Hero Amount */}
-        <div className="text-center mt-2" data-tour="home-hero">
-          <h1 className="text-hero text-ink-black">
-            {formatCurrency(remaining >= 0 ? remaining : 0)}
-          </h1>
-          <p className="text-sub text-ink-mid mt-1">
-            이번 달 쓸 수 있는 돈
-          </p>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mt-6 mx-0">
-          <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
-            <div
-              className="h-full bg-ink-black rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(percentUsed, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Daily Budget */}
-        <div className="text-center mt-3" data-tour="home-daily">
-          <p className="text-sub text-ink-mid">
-            {remainingDays}일 남음 · 하루 {formatCurrency(dailyRecommended)}
-          </p>
+        {/* Scroll Hint - 하단 고정 */}
+        <div className="flex-shrink-0">
+          <ScrollHint label="오늘" />
         </div>
       </section>
 
-      {/* Today's Transactions - 중앙 메인 영역 */}
-      <section className="flex-1 flex flex-col">
-        {/* Section Header */}
-        <div className="flex justify-between items-center px-6 py-3">
-          <h2 className="text-title text-ink-black">오늘</h2>
-          {todaySummary.count > 0 && (
-            <span className={`text-sub ${todaySummary.total >= 0 ? 'text-semantic-positive' : 'text-ink-dark'}`}>
-              {todaySummary.total >= 0 ? '+' : ''}{todaySummary.total.toLocaleString()}원
-            </span>
-          )}
+      {/* Screen 2: Today's Transactions - 스크롤 영역 */}
+      <section className="flex flex-col bg-paper-white">
+        {/* Sticky Section Header */}
+        <div className="sticky top-0 z-10 bg-paper-white/95 backdrop-blur-sm px-6 py-3 border-b border-paper-mid">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <h2 className="text-title text-ink-black">오늘</h2>
+              {todaySummary.count > 0 && (
+                <span className="text-caption text-ink-light">{todaySummary.count}건</span>
+              )}
+            </div>
+            {todaySummary.count > 0 && (
+              <div className="flex items-center gap-3">
+                {todaySummary.income > 0 && (
+                  <span className="text-body font-medium text-semantic-positive">
+                    +{todaySummary.income.toLocaleString()}
+                  </span>
+                )}
+                {todaySummary.expense > 0 && (
+                  <span className="text-body font-medium text-ink-dark">
+                    -{todaySummary.expense.toLocaleString()}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Today's Transaction List */}
@@ -263,9 +297,14 @@ export function HomePage() {
             <div className="flex-1 flex flex-col items-center justify-center py-12">
               <p className="text-body text-ink-dark">새로운 시작이에요</p>
               <p className="text-sub text-ink-light mt-2 text-center">
-                아래 + 버튼을 눌러<br />
                 첫 번째 기록을 남겨보세요
               </p>
+              <button
+                onClick={() => navigate('/add')}
+                className="mt-4 px-6 py-2.5 bg-ink-black text-paper-white rounded-full text-body font-medium active:bg-ink-dark transition-colors"
+              >
+                + 첫 기록 남기기
+              </button>
             </div>
           ) : (
             // 기존 사용자: 오늘 거래만 없을 때
@@ -274,55 +313,90 @@ export function HomePage() {
               {emptyMessage.sub && (
                 <p className="text-sub text-ink-light mt-1">{emptyMessage.sub}</p>
               )}
+              <button
+                onClick={() => navigate('/add')}
+                className="mt-4 px-5 py-2 text-ink-mid text-sub rounded-full border border-paper-dark active:bg-paper-light transition-colors"
+              >
+                + 기록하기
+              </button>
             </div>
           )
         ) : (
-          <ul className="border-t border-paper-mid">
-            {todayTransactions.map((tx) => {
-              const category = categoryMap.get(tx.categoryId);
-              return (
-                <li
-                  key={tx.id}
-                  onClick={() => navigate(`/transaction/${tx.id}`)}
-                  className="px-6 py-4 border-b border-paper-mid flex items-center gap-4 cursor-pointer active:bg-paper-light transition-colors"
-                >
-                  {/* Icon */}
-                  <div className="text-ink-mid">
-                    <Icon name={category?.icon || 'MoreHorizontal'} size={20} />
-                  </div>
+          <>
+            <ul className="border-t border-paper-mid">
+              {todayTransactions.map((tx) => {
+                const category = categoryMap.get(tx.categoryId);
+                return (
+                  <li
+                    key={tx.id}
+                    onClick={() => navigate(`/transaction/${tx.id}`)}
+                    className="px-6 py-4 border-b border-paper-mid flex items-center gap-4 cursor-pointer active:bg-paper-light transition-colors"
+                  >
+                    {/* Icon */}
+                    <div className="text-ink-mid">
+                      <Icon name={category?.icon || 'MoreHorizontal'} size={20} />
+                    </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body text-ink-dark truncate">
-                      {tx.memo || category?.name || '거래'}
-                    </p>
-                    <p className="text-caption text-ink-light">
-                      {tx.time} · {category?.name}
-                    </p>
-                  </div>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* 1행: 메모 + 태그 | 시간 */}
+                      <div className="flex justify-between items-start gap-2 leading-tight">
+                        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1">
+                          {tx.memo && (
+                            <span className="text-sub text-ink-black truncate max-w-[120px]">
+                              {tx.memo}
+                            </span>
+                          )}
+                          {tx.tags && tx.tags.length > 0 && tx.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-1.5 py-0.5 rounded bg-paper-mid text-caption text-ink-mid whitespace-nowrap"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                          {!tx.memo && (!tx.tags || tx.tags.length === 0) && (
+                            <span className="text-sub text-ink-light">-</span>
+                          )}
+                        </div>
+                        <span className="text-caption text-ink-light whitespace-nowrap">
+                          {tx.time}
+                        </span>
+                      </div>
 
-                  {/* Amount */}
-                  <span className={`text-amount whitespace-nowrap ${
-                    tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
-                  }`}>
-                    {tx.type === 'income' ? '+' : ''}{tx.amount.toLocaleString()}원
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                      {/* 2행: 카테고리 | 금액 */}
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-caption text-ink-light truncate">
+                          {category?.name || '기타'}
+                        </span>
+                        <span className={`text-body font-medium whitespace-nowrap ${
+                          tx.type === 'income' ? 'text-semantic-positive' : 'text-ink-black'
+                        }`}>
+                          {tx.type === 'income' ? '+' : ''}{tx.amount.toLocaleString()}원
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {/* 리스트 종결 표시 */}
+            <div className="flex justify-center py-3">
+              <div className="w-12 h-1 bg-paper-dark/30 rounded-full" />
+            </div>
+          </>
         )}
       </section>
 
-      {/* Bottom Cards: Yesterday | Future (2-column) */}
+      {/* Bottom Cards: Yesterday | Future (2-column summary) */}
       {hasBottomCards && (
-        <section className="px-6 py-4">
+        <section className="bg-paper-light/50 border-t border-paper-dark/20 px-6 py-4">
           <div className="flex gap-3">
             {/* Yesterday Card */}
             {hasYesterday && (
               <button
                 onClick={() => navigate('/history?scrollTo=yesterday')}
-                className={`flex-1 bg-paper-light rounded-md p-4 text-left active:bg-paper-mid transition-colors ${
+                className={`flex-1 bg-paper-light rounded-xl p-4 text-left active:bg-paper-mid transition-colors ${
                   !hasFuture ? 'max-w-[50%]' : ''
                 }`}
               >
@@ -345,7 +419,7 @@ export function HomePage() {
             {hasFuture && (
               <button
                 onClick={() => navigate('/history?scrollTo=future')}
-                className={`flex-1 bg-paper-light rounded-md p-4 text-left active:bg-paper-mid transition-colors ${
+                className={`flex-1 bg-paper-light rounded-xl p-4 text-left active:bg-paper-mid transition-colors ${
                   !hasYesterday ? 'max-w-[50%]' : ''
                 }`}
               >

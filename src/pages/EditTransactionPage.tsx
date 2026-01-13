@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Calendar, FileText } from 'lucide-react';
+import { X, Calendar, FileText, Plus } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import {
   useCategoryStore,
@@ -18,6 +18,7 @@ import {
 import { useFabStore } from '@/stores/fabStore';
 import { Icon, DateTimePicker } from '@/components/common';
 import { db } from '@/services/database';
+import { getRecentTags } from '@/services/queries';
 import type { Transaction, TransactionType } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -47,9 +48,12 @@ export function EditTransactionPage() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
   const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string>('');
   const [memo, setMemo] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // 추천 태그 (자주 사용)
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
 
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
   const isValidAmount = amount && parseInt(amount) > 0;
@@ -77,6 +81,7 @@ export function EditTransactionPage() {
         setSelectedPaymentMethodId(transaction.paymentMethodId || '');
         setSelectedIncomeSourceId(transaction.incomeSourceId || '');
         setMemo(transaction.memo || '');
+        setTags(transaction.tags || []);
         setDate(new Date(transaction.date));
         setTime(transaction.time);
         setIsLoading(false);
@@ -91,6 +96,8 @@ export function EditTransactionPage() {
     fetchPaymentMethods();
     fetchIncomeSources();
     loadTransaction();
+    // 추천 태그 로드
+    getRecentTags(8).then(setSuggestedTags);
   }, [id, navigate, fetchCategories, fetchPaymentMethods, fetchIncomeSources]);
 
   // Handle category change when type changes
@@ -104,6 +111,42 @@ export function EditTransactionPage() {
     }
   }, [type, currentCategories, originalTransaction]);
 
+  // 직접 태그 입력
+  const [newTagInput, setNewTagInput] = useState('');
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // 추천 태그 탭 시 추가
+  const handleSuggestedTagClick = (tag: string) => {
+    if (!tags.includes(tag)) {
+      setTags([...tags, tag]);
+    }
+  };
+
+  // 태그 삭제
+  const handleTagRemove = (tagToRemove: string) => {
+    setTags(tags.filter(t => t !== tagToRemove));
+  };
+
+  // 직접 태그 추가
+  const handleAddNewTag = () => {
+    const trimmed = newTagInput.trim().replace(/^#/, ''); // # 제거
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed]);
+      setNewTagInput('');
+    }
+  };
+
+  // Enter 키로 태그 추가
+  const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddNewTag();
+    }
+  };
+
+  // 추천 태그 중 아직 선택되지 않은 것만 표시
+  const availableSuggestedTags = suggestedTags.filter(t => !tags.includes(t));
+
   const handleSubmit = useCallback(async () => {
     if (!id || !amount || parseInt(amount) <= 0 || !selectedCategoryId) return;
 
@@ -114,7 +157,8 @@ export function EditTransactionPage() {
         categoryId: selectedCategoryId,
         paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
         incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
-        memo: memo || '',
+        memo: memo.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
         date,
         time,
       });
@@ -133,6 +177,7 @@ export function EditTransactionPage() {
     selectedPaymentMethodId,
     selectedIncomeSourceId,
     memo,
+    tags,
     date,
     time,
     updateTransaction,
@@ -362,17 +407,78 @@ export function EditTransactionPage() {
             </div>
           </button>
 
-          {/* Memo */}
-          <div className="flex items-center py-4">
-            <div className="flex items-center gap-3 text-ink-mid flex-1">
-              <FileText size={20} />
+          {/* Memo & Tags - 분리형 UI */}
+          <div className="py-4 space-y-4">
+            {/* 메모 입력 필드 (순수 텍스트) */}
+            <div>
+              <div className="flex items-center gap-3 text-ink-mid mb-2">
+                <FileText size={20} />
+                <label className="text-caption text-ink-mid">메모</label>
+              </div>
               <input
                 type="text"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
-                placeholder="메모 추가"
-                className="text-body text-ink-dark bg-transparent outline-none flex-1"
+                placeholder="메모를 입력하세요"
+                className="w-full ml-8 px-3 py-2.5 rounded-lg bg-paper-light text-body text-ink-dark outline-none focus:ring-2 focus:ring-ink-light placeholder:text-ink-light"
+                style={{ width: 'calc(100% - 2rem)' }}
               />
+            </div>
+
+            {/* 태그 섹션 */}
+            <div className="ml-8">
+              <label className="text-caption text-ink-mid mb-1.5 block">태그</label>
+
+              {/* 선택된 태그 + 직접 입력 */}
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                {tags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTagRemove(tag)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-ink-black text-caption text-paper-white hover:bg-ink-mid transition-colors"
+                  >
+                    #{tag}
+                    <X size={12} />
+                  </button>
+                ))}
+                {/* 직접 태그 입력 */}
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={tagInputRef}
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={handleTagInputKeyDown}
+                    placeholder="태그 입력"
+                    className="w-20 px-2 py-1 rounded-lg bg-paper-light text-caption text-ink-dark outline-none focus:ring-1 focus:ring-ink-light placeholder:text-ink-light"
+                  />
+                  <button
+                    onClick={handleAddNewTag}
+                    disabled={!newTagInput.trim()}
+                    className="w-6 h-6 rounded-full bg-paper-light text-ink-mid flex items-center justify-center hover:bg-paper-mid disabled:opacity-50 transition-colors"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 추천 태그 (자주 사용) */}
+              {availableSuggestedTags.length > 0 && (
+                <div className="pt-2 border-t border-paper-mid">
+                  <p className="text-caption text-ink-light mb-1.5">자주 사용</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableSuggestedTags.slice(0, 8).map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => handleSuggestedTagClick(tag)}
+                        className="px-2.5 py-1 rounded-full bg-paper-light text-caption text-ink-mid hover:bg-paper-mid transition-colors"
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -38,7 +38,8 @@
       "Bash(powershell -c \"\\(Get-Content ''D:\\\\claude\\\\pinpig\\\\WORKLOG-FULL.md'' -Tail 60\\)\")",
       "Bash(powershell -c:*)",
       "Bash(gh pr create:*)",
-      "Bash(gh auth status:*)"
+      "Bash(gh auth status:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

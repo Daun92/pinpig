@@ -174,6 +174,97 @@ class PinPigDatabase extends Dexie {
         });
       }
     });
+
+    // Schema v8: Add tags field to transactions (태그 기능 추가)
+    // *tags는 MultiEntry 인덱스로, 배열의 각 요소를 개별 인덱싱하여 태그 검색 가능
+    this.version(8).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, incomeSourceId, date, [date+type], [categoryId+date], *tags, createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      incomeSources: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
+      recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
+    }).upgrade(async (tx) => {
+      // 기존 거래의 tags 필드 초기화 (빈 배열)
+      const transactions = await tx.table('transactions').toArray();
+
+      for (const transaction of transactions) {
+        // 기존 메모에서 해시태그 추출 (있을 경우)
+        const memo = transaction.memo || '';
+        const tagMatches = memo.match(/#(\S+)/g);
+        const tags = tagMatches ? tagMatches.map((t: string) => t.slice(1)) : [];
+        const cleanMemo = memo.replace(/#\S+/g, '').trim();
+
+        await tx.table('transactions').update(transaction.id, {
+          memo: cleanMemo || transaction.memo, // 태그만 있었던 경우 원본 유지
+          tags: tags,
+        });
+      }
+    });
+
+    // Schema v9: Add categoryAlertSettings to settings (카테고리별 알림 설정)
+    this.version(9).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, incomeSourceId, date, [date+type], [categoryId+date], *tags, createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      incomeSources: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
+      recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
+    }).upgrade(async (tx) => {
+      // 기존 설정에 categoryAlertSettings 필드 추가
+      const settings = await tx.table('settings').get('default');
+      if (settings && settings.categoryAlertSettings === undefined) {
+        await tx.table('settings').update('default', {
+          categoryAlertSettings: {},
+          updatedAt: new Date(),
+        });
+      }
+    });
+
+    // Schema v10: Add recurringAlertSettings to settings (반복 거래 알림 설정)
+    this.version(10).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, incomeSourceId, date, [date+type], [categoryId+date], *tags, createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      incomeSources: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
+      recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
+    }).upgrade(async (tx) => {
+      // 기존 설정에 반복 거래 알림 필드 추가
+      const settings = await tx.table('settings').get('default');
+      if (settings && settings.recurringAlertEnabled === undefined) {
+        await tx.table('settings').update('default', {
+          recurringAlertEnabled: true,
+          recurringAlertDaysBefore: 1,
+          recurringAlertSettings: {},
+          updatedAt: new Date(),
+        });
+      }
+    });
+
+    // Schema v11: Add paymentMethodAlertSettings to settings (결제수단별 알림 설정)
+    this.version(11).stores({
+      transactions: 'id, type, categoryId, paymentMethodId, incomeSourceId, date, [date+type], [categoryId+date], *tags, createdAt',
+      categories: 'id, type, name, order, [type+order]',
+      paymentMethods: 'id, name, order',
+      incomeSources: 'id, name, order',
+      settings: 'id',
+      annualExpenses: 'id, categoryId, month, year, isEnabled',
+      recurringTransactions: 'id, type, categoryId, frequency, isActive, nextExecutionDate',
+    }).upgrade(async (tx) => {
+      // 기존 설정에 결제수단 알림 필드 추가
+      const settings = await tx.table('settings').get('default');
+      if (settings && settings.paymentMethodAlertEnabled === undefined) {
+        await tx.table('settings').update('default', {
+          paymentMethodAlertEnabled: true,
+          paymentMethodAlertSettings: {},
+          updatedAt: new Date(),
+        });
+      }
+    });
   }
 }
 

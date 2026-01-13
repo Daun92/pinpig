@@ -59,5 +59,6 @@ export function useDeepLink() {
     if (params.toString()) {
       window.history.replaceState({}, '', '/');
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally run only once on mount
 }

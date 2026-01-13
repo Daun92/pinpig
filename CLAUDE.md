@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 작업 시작 전
 1. `docs/CONTEXT.md` 읽고 현재 상태 파악
 2. 필요 시 `WORKLOG-FULL.md` 상세 참조 (tail 또는 grep)
+3. **기능 수정 시**: `docs/FEATURE_MAP.md`에서 연관 파일/체크리스트 확인
 
 ### 작업 완료 후
 1. `WORKLOG-FULL.md`에 상세 기록 (아래 형식)
@@ -233,6 +234,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 ## Reference Documents
 
 - `docs/CONTEXT.md` - Project context (read first)
+- `docs/FEATURE_MAP.md` - **기능 연관 맵 (수정 전 필수 확인)**
 - `WORKLOG-FULL.md` - Full work history
 - `docs/COMPLETION_REPORT.md` - Completion assessment report
 - `docs/CONCEPT.md` - App concept

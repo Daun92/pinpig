@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart, Sun, Moon, Monitor, Repeat } from 'lucide-react';
+import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart, Sun, Moon, Monitor, Repeat, PieChart, Bell, BellOff, LayoutGrid } from 'lucide-react';
 import { getSettings, updateSettings, resetDatabase } from '@/services/database';
 import { getImportStatus, clearAllTransactions } from '@/services/excelImport';
 import { useTheme } from '@/hooks/useTheme';
@@ -14,6 +14,11 @@ export function SettingsPage() {
   const { startTour } = useCoachMark();
   const [, setSettings] = useState<Settings | null>(null);
   const [budget, setBudget] = useState('');
+  const [notificationEnabled, setNotificationEnabled] = useState(true);
+  const [budgetAlertEnabled, setBudgetAlertEnabled] = useState(true);
+  const [categoryAlertEnabled, setCategoryAlertEnabled] = useState(true);
+  const [recurringAlertEnabled, setRecurringAlertEnabled] = useState(true);
+  const [paymentMethodAlertEnabled, setPaymentMethodAlertEnabled] = useState(true);
 
   const themeOptions: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
     { value: 'light', label: '라이트', icon: <Sun size={16} /> },
@@ -45,6 +50,11 @@ export function SettingsPage() {
       if (s) {
         setSettings(s);
         setBudget(s.monthlyBudget > 0 ? s.monthlyBudget.toLocaleString() : '');
+        setNotificationEnabled(s.notificationEnabled ?? true);
+        setBudgetAlertEnabled(s.budgetAlertEnabled ?? true);
+        setCategoryAlertEnabled(s.categoryAlertEnabled ?? true);
+        setRecurringAlertEnabled(s.recurringAlertEnabled ?? true);
+        setPaymentMethodAlertEnabled(s.paymentMethodAlertEnabled ?? true);
       }
     });
 
@@ -155,6 +165,18 @@ export function SettingsPage() {
         </div>
         <div className="border-b border-paper-mid">
           <button
+            onClick={() => navigate('/settings/category-budget')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <PieChart size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">카테고리별 예산</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+        <div className="border-b border-paper-mid">
+          <button
             onClick={() => navigate('/settings/annual-expenses')}
             className="w-full flex items-center justify-between py-4"
           >
@@ -206,6 +228,127 @@ export function SettingsPage() {
             {theme === 'dark' && '항상 다크 모드를 사용합니다'}
           </p>
         </div>
+      </section>
+
+      {/* Home Screen Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">홈 화면</h2>
+        <div className="border-b border-paper-mid">
+          <button
+            onClick={() => navigate('/settings/insights')}
+            className="w-full flex items-center justify-between py-4"
+          >
+            <div className="flex items-center gap-3">
+              <LayoutGrid size={20} className="text-ink-mid" />
+              <span className="text-body text-ink-black">인사이트 카드</span>
+            </div>
+            <ChevronRight size={20} className="text-ink-light" />
+          </button>
+        </div>
+      </section>
+
+      {/* Alert Section */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">알림</h2>
+        {/* Master toggle for all notifications */}
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              {notificationEnabled ? (
+                <Bell size={20} className="text-ink-mid" />
+              ) : (
+                <BellOff size={20} className="text-ink-light" />
+              )}
+              <span className="text-body text-ink-black">앱 내 알림</span>
+            </div>
+            <button
+              onClick={async () => {
+                const newValue = !notificationEnabled;
+                setNotificationEnabled(newValue);
+                await updateSettings({ notificationEnabled: newValue });
+              }}
+              className={`w-12 h-6 rounded-full transition-colors ${
+                notificationEnabled ? 'bg-ink-black dark:bg-pig-pink' : 'bg-paper-mid'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-paper-white rounded-full transition-transform ${
+                  notificationEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Detailed alert settings - shown only when notifications are enabled */}
+        {notificationEnabled && (
+          <>
+            <div className="border-b border-paper-mid">
+              <button
+                onClick={() => navigate('/settings/budget-alerts')}
+                className="w-full flex items-center justify-between py-4"
+              >
+                <div className="flex items-center gap-3">
+                  {budgetAlertEnabled ? (
+                    <Bell size={20} className="text-ink-mid" />
+                  ) : (
+                    <BellOff size={20} className="text-ink-light" />
+                  )}
+                  <span className="text-body text-ink-black">예산 알림</span>
+                </div>
+                <ChevronRight size={20} className="text-ink-light" />
+              </button>
+            </div>
+            <div className="border-b border-paper-mid">
+              <button
+                onClick={() => navigate('/settings/category-alerts')}
+                className="w-full flex items-center justify-between py-4"
+              >
+                <div className="flex items-center gap-3">
+                  {categoryAlertEnabled ? (
+                    <Bell size={20} className="text-ink-mid" />
+                  ) : (
+                    <BellOff size={20} className="text-ink-light" />
+                  )}
+                  <span className="text-body text-ink-black">카테고리별 알림</span>
+                </div>
+                <ChevronRight size={20} className="text-ink-light" />
+              </button>
+            </div>
+            <div className="border-b border-paper-mid">
+              <button
+                onClick={() => navigate('/settings/recurring-alerts')}
+                className="w-full flex items-center justify-between py-4"
+              >
+                <div className="flex items-center gap-3">
+                  {recurringAlertEnabled ? (
+                    <Bell size={20} className="text-ink-mid" />
+                  ) : (
+                    <BellOff size={20} className="text-ink-light" />
+                  )}
+                  <span className="text-body text-ink-black">반복 거래 알림</span>
+                </div>
+                <ChevronRight size={20} className="text-ink-light" />
+              </button>
+            </div>
+            <div className="border-b border-paper-mid">
+              <button
+                onClick={() => navigate('/settings/payment-method-alerts')}
+                className="w-full flex items-center justify-between py-4"
+              >
+                <div className="flex items-center gap-3">
+                  {paymentMethodAlertEnabled ? (
+                    <Bell size={20} className="text-ink-mid" />
+                  ) : (
+                    <BellOff size={20} className="text-ink-light" />
+                  )}
+                  <span className="text-body text-ink-black">결제수단별 알림</span>
+                </div>
+                <ChevronRight size={20} className="text-ink-light" />
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       {/* Category & Payment Section */}

@@ -144,40 +144,66 @@ export function DateTimePicker({
           </div>
         );
 
-      case 'day':
-        return (
-          <div className="grid grid-cols-7 gap-1 p-4">
-            {days.map((day) => {
-              const disabled = isDateDisabled(tempYear, tempMonth, day);
-              const isSelected = day === tempDay;
-              const dateObj = new Date(tempYear, tempMonth - 1, day);
-              const dayOfWeek = dateObj.getDay();
-              const isSunday = dayOfWeek === 0;
-              const isSaturday = dayOfWeek === 6;
+      case 'day': {
+        // 해당 월 1일의 요일 (0=일, 1=월, ..., 6=토)
+        const firstDayOfMonth = new Date(tempYear, tempMonth - 1, 1).getDay();
+        const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
-              return (
-                <button
-                  key={day}
-                  onClick={() => !disabled && setTempDay(day)}
-                  disabled={disabled}
-                  className={`py-2 rounded-lg text-body transition-colors ${
-                    isSelected
-                      ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
-                      : disabled
-                      ? 'text-paper-mid dark:text-ink-dark cursor-not-allowed'
-                      : isSunday
-                      ? 'text-red-400 hover:bg-paper-mid dark:hover:bg-ink-mid'
-                      : isSaturday
-                      ? 'text-blue-400 hover:bg-paper-mid dark:hover:bg-ink-mid'
-                      : 'text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
+        return (
+          <div className="p-4">
+            {/* 요일 헤더 */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {weekDays.map((dayName, idx) => (
+                <div
+                  key={dayName}
+                  className={`py-1 text-center text-caption font-medium ${
+                    idx === 0 ? 'text-red-400' : idx === 6 ? 'text-blue-400' : 'text-ink-light'
                   }`}
                 >
-                  {day}
-                </button>
-              );
-            })}
+                  {dayName}
+                </div>
+              ))}
+            </div>
+            {/* 날짜 그리드 */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* 1일 전 빈 셀 */}
+              {Array.from({ length: firstDayOfMonth }).map((_, idx) => (
+                <div key={`empty-${idx}`} className="py-2" />
+              ))}
+              {/* 날짜들 */}
+              {days.map((day) => {
+                const disabled = isDateDisabled(tempYear, tempMonth, day);
+                const isSelected = day === tempDay;
+                const dateObj = new Date(tempYear, tempMonth - 1, day);
+                const dayOfWeek = dateObj.getDay();
+                const isSunday = dayOfWeek === 0;
+                const isSaturday = dayOfWeek === 6;
+
+                return (
+                  <button
+                    key={day}
+                    onClick={() => !disabled && setTempDay(day)}
+                    disabled={disabled}
+                    className={`py-2 rounded-lg text-body transition-colors ${
+                      isSelected
+                        ? 'bg-ink-black dark:bg-pig-pink text-paper-white'
+                        : disabled
+                        ? 'text-paper-mid dark:text-ink-dark cursor-not-allowed'
+                        : isSunday
+                        ? 'text-red-400 hover:bg-paper-mid dark:hover:bg-ink-mid'
+                        : isSaturday
+                        ? 'text-blue-400 hover:bg-paper-mid dark:hover:bg-ink-mid'
+                        : 'text-ink-dark dark:text-paper-mid hover:bg-paper-mid dark:hover:bg-ink-mid'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         );
+      }
 
       case 'time':
         return (

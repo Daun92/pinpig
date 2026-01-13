@@ -125,13 +125,13 @@ export function CategoryTrendModal({
                   key={tx.id}
                   className="py-2 border-b border-paper-mid last:border-b-0"
                 >
-                  {/* 첫 줄: 순위 + 메모 (말줄임) */}
+                  {/* 첫 줄: 순위 + 메모/태그 (말줄임) */}
                   <div className="flex items-center gap-3">
                     <span className="w-5 h-5 flex-shrink-0 rounded-full bg-paper-light flex items-center justify-center text-caption text-ink-mid">
                       {index + 1}
                     </span>
                     <p className="text-body text-ink-dark truncate">
-                      {tx.memo || '거래'}
+                      {tx.tags && tx.tags.length > 0 ? tx.tags[0] : (tx.memo || '거래')}
                     </p>
                   </div>
                   {/* 둘째 줄: 날짜 + 금액 */}

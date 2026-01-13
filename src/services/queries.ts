@@ -1,5 +1,5 @@
 import { db, generateId } from './database';
-import { endOfMonth, subMonths, startOfYear, endOfYear, format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay } from 'date-fns';
+import { endOfMonth, subMonths, startOfYear, endOfYear, format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay, differenceInDays } from 'date-fns';
 import type {
   Transaction,
   MonthSummary,
@@ -23,6 +23,14 @@ import type {
   MonthlyBudgetStructure,
   CategoryBudgetSummary,
   RecurrenceFrequency,
+  InsightType,
+  CautionDetailData,
+  RoomDetailData,
+  InterestDetailData,
+  CompareDetailData,
+  UpcomingDetailData,
+  UpcomingDetailItem,
+  InsightDetailData,
 } from '@/types';
 
 /**
@@ -510,13 +518,47 @@ export async function getTopTransactionsByCategory(
 }
 
 /**
- * Search transactions by memo
+ * Search transactions by memo, tags, or amount
+ * Supports:
+ * - Text search in memo
+ * - Tag search (with or without #)
+ * - Amount search (exact or partial match)
  */
 export async function searchTransactions(query: string): Promise<Transaction[]> {
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = query.toLowerCase().trim();
+
+  // # prefix means tag-only search
+  const isTagOnlySearch = lowerQuery.startsWith('#');
+  const searchTerm = isTagOnlySearch ? lowerQuery.slice(1) : lowerQuery;
 
   return db.transactions
-    .filter((tx) => tx.memo ? tx.memo.toLowerCase().includes(lowerQuery) : false)
+    .filter((tx) => {
+      // Tag search
+      if (tx.tags && tx.tags.length > 0) {
+        const tagMatch = tx.tags.some((tag) =>
+          tag.toLowerCase().includes(searchTerm)
+        );
+        if (tagMatch) return true;
+      }
+
+      // If tag-only search, don't check other fields
+      if (isTagOnlySearch) return false;
+
+      // Memo search
+      if (tx.memo && tx.memo.toLowerCase().includes(lowerQuery)) {
+        return true;
+      }
+
+      // Amount search (if query is numeric)
+      if (/^\d+$/.test(lowerQuery)) {
+        const amountStr = tx.amount.toString();
+        if (amountStr.includes(lowerQuery)) {
+          return true;
+        }
+      }
+
+      return false;
+    })
     .reverse()
     .sortBy('date');
 }
@@ -525,8 +567,20 @@ export async function searchTransactions(query: string): Promise<Transaction[]> 
 // Budget Wizard Queries
 // =========================================
 
+// 기본 예산 비율 (지출 데이터가 없을 때 사용)
+const DEFAULT_BUDGET_RATIOS: Record<string, number> = {
+  '식비': 30,
+  '교통': 10,
+  '쇼핑': 15,
+  '문화/여가': 10,
+  '의료/건강': 5,
+  '주거/통신': 20,
+  '기타': 10,
+};
+
 /**
  * Get budget recommendation based on past 3 months spending
+ * If no spending data, returns all expense categories with default ratios
  */
 export async function getBudgetRecommendation(): Promise<BudgetRecommendation> {
   const now = new Date();
@@ -561,13 +615,19 @@ export async function getBudgetRecommendation(): Promise<BudgetRecommendation> {
   const maxExpenseMonth = monthlyExpenses.length > 0 ? Math.max(...monthlyExpenses) : 0;
   const minExpenseMonth = monthlyExpenses.length > 0 ? Math.min(...monthlyExpenses) : 0;
 
-  // Get category details
+  // Get all expense categories
   const categories = await db.categories.where('type').equals('expense').toArray();
   const categoryBreakdown: CategoryBudgetRecommendation[] = [];
 
+  // 기본 예산 (데이터 없을 때 사용)
+  const defaultBudget = 2000000;
+  const baseBudget = avgExpense3Months > 0 ? avgExpense3Months : defaultBudget;
+
   for (const cat of categories) {
     const data = categoryTotals.get(cat.id);
+
     if (data && data.amount > 0) {
+      // 실제 지출 데이터가 있는 경우
       const avgAmount = Math.round(data.amount / dataMonths);
       const percentage = avgExpense3Months > 0 ? (avgAmount / avgExpense3Months) * 100 : 0;
 
@@ -580,11 +640,25 @@ export async function getBudgetRecommendation(): Promise<BudgetRecommendation> {
         percentage: Math.round(percentage * 10) / 10,
         recommendedBudget: avgAmount,
       });
+    } else {
+      // 지출 데이터가 없는 경우: 기본 비율 적용
+      const defaultRatio = DEFAULT_BUDGET_RATIOS[cat.name] || 5;
+      const recommendedBudget = Math.round((defaultRatio / 100) * baseBudget);
+
+      categoryBreakdown.push({
+        categoryId: cat.id,
+        categoryName: cat.name,
+        categoryIcon: cat.icon,
+        categoryColor: cat.color,
+        avgAmount: 0,
+        percentage: defaultRatio,
+        recommendedBudget,
+      });
     }
   }
 
-  // Sort by amount descending
-  categoryBreakdown.sort((a, b) => b.avgAmount - a.avgAmount);
+  // Sort by percentage descending (not avgAmount, to keep sensible order when no data)
+  categoryBreakdown.sort((a, b) => b.percentage - a.percentage);
 
   return {
     avgExpense3Months,
@@ -1222,7 +1296,9 @@ export async function executeRecurringTransaction(
     amount: recurring.amount,
     categoryId: recurring.categoryId,
     paymentMethodId: recurring.paymentMethodId,
+    incomeSourceId: recurring.incomeSourceId,
     memo: recurring.memo,
+    tags: recurring.tags,
     date: now,
     time: format(now, 'HH:mm'),
     createdAt: now,
@@ -1274,46 +1350,29 @@ export async function getRecentMemos(limit: number = 10): Promise<string[]> {
   return result;
 }
 
-/**
- * Extract individual words/tags from memo text
- * Filters out short words and common particles
- */
-function extractTagsFromMemo(memoText: string): string[] {
-  if (!memoText) return [];
-
-  // Split by whitespace and filter
-  const words = memoText.split(/\s+/).filter(word => {
-    // At least 2 characters
-    if (word.length < 2) return false;
-    // Skip common Korean particles and numbers-only
-    const skipWords = ['의', '를', '을', '이', '가', '에서', '에게', '으로', '로', '와', '과', '도', '만', '까지', '부터', '에', '은', '는'];
-    if (skipWords.includes(word)) return false;
-    // Skip pure numbers
-    if (/^\d+$/.test(word)) return false;
-    return true;
-  });
-
-  return words;
-}
+// 기본 추천 태그 (데이터가 없을 때 표시)
+const DEFAULT_SUGGESTED_TAGS = ['정기', '회식', '선물', '카페', '구독', '배달', '외식', '대중교통'];
 
 /**
- * Get recent tags (individual words) from memos with frequency
+ * Get recent tags from tags field with frequency
  * Returns unique tags sorted by frequency, most used first
+ * Falls back to default tags if no tag data exists
+ * Uses the new tags[] field (v8 schema)
  */
 export async function getRecentTags(limit: number = 15): Promise<string[]> {
   const transactions = await db.transactions
     .orderBy('createdAt')
     .reverse()
-    .limit(300) // Scan more transactions for better tag extraction
+    .limit(300)
     .toArray();
 
   const tagFrequency = new Map<string, number>();
 
   for (const tx of transactions) {
-    const memoText = tx.memo || '';
-    const tags = extractTagsFromMemo(memoText);
+    // tags 필드에서 직접 가져오기
+    const txTags = tx.tags || [];
 
-    for (const tag of tags) {
+    for (const tag of txTags) {
       const count = tagFrequency.get(tag) || 0;
       tagFrequency.set(tag, count + 1);
     }
@@ -1325,12 +1384,18 @@ export async function getRecentTags(limit: number = 15): Promise<string[]> {
     .slice(0, limit)
     .map(([tag]) => tag);
 
+  // 태그 데이터가 없으면 기본 추천 태그 반환
+  if (sortedTags.length === 0) {
+    return DEFAULT_SUGGESTED_TAGS.slice(0, limit);
+  }
+
   return sortedTags;
 }
 
 /**
  * Get tags specific to a category (most used in that category)
  * Returns tags sorted by frequency within the category
+ * Uses the new tags[] field (v8 schema)
  */
 export async function getTagsByCategory(
   categoryId: string,
@@ -1345,10 +1410,10 @@ export async function getTagsByCategory(
   const tagFrequency = new Map<string, number>();
 
   for (const tx of transactions.slice(0, 100)) {
-    const memoText = tx.memo || '';
-    const tags = extractTagsFromMemo(memoText);
+    // tags 필드에서 직접 가져오기
+    const txTags = tx.tags || [];
 
-    for (const tag of tags) {
+    for (const tag of txTags) {
       const count = tagFrequency.get(tag) || 0;
       tagFrequency.set(tag, count + 1);
     }
@@ -1385,4 +1450,737 @@ export async function getTagSuggestions(
     .slice(0, limit - categoryTags.length);
 
   return { categoryTags, recentTags };
+}
+
+/**
+ * Search transactions by tag
+ * Uses the MultiEntry index on tags field for efficient querying
+ */
+export async function getTransactionsByTag(tag: string): Promise<Transaction[]> {
+  return db.transactions
+    .where('tags')
+    .equals(tag)
+    .reverse()
+    .sortBy('date');
+}
+
+/**
+ * Get all unique tags used in transactions
+ * Returns tags sorted by frequency
+ */
+export async function getAllTags(): Promise<{ tag: string; count: number }[]> {
+  const transactions = await db.transactions.toArray();
+  const tagFrequency = new Map<string, number>();
+
+  for (const tx of transactions) {
+    const txTags = tx.tags || [];
+    for (const tag of txTags) {
+      const count = tagFrequency.get(tag) || 0;
+      tagFrequency.set(tag, count + 1);
+    }
+  }
+
+  return Array.from(tagFrequency.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Get suggested memos and tags for a category
+ * Returns frequently used memos and tags for the given category
+ */
+export async function getCategorySuggestions(
+  categoryId: string,
+  memoLimit: number = 6,
+  tagLimit: number = 6
+): Promise<{ memos: string[]; tags: string[] }> {
+  const transactions = await db.transactions
+    .where('categoryId')
+    .equals(categoryId)
+    .reverse()
+    .sortBy('createdAt');
+
+  // Count memo frequency
+  const memoFrequency = new Map<string, number>();
+  const tagFrequency = new Map<string, number>();
+
+  for (const tx of transactions.slice(0, 200)) {
+    // Count memos
+    if (tx.memo && tx.memo.trim()) {
+      const memo = tx.memo.trim();
+      memoFrequency.set(memo, (memoFrequency.get(memo) || 0) + 1);
+    }
+
+    // Count tags
+    for (const tag of tx.tags || []) {
+      tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
+    }
+  }
+
+  // Sort by frequency
+  const memos = Array.from(memoFrequency.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, memoLimit)
+    .map(([memo]) => memo);
+
+  const tags = Array.from(tagFrequency.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, tagLimit)
+    .map(([tag]) => tag);
+
+  return { memos, tags };
+}
+
+// =========================================
+// Insight Card Queries (홈 인사이트)
+// =========================================
+
+export interface CategoryBudgetStatus {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  budgetAmount: number;
+  currentSpent: number;
+  percentUsed: number;
+  remaining: number;
+}
+
+export interface MonthCompareItem {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  currentAmount: number;
+  previousAmount: number;
+  difference: number;
+  percentChange: number;
+}
+
+export interface UpcomingItem {
+  id: string;
+  type: 'expense' | 'income';
+  amount: number;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  memo?: string;
+  scheduledDate: Date;
+  daysUntil: number;
+}
+
+/**
+ * Get category budget status for insight cards
+ * Returns categories with budget set, sorted by percentUsed
+ */
+export async function getCategoryBudgetStatus(
+  year: number,
+  month: number
+): Promise<{
+  caution: CategoryBudgetStatus[];  // 70%+
+  room: CategoryBudgetStatus[];     // <50%
+  hasCategoryBudget: boolean;
+}> {
+  const categories = await db.categories.where('type').equals('expense').toArray();
+  const categoriesWithBudget = categories.filter((c) => c.budget && c.budget > 0);
+
+  if (categoriesWithBudget.length === 0) {
+    return { caution: [], room: [], hasCategoryBudget: false };
+  }
+
+  const transactions = await getTransactionsByMonth(year, month);
+  const expenseTransactions = transactions.filter((tx) => tx.type === 'expense');
+
+  // Calculate spending per category
+  const spendingMap = new Map<string, number>();
+  for (const tx of expenseTransactions) {
+    const current = spendingMap.get(tx.categoryId) || 0;
+    spendingMap.set(tx.categoryId, current + tx.amount);
+  }
+
+  const statuses: CategoryBudgetStatus[] = categoriesWithBudget.map((cat) => {
+    const currentSpent = spendingMap.get(cat.id) || 0;
+    const budgetAmount = cat.budget!;
+    const percentUsed = Math.round((currentSpent / budgetAmount) * 100);
+    const remaining = budgetAmount - currentSpent;
+
+    return {
+      categoryId: cat.id,
+      categoryName: cat.name,
+      categoryIcon: cat.icon,
+      categoryColor: cat.color,
+      budgetAmount,
+      currentSpent,
+      percentUsed,
+      remaining,
+    };
+  });
+
+  // Split into caution (70%+) and room (<50%)
+  const caution = statuses
+    .filter((s) => s.percentUsed >= 70)
+    .sort((a, b) => b.percentUsed - a.percentUsed)
+    .slice(0, 3);
+
+  const room = statuses
+    .filter((s) => s.percentUsed < 50)
+    .sort((a, b) => a.percentUsed - b.percentUsed)
+    .slice(0, 3);
+
+  return { caution, room, hasCategoryBudget: true };
+}
+
+/**
+ * Compare current month with previous month
+ * Returns categories with significant changes
+ */
+export async function getMonthComparison(
+  year: number,
+  month: number
+): Promise<{
+  increases: MonthCompareItem[];
+  decreases: MonthCompareItem[];
+  hasLastMonthData: boolean;
+}> {
+  // Current month breakdown
+  const currentBreakdown = await getCategoryBreakdown(year, month, 'expense');
+
+  // Previous month breakdown
+  const prevDate = subMonths(new Date(year, month - 1, 1), 1);
+  const prevYear = prevDate.getFullYear();
+  const prevMonth = prevDate.getMonth() + 1;
+  const prevBreakdown = await getCategoryBreakdown(prevYear, prevMonth, 'expense');
+
+  if (prevBreakdown.length === 0) {
+    return { increases: [], decreases: [], hasLastMonthData: false };
+  }
+
+  const prevMap = new Map(prevBreakdown.map((b) => [b.categoryId, b]));
+
+  const comparisons: MonthCompareItem[] = [];
+
+  for (const curr of currentBreakdown) {
+    const prev = prevMap.get(curr.categoryId);
+    const previousAmount = prev?.amount || 0;
+    const difference = curr.amount - previousAmount;
+    const percentChange = previousAmount > 0
+      ? Math.round((difference / previousAmount) * 100)
+      : (curr.amount > 0 ? 100 : 0);
+
+    comparisons.push({
+      categoryId: curr.categoryId,
+      categoryName: curr.categoryName,
+      categoryIcon: curr.categoryIcon,
+      categoryColor: curr.categoryColor,
+      currentAmount: curr.amount,
+      previousAmount,
+      difference,
+      percentChange,
+    });
+  }
+
+  // Also add categories that existed last month but not this month
+  for (const prev of prevBreakdown) {
+    if (!currentBreakdown.find((c) => c.categoryId === prev.categoryId)) {
+      comparisons.push({
+        categoryId: prev.categoryId,
+        categoryName: prev.categoryName,
+        categoryIcon: prev.categoryIcon,
+        categoryColor: prev.categoryColor,
+        currentAmount: 0,
+        previousAmount: prev.amount,
+        difference: -prev.amount,
+        percentChange: -100,
+      });
+    }
+  }
+
+  // Split into increases and decreases (significant changes only: >= 20% or >= 10,000원)
+  const significant = comparisons.filter(
+    (c) => Math.abs(c.percentChange) >= 20 || Math.abs(c.difference) >= 10000
+  );
+
+  const increases = significant
+    .filter((c) => c.difference > 0)
+    .sort((a, b) => b.difference - a.difference)
+    .slice(0, 2);
+
+  const decreases = significant
+    .filter((c) => c.difference < 0)
+    .sort((a, b) => a.difference - b.difference)
+    .slice(0, 2);
+
+  return { increases, decreases, hasLastMonthData: true };
+}
+
+/**
+ * Get upcoming scheduled transactions for this month
+ * Returns transactions scheduled for the remaining days of the month
+ */
+export async function getUpcomingThisMonth(
+  year: number,
+  month: number
+): Promise<{
+  items: UpcomingItem[];
+  totalExpense: number;
+  totalIncome: number;
+}> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const monthEnd = endOfMonth(new Date(year, month - 1, 1));
+
+  // Only get upcoming if we're in the current or future month
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+
+  if (year < currentYear || (year === currentYear && month < currentMonth)) {
+    return { items: [], totalExpense: 0, totalIncome: 0 };
+  }
+
+  const startDate = year === currentYear && month === currentMonth
+    ? addDays(today, 1)
+    : new Date(year, month - 1, 1);
+
+  const projections = await getProjectedTransactions(startDate, monthEnd);
+
+  const items: UpcomingItem[] = projections.map((p) => ({
+    id: p.id,
+    type: p.type,
+    amount: p.amount,
+    categoryName: p.categoryName,
+    categoryIcon: p.categoryIcon,
+    categoryColor: p.categoryColor,
+    memo: p.memo,
+    scheduledDate: p.scheduledDate,
+    daysUntil: Math.ceil((p.scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+  }));
+
+  const totalExpense = items
+    .filter((i) => i.type === 'expense')
+    .reduce((sum, i) => sum + i.amount, 0);
+
+  const totalIncome = items
+    .filter((i) => i.type === 'income')
+    .reduce((sum, i) => sum + i.amount, 0);
+
+  return { items: items.slice(0, 5), totalExpense, totalIncome };
+}
+
+/**
+ * Get current month record summary (for first-time users)
+ */
+export async function getCurrentMonthRecordSummary(
+  year: number,
+  month: number
+): Promise<{
+  transactionCount: number;
+  totalExpense: number;
+  totalIncome: number;
+}> {
+  const summary = await getMonthlySummary(year, month);
+
+  return {
+    transactionCount: summary.transactionCount,
+    totalExpense: summary.expense,
+    totalIncome: summary.income,
+  };
+}
+
+// ============================================
+// Insight Detail Queries (인사이트 상세 뷰)
+// ============================================
+
+/**
+ * Calculate remaining days in the current month
+ */
+function getRemainingDaysInMonth(): number {
+  const now = new Date();
+  const lastDay = endOfMonth(now);
+  return differenceInDays(lastDay, now) + 1;
+}
+
+/**
+ * Get day of week label in Korean
+ */
+function getDayOfWeekLabel(dayIndex: number): string {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return days[dayIndex] + '요일';
+}
+
+/**
+ * Get time range label based on hour
+ */
+function getTimeRangeLabel(hour: number): string {
+  if (hour >= 6 && hour < 11) return '아침';
+  if (hour >= 11 && hour < 14) return '점심';
+  if (hour >= 14 && hour < 18) return '오후';
+  if (hour >= 18 && hour < 22) return '저녁';
+  return '밤';
+}
+
+/**
+ * 1. Caution Detail - 주의 카테고리 상세 데이터
+ */
+export async function getCautionDetail(
+  categoryId: string,
+  year: number,
+  month: number
+): Promise<CautionDetailData | null> {
+  const category = await db.categories.get(categoryId);
+  if (!category || !category.budget || category.budget <= 0) {
+    return null;
+  }
+
+  const transactions = await getTransactionsByMonth(year, month);
+  const categoryTransactions = transactions.filter(
+    (tx) => tx.type === 'expense' && tx.categoryId === categoryId
+  );
+
+  const currentSpent = categoryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const budgetAmount = category.budget;
+  const percentUsed = Math.round((currentSpent / budgetAmount) * 100);
+  const remaining = Math.max(budgetAmount - currentSpent, 0);
+  const remainingDays = getRemainingDaysInMonth();
+  const dailyRecommended = remainingDays > 0 ? Math.round(remaining / remainingDays) : 0;
+
+  // Top 3 transactions by amount
+  const sortedByAmount = [...categoryTransactions].sort((a, b) => b.amount - a.amount);
+  const topTransactionIds = sortedByAmount.slice(0, 3).map((tx) => tx.id);
+
+  // Generate insight message
+  let insightMessage: string;
+  if (percentUsed >= 100) {
+    insightMessage = `${category.name} 예산을 초과했어요. 남은 기간 지출을 줄여보세요.`;
+  } else if (remainingDays > 0 && dailyRecommended > 0) {
+    insightMessage = `하루 ${dailyRecommended.toLocaleString()}원 이내로 쓰면 예산 내 마무리할 수 있어요.`;
+  } else {
+    insightMessage = `${category.name} 예산의 ${percentUsed}%를 사용했어요.`;
+  }
+
+  return {
+    categoryId,
+    categoryName: category.name,
+    categoryIcon: category.icon,
+    categoryColor: category.color,
+    budgetAmount,
+    currentSpent,
+    percentUsed,
+    remaining,
+    remainingDays,
+    dailyRecommended,
+    topTransactionIds,
+    insightMessage,
+  };
+}
+
+/**
+ * 2. Room Detail - 여유 카테고리 상세 데이터
+ */
+export async function getRoomDetail(
+  categoryId: string,
+  year: number,
+  month: number
+): Promise<RoomDetailData | null> {
+  const category = await db.categories.get(categoryId);
+  if (!category || !category.budget || category.budget <= 0) {
+    return null;
+  }
+
+  const transactions = await getTransactionsByMonth(year, month);
+  const categoryTransactions = transactions.filter(
+    (tx) => tx.type === 'expense' && tx.categoryId === categoryId
+  );
+
+  const currentSpent = categoryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const budgetAmount = category.budget;
+  const percentUsed = Math.round((currentSpent / budgetAmount) * 100);
+  const remaining = Math.max(budgetAmount - currentSpent, 0);
+
+  // Last month same point comparison (optional)
+  let lastMonthSamePoint: number | undefined;
+  const today = new Date();
+  const currentDay = today.getDate();
+
+  const prevDate = subMonths(new Date(year, month - 1, 1), 1);
+  const prevYear = prevDate.getFullYear();
+  const prevMonth = prevDate.getMonth() + 1;
+  const lastMonthTransactions = await getTransactionsByMonth(prevYear, prevMonth);
+  const lastMonthCategoryTx = lastMonthTransactions.filter(
+    (tx) =>
+      tx.type === 'expense' &&
+      tx.categoryId === categoryId &&
+      tx.date.getDate() <= currentDay
+  );
+  if (lastMonthCategoryTx.length > 0) {
+    lastMonthSamePoint = lastMonthCategoryTx.reduce((sum, tx) => sum + tx.amount, 0);
+  }
+
+  const insightMessage = `${category.name}에 ${remaining.toLocaleString()}원 여유가 있어요. 이 흐름 유지해봐요.`;
+
+  return {
+    categoryId,
+    categoryName: category.name,
+    categoryIcon: category.icon,
+    categoryColor: category.color,
+    budgetAmount,
+    currentSpent,
+    percentUsed,
+    remaining,
+    lastMonthSamePoint,
+    insightMessage,
+  };
+}
+
+/**
+ * 3. Interest Detail - 관심 카테고리 상세 데이터
+ */
+export async function getInterestDetail(
+  categoryId: string,
+  year: number,
+  month: number
+): Promise<InterestDetailData | null> {
+  const category = await db.categories.get(categoryId);
+  if (!category) {
+    return null;
+  }
+
+  const transactions = await getTransactionsByMonth(year, month);
+  const categoryTransactions = transactions.filter(
+    (tx) => tx.type === 'expense' && tx.categoryId === categoryId
+  );
+
+  if (categoryTransactions.length === 0) {
+    return null;
+  }
+
+  const totalCount = categoryTransactions.length;
+  const totalAmount = categoryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const averageAmount = Math.round(totalAmount / totalCount);
+
+  // Analyze peak day of week
+  const dayOfWeekCounts = new Map<number, number>();
+  for (const tx of categoryTransactions) {
+    const dow = tx.date.getDay();
+    dayOfWeekCounts.set(dow, (dayOfWeekCounts.get(dow) || 0) + 1);
+  }
+  let peakDayOfWeek: string | undefined;
+  let maxDayCount = 0;
+  for (const [dow, count] of dayOfWeekCounts) {
+    if (count > maxDayCount) {
+      maxDayCount = count;
+      peakDayOfWeek = getDayOfWeekLabel(dow);
+    }
+  }
+
+  // Analyze peak time range
+  const timeRangeCounts = new Map<string, number>();
+  for (const tx of categoryTransactions) {
+    if (tx.time) {
+      const hour = parseInt(tx.time.split(':')[0], 10);
+      const range = getTimeRangeLabel(hour);
+      timeRangeCounts.set(range, (timeRangeCounts.get(range) || 0) + 1);
+    }
+  }
+  let peakTimeRange: string | undefined;
+  let maxTimeCount = 0;
+  for (const [range, count] of timeRangeCounts) {
+    if (count > maxTimeCount) {
+      maxTimeCount = count;
+      peakTimeRange = range;
+    }
+  }
+
+  // Generate insight message
+  let insightMessage: string;
+  if (peakDayOfWeek) {
+    insightMessage = `주로 ${peakDayOfWeek}에 많이 쓰고 있어요. 평균 ${averageAmount.toLocaleString()}원씩이에요.`;
+  } else {
+    insightMessage = `${totalCount}번, 평균 ${averageAmount.toLocaleString()}원씩 썼어요.`;
+  }
+
+  return {
+    categoryId,
+    categoryName: category.name,
+    categoryIcon: category.icon,
+    categoryColor: category.color,
+    totalCount,
+    totalAmount,
+    averageAmount,
+    peakDayOfWeek,
+    peakTimeRange,
+    insightMessage,
+  };
+}
+
+/**
+ * 4. Compare Detail - 전월 대비 상세 데이터
+ */
+export async function getCompareDetail(
+  categoryId: string,
+  year: number,
+  month: number
+): Promise<CompareDetailData | null> {
+  const category = await db.categories.get(categoryId);
+  if (!category) {
+    return null;
+  }
+
+  // Current month
+  const currentTransactions = await getTransactionsByMonth(year, month);
+  const currentCategoryTx = currentTransactions.filter(
+    (tx) => tx.type === 'expense' && tx.categoryId === categoryId
+  );
+  const currentAmount = currentCategoryTx.reduce((sum, tx) => sum + tx.amount, 0);
+  const currentCount = currentCategoryTx.length;
+
+  // Last month
+  const prevDate = subMonths(new Date(year, month - 1, 1), 1);
+  const prevYear = prevDate.getFullYear();
+  const prevMonth = prevDate.getMonth() + 1;
+  const lastMonthTransactions = await getTransactionsByMonth(prevYear, prevMonth);
+  const lastMonthCategoryTx = lastMonthTransactions.filter(
+    (tx) => tx.type === 'expense' && tx.categoryId === categoryId
+  );
+  const lastMonthAmount = lastMonthCategoryTx.reduce((sum, tx) => sum + tx.amount, 0);
+  const lastMonthCount = lastMonthCategoryTx.length;
+
+  const difference = currentAmount - lastMonthAmount;
+  const percentChange =
+    lastMonthAmount > 0
+      ? Math.round((difference / lastMonthAmount) * 100)
+      : currentAmount > 0
+        ? 100
+        : 0;
+  const isIncrease = difference > 0;
+
+  // Generate insight message
+  let insightMessage: string;
+  if (isIncrease) {
+    insightMessage = `지난달보다 ${Math.abs(difference).toLocaleString()}원 늘었어요. 어떤 지출이 늘었는지 확인해보세요.`;
+  } else if (difference < 0) {
+    insightMessage = `지난달보다 ${Math.abs(difference).toLocaleString()}원 줄었어요. 이 흐름 유지해봐요.`;
+  } else {
+    insightMessage = `지난달과 비슷한 수준이에요.`;
+  }
+
+  return {
+    categoryId,
+    categoryName: category.name,
+    categoryIcon: category.icon,
+    categoryColor: category.color,
+    currentMonth: {
+      year,
+      month,
+      amount: currentAmount,
+      count: currentCount,
+    },
+    lastMonth: {
+      year: prevYear,
+      month: prevMonth,
+      amount: lastMonthAmount,
+      count: lastMonthCount,
+    },
+    difference,
+    percentChange,
+    isIncrease,
+    insightMessage,
+  };
+}
+
+/**
+ * 5. Upcoming Detail - 예정 거래 상세 데이터
+ */
+export async function getUpcomingDetail(
+  year: number,
+  month: number
+): Promise<UpcomingDetailData> {
+  const upcoming = await getUpcomingThisMonth(year, month);
+
+  const items: UpcomingDetailItem[] = upcoming.items.map((item) => ({
+    id: item.id,
+    type: item.type,
+    amount: item.amount,
+    categoryId: '', // Not available in UpcomingItem, will be resolved if needed
+    categoryName: item.categoryName,
+    categoryIcon: item.categoryIcon,
+    categoryColor: item.categoryColor,
+    memo: item.memo,
+    scheduledDate: item.scheduledDate,
+    daysUntil: item.daysUntil,
+  }));
+
+  const totalCount = items.length;
+  const totalExpense = upcoming.totalExpense;
+  const totalIncome = upcoming.totalIncome;
+  const netImpact = totalIncome - totalExpense;
+
+  const nextItem = items.length > 0 ? items[0] : undefined;
+
+  // Generate insight message
+  let insightMessage: string;
+  if (nextItem) {
+    const daysText = nextItem.daysUntil === 1 ? '내일' : `${nextItem.daysUntil}일 후`;
+    insightMessage = `다음 예정: ${daysText} ${nextItem.memo || nextItem.categoryName} ${nextItem.amount.toLocaleString()}원`;
+  } else {
+    insightMessage = `이번 달 예정된 거래가 없어요.`;
+  }
+
+  return {
+    totalCount,
+    totalExpense,
+    totalIncome,
+    netImpact,
+    items,
+    nextItem,
+    insightMessage,
+  };
+}
+
+/**
+ * 6. 통합 인사이트 상세 데이터 조회
+ */
+export async function getInsightDetail(
+  insightType: InsightType,
+  categoryId?: string,
+  year?: number,
+  month?: number
+): Promise<InsightDetailData | null> {
+  const now = new Date();
+  const y = year ?? now.getFullYear();
+  const m = month ?? now.getMonth() + 1;
+
+  switch (insightType) {
+    case 'caution': {
+      if (!categoryId) return null;
+      const cautionData = await getCautionDetail(categoryId, y, m);
+      return cautionData ? { type: 'caution', data: cautionData } : null;
+    }
+
+    case 'room': {
+      if (!categoryId) return null;
+      const roomData = await getRoomDetail(categoryId, y, m);
+      return roomData ? { type: 'room', data: roomData } : null;
+    }
+
+    case 'interest': {
+      if (!categoryId) return null;
+      const interestData = await getInterestDetail(categoryId, y, m);
+      return interestData ? { type: 'interest', data: interestData } : null;
+    }
+
+    case 'compare': {
+      if (!categoryId) return null;
+      const compareData = await getCompareDetail(categoryId, y, m);
+      return compareData ? { type: 'compare', data: compareData } : null;
+    }
+
+    case 'upcoming': {
+      const upcomingData = await getUpcomingDetail(y, m);
+      return { type: 'upcoming', data: upcomingData };
+    }
+
+    default:
+      return null;
+  }
 }

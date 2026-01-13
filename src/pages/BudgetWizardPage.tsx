@@ -60,6 +60,11 @@ export function BudgetWizardPage() {
     }
   };
 
+  const handleSkipToSettings = () => {
+    // 바로 예산 설정 단계 (Step 4)로 이동
+    setStep(4);
+  };
+
   const handleBudgetPreset = (type: 'tight' | 'normal' | 'relaxed') => {
     const base = recommendation?.avgExpense3Months || 2000000;
     const multiplier = type === 'tight' ? 0.9 : type === 'relaxed' ? 1.1 : 1;
@@ -69,7 +74,7 @@ export function BudgetWizardPage() {
   };
 
   const redistributeBudgets = (newTotal: number) => {
-    if (!recommendation || recommendation.avgExpense3Months === 0) return;
+    if (!recommendation) return;
 
     setCategoryBudgets((prev) =>
       prev.map((cat) => ({
@@ -298,7 +303,18 @@ export function BudgetWizardPage() {
                   [&::-webkit-slider-thumb]:bg-ink-black
                   [&::-webkit-slider-thumb]:dark:bg-pig-pink
                   [&::-webkit-slider-thumb]:rounded-full
-                  [&::-webkit-slider-thumb]:cursor-pointer"
+                  [&::-webkit-slider-thumb]:cursor-pointer
+                  [&::-webkit-slider-thumb]:shadow-md
+                  [&::-webkit-slider-thumb]:border-2
+                  [&::-webkit-slider-thumb]:border-paper-white
+                  [&::-moz-range-thumb]:w-6
+                  [&::-moz-range-thumb]:h-6
+                  [&::-moz-range-thumb]:bg-ink-black
+                  [&::-moz-range-thumb]:dark:bg-pig-pink
+                  [&::-moz-range-thumb]:rounded-full
+                  [&::-moz-range-thumb]:cursor-pointer
+                  [&::-moz-range-thumb]:border-2
+                  [&::-moz-range-thumb]:border-paper-white"
               />
               <div className="flex justify-between mt-1">
                 <span className="text-caption text-ink-light">50만</span>
@@ -382,7 +398,24 @@ export function BudgetWizardPage() {
             <div className="flex items-center justify-between py-3 mb-4 border-b border-paper-mid">
               <div className="flex items-center gap-2">
                 <span className="text-sub text-ink-black">자동 배분</span>
-                <Info size={14} className="text-ink-light" />
+                <div className="relative group">
+                  <Info size={14} className="text-ink-light cursor-help" />
+                  <div className="absolute bottom-full left-0 mb-2 w-48 p-2 bg-ink-black dark:bg-ink-dark text-paper-white text-caption rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                    <p className="mb-1.5 text-paper-light">배분 비율 (과거 3개월 기준)</p>
+                    <div className="space-y-0.5">
+                      {categoryBudgets.slice(0, 4).map((cat) => (
+                        <div key={cat.categoryId} className="flex justify-between">
+                          <span>{cat.categoryName}</span>
+                          <span>{Math.round(cat.percentage)}%</span>
+                        </div>
+                      ))}
+                      {categoryBudgets.length > 4 && (
+                        <span className="text-paper-light">외 {categoryBudgets.length - 4}개</span>
+                      )}
+                    </div>
+                    <div className="absolute -bottom-1 left-3 w-2 h-2 bg-ink-black dark:bg-ink-dark rotate-45"></div>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -437,44 +470,53 @@ export function BudgetWizardPage() {
 
                   {cat.isExpanded && (
                     <div className="px-3 pb-3">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-caption text-ink-light">
-                          월 평균 {formatCurrency(cat.avgAmount)}
+                          과거 3개월 평균: {formatCurrency(cat.avgAmount)}
                         </span>
-                        <span className="text-caption text-ink-light">•</span>
-                        <span className="text-caption text-ink-light">{Math.round(cat.percentage)}%</span>
+                        <span className="text-caption text-ink-mid font-medium">
+                          예산의 {totalBudget > 0 ? Math.round((cat.budget / totalBudget) * 100) : 0}%
+                        </span>
                       </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={totalBudget}
-                        step={10000}
-                        value={cat.budget}
-                        onChange={(e) =>
-                          handleCategoryBudgetChange(cat.categoryId, parseInt(e.target.value))
-                        }
-                        className="w-full h-2 bg-paper-mid dark:bg-ink-dark rounded-full appearance-none cursor-pointer
-                          [&::-webkit-slider-thumb]:appearance-none
-                          [&::-webkit-slider-thumb]:w-5
-                          [&::-webkit-slider-thumb]:h-5
-                          [&::-webkit-slider-thumb]:rounded-full
-                          [&::-webkit-slider-thumb]:cursor-pointer"
-                        style={{
-                          // @ts-expect-error CSS custom property
-                          '--thumb-color': cat.categoryColor,
-                        }}
-                      />
-                      <div className="flex justify-between mt-1">
-                        <span className="text-caption text-ink-light">0</span>
+                      <div className="relative">
                         <input
-                          type="number"
+                          type="range"
+                          min={0}
+                          max={totalBudget}
+                          step={10000}
                           value={cat.budget}
                           onChange={(e) =>
-                            handleCategoryBudgetChange(cat.categoryId, parseInt(e.target.value) || 0)
+                            handleCategoryBudgetChange(cat.categoryId, parseInt(e.target.value))
                           }
-                          className="w-24 text-right text-sub text-ink-black bg-transparent outline-none"
+                          className="w-full h-2 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-paper-white [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-paper-white [&::-moz-range-thumb]:shadow-md"
+                          style={{
+                            background: `linear-gradient(to right, ${cat.categoryColor} 0%, ${cat.categoryColor} ${totalBudget > 0 ? (cat.budget / totalBudget) * 100 : 0}%, var(--color-paper-mid) ${totalBudget > 0 ? (cat.budget / totalBudget) * 100 : 0}%, var(--color-paper-mid) 100%)`,
+                          }}
                         />
-                        <span className="text-caption text-ink-light">원</span>
+                        {/* Thumb indicator overlay */}
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-2 border-paper-white shadow-md pointer-events-none"
+                          style={{
+                            left: `calc(${totalBudget > 0 ? (cat.budget / totalBudget) * 100 : 0}% - 10px)`,
+                            backgroundColor: cat.categoryColor,
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-caption text-ink-light">0</span>
+                        <div className="flex items-center">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={cat.budget.toLocaleString()}
+                            onChange={(e) => {
+                              const numValue = parseInt(e.target.value.replace(/,/g, '')) || 0;
+                              handleCategoryBudgetChange(cat.categoryId, numValue);
+                            }}
+                            className="w-24 text-right text-sub text-ink-black bg-transparent outline-none"
+                          />
+                          <span className="text-caption text-ink-light ml-1">원</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -528,7 +570,24 @@ export function BudgetWizardPage() {
 
       {/* Footer Buttons */}
       <div className="flex-shrink-0 p-6 border-t border-paper-mid">
-        {step < 4 && (
+        {step === 1 && (
+          <div className="space-y-3">
+            <button
+              onClick={handleNext}
+              className="w-full py-4 bg-ink-black dark:bg-pig-pink text-paper-white rounded-md text-body"
+            >
+              다음
+            </button>
+            <button
+              onClick={handleSkipToSettings}
+              className="w-full py-3 text-ink-mid text-body"
+            >
+              바로 예산 설정하기
+            </button>
+          </div>
+        )}
+
+        {step > 1 && step < 4 && (
           <button
             onClick={handleNext}
             className="w-full py-4 bg-ink-black dark:bg-pig-pink text-paper-white rounded-md text-body"
