@@ -723,21 +723,21 @@ export function StatsPage() {
                             className="text-paper-white"
                           />
                         </div>
-                        <span className="text-body text-ink-dark dark:text-paper-white">
+                        <span className="text-body text-ink-dark">
                           {category.categoryName}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black dark:text-paper-white'}`}>
+                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
                           {transactionType === 'income' && '+ '}
                           {category.amount.toLocaleString()}원
                         </span>
-                        <span className="text-sub text-ink-mid dark:text-paper-mid ml-2">
+                        <span className="text-sub text-ink-mid ml-2">
                           {Math.round(category.percentage)}%
                         </span>
                       </div>
                     </div>
-                    <div className="h-1 bg-paper-mid dark:bg-ink-dark rounded-full overflow-hidden">
+                    <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{
@@ -746,7 +746,7 @@ export function StatsPage() {
                         }}
                       />
                     </div>
-                    <p className="text-caption text-ink-light dark:text-paper-light mt-1">
+                    <p className="text-caption text-ink-light mt-1">
                       {category.count}건
                     </p>
                   </button>
@@ -795,21 +795,21 @@ export function StatsPage() {
                             className="text-paper-white"
                           />
                         </div>
-                        <span className="text-body text-ink-dark dark:text-paper-white">
+                        <span className="text-body text-ink-dark">
                           {method.paymentMethodName}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black dark:text-paper-white'}`}>
+                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
                           {transactionType === 'income' && '+ '}
                           {method.amount.toLocaleString()}원
                         </span>
-                        <span className="text-sub text-ink-mid dark:text-paper-mid ml-2">
+                        <span className="text-sub text-ink-mid ml-2">
                           {Math.round(method.percentage)}%
                         </span>
                       </div>
                     </div>
-                    <div className="h-1 bg-paper-mid dark:bg-ink-dark rounded-full overflow-hidden">
+                    <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{
@@ -819,11 +819,11 @@ export function StatsPage() {
                       />
                     </div>
                     <div className="flex justify-between mt-1">
-                      <p className="text-caption text-ink-light dark:text-paper-light">
+                      <p className="text-caption text-ink-light">
                         {method.count}건
                       </p>
                       {method.budget && method.budgetPercent !== undefined && periodMode === 'monthly' && (
-                        <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid dark:text-paper-mid'}`}>
+                        <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid'}`}>
                           예산의 {method.budgetPercent}%
                           {method.budgetPercent > 100 && ' (초과)'}
                         </p>

@@ -2304,4 +2304,10 @@
   9. **차트 라벨 overflow 문제 해결**
      - 차트 컨테이너, PieChart에 `overflow: visible` 적용
      - StatsPage 부모 div에도 overflow: visible 추가
+  10. **브라우저 light + 앱 dark 모드 가시성 수정**
+     - CSS 변수 시스템 이해: `.dark` 클래스에서 변수가 자동 전환됨
+     - StatsPage.tsx: 잘못된 `dark:text-paper-white` 제거 (paper-white는 다크모드에서 배경색)
+     - 카테고리/수단 항목명, 금액, 퍼센트, 건수 등 `dark:` prefix 클래스 제거
+     - CSS 변수(`text-ink-dark`, `text-ink-black` 등)가 `.dark` 클래스에 따라 자동 전환
+     - CategoryDonutChart.tsx, PaymentMethodDonutChart.tsx: 다크모드 텍스트 색상을 globals.css 값과 일치 (`#F0F2F5`)
 - **결과**: 다크모드 전반적 가시성 개선, 입력 UX 향상, 모바일 친화적 토스트

@@ -54,8 +54,8 @@ const renderCustomLabel = ({
   // 퍼센트가 5% 미만이면 라벨 생략 (겹침 방지)
   if (percent < 0.05) return null;
 
-  // 다크모드에 따른 텍스트 색상
-  const textColor = isDarkMode() ? '#FFFCF5' : '#3D3A36';
+  // 다크모드에 따른 텍스트 색상 (globals.css의 --color-ink-black 참조)
+  const textColor = isDarkMode() ? '#F0F2F5' : '#1C1B1A';
 
   return (
     <g>
