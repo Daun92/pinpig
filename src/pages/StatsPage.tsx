@@ -746,7 +746,7 @@ export function StatsPage() {
                         }}
                       />
                     </div>
-                    <p className="text-caption text-ink-light mt-1">
+                    <p className="text-caption text-ink-light dark:text-paper-light mt-1">
                       {category.count}건
                     </p>
                   </button>
@@ -819,11 +819,11 @@ export function StatsPage() {
                       />
                     </div>
                     <div className="flex justify-between mt-1">
-                      <p className="text-caption text-ink-light">
+                      <p className="text-caption text-ink-light dark:text-paper-light">
                         {method.count}건
                       </p>
                       {method.budget && method.budgetPercent !== undefined && periodMode === 'monthly' && (
-                        <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid'}`}>
+                        <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid dark:text-paper-mid'}`}>
                           예산의 {method.budgetPercent}%
                           {method.budgetPercent > 100 && ' (초과)'}
                         </p>
