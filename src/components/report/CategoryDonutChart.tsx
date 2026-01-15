@@ -13,10 +13,9 @@ function formatThousandWon(amount: number): string {
   return thousand.toLocaleString();
 }
 
-// 다크모드 감지 함수
+// 다크모드 감지 함수 (앱 설정 기준)
 function isDarkMode(): boolean {
-  return document.documentElement.classList.contains('dark') ||
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return document.documentElement.classList.contains('dark');
 }
 
 // 커스텀 라벨 렌더러 (안내선 + 라벨)
