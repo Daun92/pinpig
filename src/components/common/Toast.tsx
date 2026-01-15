@@ -5,22 +5,22 @@ import { useToastStore, selectToasts, type ToastType } from '@/stores/toastStore
 
 const typeStyles: Record<ToastType, { bg: string; icon: React.ReactNode; iconColor: string }> = {
   success: {
-    bg: 'bg-semantic-positive/10 border-semantic-positive/30',
+    bg: 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-700/50',
     icon: <CheckCircle size={18} />,
-    iconColor: 'text-semantic-positive',
+    iconColor: 'text-green-600 dark:text-green-400',
   },
   warning: {
-    bg: 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/30',
+    bg: 'bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50',
     icon: <AlertTriangle size={18} />,
     iconColor: 'text-amber-600 dark:text-amber-400',
   },
   danger: {
-    bg: 'bg-semantic-negative/10 border-semantic-negative/30',
+    bg: 'bg-red-50 border-red-200 dark:bg-red-900/30 dark:border-red-700/50',
     icon: <AlertCircle size={18} />,
-    iconColor: 'text-semantic-negative',
+    iconColor: 'text-red-600 dark:text-red-400',
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/30',
+    bg: 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700/50',
     icon: <Info size={18} />,
     iconColor: 'text-blue-600 dark:text-blue-400',
   },
@@ -59,7 +59,7 @@ function ToastItem({ id, type, message, subMessage, onClose }: ToastItemProps) {
         flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg
         ${style.bg}
         transform transition-all duration-200 ease-out
-        ${isVisible && !isExiting ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}
+        ${isVisible && !isExiting ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}
       `}
       onClick={handleClose}
     >
@@ -67,9 +67,9 @@ function ToastItem({ id, type, message, subMessage, onClose }: ToastItemProps) {
         {style.icon}
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-body text-ink-black">{message}</p>
+        <p className="text-body text-ink-black dark:text-paper-white">{message}</p>
         {subMessage && (
-          <p className="text-sub text-ink-mid mt-0.5">{subMessage}</p>
+          <p className="text-sub text-ink-mid dark:text-paper-mid mt-0.5">{subMessage}</p>
         )}
       </div>
       <button
@@ -77,7 +77,7 @@ function ToastItem({ id, type, message, subMessage, onClose }: ToastItemProps) {
           e.stopPropagation();
           handleClose();
         }}
-        className="shrink-0 w-6 h-6 flex items-center justify-center text-ink-light hover:text-ink-mid transition-colors"
+        className="shrink-0 w-6 h-6 flex items-center justify-center text-ink-light dark:text-paper-mid hover:text-ink-mid dark:hover:text-paper-white transition-colors"
       >
         <X size={16} />
       </button>
@@ -92,7 +92,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-0 left-0 right-0 z-[100] flex flex-col gap-2 pointer-events-none px-4 pt-[calc(env(safe-area-inset-top)+12px)]">
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
           <ToastItem

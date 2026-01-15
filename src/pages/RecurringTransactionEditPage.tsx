@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, Trash2, X } from 'lucide-react';
 import { useFabStore } from '@/stores/fabStore';
@@ -8,11 +8,11 @@ import {
   createRecurringTransaction,
   updateRecurringTransaction,
   deleteRecurringTransaction,
+  getCategorySuggestions,
 } from '@/services/queries';
 import { db } from '@/services/database';
 import type { Category, PaymentMethod, IncomeSource, RecurrenceFrequency, RecurringExecutionMode, TransactionType } from '@/types';
 import { format } from 'date-fns';
-import { parseMemoWithTags, combineMemoWithTags } from '@/utils/tags';
 
 const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
   { value: 'monthly', label: '매월' },
@@ -50,6 +50,10 @@ export function RecurringTransactionEditPage() {
   const [formIncomeSourceId, setFormIncomeSourceId] = useState('');
   const [formMemo, setFormMemo] = useState('');
   const [formTags, setFormTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [suggestedMemos, setSuggestedMemos] = useState<string[]>([]);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const tagInputRef = useRef<HTMLInputElement>(null);
   const [formFrequency, setFormFrequency] = useState<RecurrenceFrequency>('monthly');
   const [formDayOfMonth, setFormDayOfMonth] = useState(new Date().getDate());
   const [formStartDate, setFormStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -61,6 +65,16 @@ export function RecurringTransactionEditPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
+
+  // 카테고리 변경 시 추천 메모/태그 로드
+  useEffect(() => {
+    if (formCategoryId) {
+      getCategorySuggestions(formCategoryId, 6, 6).then(({ memos, tags }) => {
+        setSuggestedMemos(memos);
+        setSuggestedTags(tags);
+      });
+    }
+  }, [formCategoryId]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -120,6 +134,44 @@ export function RecurringTransactionEditPage() {
       setFormExecutionMode(item.executionMode || 'on_date');
     }
   };
+
+  // 추천 메모 클릭
+  const handleSuggestedMemoClick = (memo: string) => {
+    setFormMemo(memo);
+  };
+
+  // 추천 태그 클릭
+  const handleSuggestedTagClick = (tag: string) => {
+    if (!formTags.includes(tag)) {
+      setFormTags([...formTags, tag]);
+    }
+  };
+
+  // 태그 삭제
+  const handleTagRemove = (tagToRemove: string) => {
+    setFormTags(formTags.filter((t) => t !== tagToRemove));
+  };
+
+  // 엔터키로 태그 추가
+  const handleAddNewTag = () => {
+    const trimmed = newTagInput.trim().replace(/^#/, ''); // # 제거
+    if (trimmed && !formTags.includes(trimmed)) {
+      setFormTags([...formTags, trimmed]);
+      setNewTagInput('');
+    }
+  };
+
+  // Enter 키로 태그 추가
+  const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddNewTag();
+    }
+  };
+
+  // 추천 중 아직 선택되지 않은 것만 표시
+  const availableSuggestedMemos = suggestedMemos.filter((m) => m !== formMemo.trim());
+  const availableSuggestedTags = suggestedTags.filter((t) => !formTags.includes(t));
 
   const handleSubmit = useCallback(async () => {
     const amount = parseInt(formAmount) || 0;
@@ -312,9 +364,16 @@ export function RecurringTransactionEditPage() {
           <label className="text-sub text-ink-mid block mb-2">금액</label>
           <div className="flex items-center bg-paper-light rounded-md px-4">
             <input
-              type="number"
-              value={formAmount}
-              onChange={(e) => setFormAmount(e.target.value)}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={formAmount ? parseInt(formAmount).toLocaleString() : ''}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                if (value.length <= 10) {
+                  setFormAmount(value);
+                }
+              }}
               placeholder="0"
               className="flex-1 py-3 bg-transparent text-body text-ink-black outline-none"
               autoFocus
@@ -323,41 +382,89 @@ export function RecurringTransactionEditPage() {
           </div>
         </div>
 
-        {/* Memo with Tags */}
-        <div>
-          <label className="text-sub text-ink-mid block mb-2">메모 & 태그 (선택)</label>
-          <input
-            type="text"
-            value={combineMemoWithTags(formMemo, formTags)}
-            onChange={(e) => {
-              const { memo, tags } = parseMemoWithTags(e.target.value);
-              setFormMemo(memo);
-              setFormTags(tags);
-            }}
-            placeholder="예: 넷플릭스 #구독 #고정비"
-            className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
-          />
-          <p className="text-caption text-ink-light mt-1">#으로 태그 추가 (예: #구독 #고정비)</p>
-
-          {/* Tag Pills */}
-          {formTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formTags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-paper-mid dark:bg-ink-dark/50 rounded-full text-caption text-ink-mid"
-                >
-                  #{tag}
+        {/* Memo & Tags - 분리 입력 UI */}
+        <div className="space-y-4">
+          {/* 메모 섹션 */}
+          <div>
+            <label className="text-sub text-ink-mid block mb-2">메모 (선택)</label>
+            <input
+              type="text"
+              value={formMemo}
+              onChange={(e) => setFormMemo(e.target.value)}
+              placeholder="예: 넷플릭스 구독료"
+              className="w-full py-3 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
+            />
+            {/* 추천 메모 */}
+            {availableSuggestedMemos.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {availableSuggestedMemos.slice(0, 4).map((memo) => (
                   <button
-                    onClick={() => setFormTags(formTags.filter((_, i) => i !== idx))}
-                    className="ml-0.5 hover:text-ink-black"
+                    key={memo}
+                    onClick={() => handleSuggestedMemoClick(memo)}
+                    className="px-2.5 py-1.5 rounded-full bg-paper-mid text-caption text-ink-mid hover:bg-paper-dark transition-colors"
                   >
+                    {memo}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 태그 섹션 */}
+          <div>
+            <label className="text-sub text-ink-mid block mb-2">태그 (선택)</label>
+
+            {/* 선택된 태그 칩들 */}
+            {formTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {formTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTagRemove(tag)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-ink-black dark:bg-pig-pink text-caption text-paper-white hover:opacity-80 transition-opacity"
+                  >
+                    #{tag}
                     <X size={12} />
                   </button>
-                </span>
-              ))}
+                ))}
+              </div>
+            )}
+
+            {/* 태그 입력 */}
+            <div className="flex items-center gap-2">
+              <input
+                ref={tagInputRef}
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={handleTagInputKeyDown}
+                placeholder="태그 입력 후 Enter"
+                className="flex-1 py-2.5 px-4 bg-paper-light rounded-md text-body text-ink-black outline-none"
+              />
+              <button
+                onClick={handleAddNewTag}
+                disabled={!newTagInput.trim()}
+                className="px-4 py-2.5 rounded-md bg-paper-light text-sub text-ink-mid hover:bg-paper-mid disabled:opacity-40 transition-colors"
+              >
+                추가
+              </button>
             </div>
-          )}
+
+            {/* 추천 태그 */}
+            {availableSuggestedTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {availableSuggestedTags.slice(0, 6).map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleSuggestedTagClick(tag)}
+                    className="px-2.5 py-1.5 rounded-full bg-paper-mid text-caption text-ink-mid hover:bg-paper-dark transition-colors"
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Category */}

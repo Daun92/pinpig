@@ -13,6 +13,12 @@ function formatThousandWon(amount: number): string {
   return thousand.toLocaleString();
 }
 
+// 다크모드 감지 함수
+function isDarkMode(): boolean {
+  return document.documentElement.classList.contains('dark') ||
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 // 커스텀 라벨 렌더러 (안내선 + 라벨)
 const renderCustomLabel = ({
   cx,
@@ -49,6 +55,9 @@ const renderCustomLabel = ({
   // 퍼센트가 5% 미만이면 라벨 생략 (겹침 방지)
   if (percent < 0.05) return null;
 
+  // 다크모드에 따른 텍스트 색상
+  const textColor = isDarkMode() ? '#FFFCF5' : '#3D3A36';
+
   return (
     <g>
       {/* 안내선 */}
@@ -66,7 +75,7 @@ const renderCustomLabel = ({
         textAnchor={textAnchor}
         dominantBaseline="central"
         fontSize={11}
-        fill="var(--color-ink-dark)"
+        fill={textColor}
       >
         {name} {Math.round(percent * 100)}%
       </text>
@@ -138,9 +147,9 @@ export function PaymentMethodDonutChart({
   const innerR = outerR - 15;
 
   return (
-    <div className="relative" style={{ height: chartHeight }}>
+    <div className="relative" style={{ height: chartHeight, overflow: 'visible' }}>
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+        <PieChart style={{ overflow: 'visible' }}>
           <Pie
             data={chartData}
             cx="50%"
@@ -163,10 +172,10 @@ export function PaymentMethodDonutChart({
       {/* 중앙 총액 표시 (천원 단위) */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center">
-          <p className="text-amount text-ink-black">
+          <p className="text-amount text-ink-black dark:text-paper-white">
             {formatThousandWon(totalAmount)}
           </p>
-          <p className="text-caption text-ink-mid">(천원)</p>
+          <p className="text-caption text-ink-mid dark:text-paper-mid">(천원)</p>
         </div>
       </div>
     </div>

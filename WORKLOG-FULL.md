@@ -2257,3 +2257,51 @@
   });
   ```
 - **결과**: 예정 지출 기록 가능, 달력 UI 개선, 요약카드 → 히스토리 탐색 연결
+
+### #120 발전 방향 로드맵 문서 작성 (2026-01-13)
+- **요청**: 현재 개발 상태 확인 및 향후 발전 방향 기획
+- **변경**:
+  - `docs/ROADMAP.md` 신규 생성
+    - 현재 상태 요약 (v0.2.4, MVP 100%)
+    - 단기 개선 계획 (v0.3.x): 예측 카드, 홈 UX 개선
+    - 중기 발전 계획 (v0.4.x~v0.5.x): PWA 강화, 소셜 공유, 다국어
+    - 장기 계획 (Phase 2): Capacitor iOS 전환, 위젯
+    - 하지 않을 것 리스트 명시
+    - 기술 부채 관리 계획
+  - `docs/CONTEXT.md` 참조 문서에 ROADMAP.md 추가
+- **결과**: 프로젝트 발전 방향 체계적 정리 완료
+
+---
+
+## 2026-01-15
+
+### #121 UX/UI 개선 패키지 (v0.2.5) (2026-01-15)
+- **요청**: 다크모드 가시성, 토스트 위치, 입력 UX 등 전반적 개선
+- **변경**:
+  1. **반복거래 메모/태그 입력 분리**
+     - `src/pages/RecurringTransactionEditPage.tsx`: # 태그 혼합 시 커서 문제 해결
+     - AddPage와 동일한 분리 입력 UI 적용 (메모 + 태그 별도)
+  2. **토스트 알림 위치 상단 이동**
+     - `src/components/common/Toast.tsx`: bottom → top 위치, 애니메이션 방향 변경
+     - safe-area-inset-top 적용으로 노치 대응
+  3. **토스트 다크모드 가시성**
+     - 모든 토스트 타입(success/warning/danger/info)에 dark: 클래스 추가
+     - 텍스트, 아이콘, 닫기 버튼 색상 다크모드 대응
+  4. **금액 입력 천단위 콤마**
+     - `src/pages/RecurringTransactionEditPage.tsx`: toLocaleString() 적용
+  5. **분석 탭 다크모드 가시성**
+     - `src/pages/StatsPage.tsx`: 카테고리/수단 아이콘 solid 배경 + white 아이콘
+     - 카테고리명, 금액, 퍼센트 dark: 클래스 추가
+  6. **AddPage Enter 키 → 태그 입력 이동**
+     - 메모 입력에서 Enter 시 태그 입력으로 포커스 이동
+  7. **AddPage 금액 입력 자동 포커스**
+     - `autoFocus` + setTimeout(100ms)로 확실한 포커스
+  8. **차트 라벨 다크모드 (SVG)**
+     - `src/components/report/CategoryDonutChart.tsx`
+     - `src/components/report/PaymentMethodDonutChart.tsx`
+     - `isDarkMode()` 런타임 감지 → `fill` 직접 설정
+     - className이 SVG text에서 동작하지 않는 문제 해결
+  9. **차트 라벨 overflow 문제 해결**
+     - 차트 컨테이너, PieChart에 `overflow: visible` 적용
+     - StatsPage 부모 div에도 overflow: visible 추가
+- **결과**: 다크모드 전반적 가시성 개선, 입력 UX 향상, 모바일 친화적 토스트

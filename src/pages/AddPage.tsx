@@ -87,11 +87,15 @@ export function AddPage() {
   }, [selectedCategoryId]);
 
   useEffect(() => {
-    if (amountInputRef.current) {
-      amountInputRef.current.focus();
-    }
+    // 금액 입력창에 자동 포커스 (약간의 지연으로 확실한 포커스)
+    const timer = setTimeout(() => {
+      if (amountInputRef.current) {
+        amountInputRef.current.focus();
+      }
+    }, 100);
     // Start add tour on first visit
     startTour('add');
+    return () => clearTimeout(timer);
   }, [startTour]);
 
   useEffect(() => {
@@ -377,6 +381,7 @@ export function AddPage() {
               value={amount ? parseInt(amount).toLocaleString() : ''}
               onChange={handleAmountChange}
               placeholder="0"
+              autoFocus
               className={`text-hero text-center bg-transparent outline-none w-full max-w-xs ${
                 amount ? 'text-ink-black' : 'text-ink-light'
               }`}
@@ -699,6 +704,12 @@ export function AddPage() {
                     type="text"
                     value={customMemo}
                     onChange={(e) => setCustomMemo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        tagInputRef.current?.focus();
+                      }
+                    }}
                     placeholder="메모를 입력하세요"
                     className="w-full px-3 py-2.5 rounded-lg bg-paper-white text-body text-ink-dark outline-none focus:ring-2 focus:ring-ink-light placeholder:text-ink-light"
                   />

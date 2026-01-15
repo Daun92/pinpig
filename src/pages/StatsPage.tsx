@@ -695,7 +695,7 @@ export function StatsPage() {
           ) : (
             <>
               {/* Donut Chart */}
-              <div data-tour="stats-chart">
+              <div data-tour="stats-chart" style={{ overflow: 'visible' }}>
                 <CategoryDonutChart
                   data={activeCategoryBreakdown}
                   totalAmount={displayAmount}
@@ -715,29 +715,29 @@ export function StatsPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: category.categoryColor + '20' }}
+                          style={{ backgroundColor: category.categoryColor }}
                         >
                           <Icon
                             name={category.categoryIcon}
                             size={16}
-                            className="text-ink-dark"
+                            className="text-paper-white"
                           />
                         </div>
-                        <span className="text-body text-ink-dark">
+                        <span className="text-body text-ink-dark dark:text-paper-white">
                           {category.categoryName}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
+                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black dark:text-paper-white'}`}>
                           {transactionType === 'income' && '+ '}
                           {category.amount.toLocaleString()}원
                         </span>
-                        <span className="text-sub text-ink-mid ml-2">
+                        <span className="text-sub text-ink-mid dark:text-paper-mid ml-2">
                           {Math.round(category.percentage)}%
                         </span>
                       </div>
                     </div>
-                    <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
+                    <div className="h-1 bg-paper-mid dark:bg-ink-dark rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{
@@ -767,11 +767,13 @@ export function StatsPage() {
           ) : (
             <>
               {/* Donut Chart */}
-              <PaymentMethodDonutChart
-                data={activePaymentMethodBreakdown}
-                totalAmount={displayAmount}
-                height={280}
-              />
+              <div style={{ overflow: 'visible' }}>
+                <PaymentMethodDonutChart
+                  data={activePaymentMethodBreakdown}
+                  totalAmount={displayAmount}
+                  height={280}
+                />
+              </div>
 
               {/* Payment Method List */}
               <div className="space-y-4 mt-6">
@@ -785,29 +787,29 @@ export function StatsPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: method.paymentMethodColor + '20' }}
+                          style={{ backgroundColor: method.paymentMethodColor }}
                         >
                           <Icon
                             name={method.paymentMethodIcon}
                             size={16}
-                            className="text-ink-dark"
+                            className="text-paper-white"
                           />
                         </div>
-                        <span className="text-body text-ink-dark">
+                        <span className="text-body text-ink-dark dark:text-paper-white">
                           {method.paymentMethodName}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
+                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black dark:text-paper-white'}`}>
                           {transactionType === 'income' && '+ '}
                           {method.amount.toLocaleString()}원
                         </span>
-                        <span className="text-sub text-ink-mid ml-2">
+                        <span className="text-sub text-ink-mid dark:text-paper-mid ml-2">
                           {Math.round(method.percentage)}%
                         </span>
                       </div>
                     </div>
-                    <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
+                    <div className="h-1 bg-paper-mid dark:bg-ink-dark rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{
