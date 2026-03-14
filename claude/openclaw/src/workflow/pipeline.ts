@@ -3,9 +3,12 @@
  * 주제 발굴부터 발행, 모니터링까지 end-to-end 자동화
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, basename } from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import matter from 'gray-matter';
 import { loadMoltbookConfig, MoltbookFeedbackLoop } from '../agents/moltbook/index.js';
 import TopicDiscovery, { TopicRecommendation, DiscoveryResult } from '../agents/moltbook/topic-discovery.js';
 import CommunityRequestExtractor from '../agents/moltbook/community-requests.js';
@@ -510,25 +513,74 @@ export class ContentPipeline {
 
   /**
    * 발행 스테이지
+   * 드래프트 파일을 Hugo 블로그 디렉토리로 복사하고 Git 커밋/푸시
    */
   async stagePublish(posts: GeneratedPost[]): Promise<PublishResult[]> {
+    const execAsync = promisify(exec);
     const results: PublishResult[] = [];
-
-    // 실제 발행 로직은 publish 명령어 사용
-    // 여기서는 결과만 기록
+    const blogDir = join(process.cwd(), 'blog');
+    const publishedFiles: string[] = [];
 
     for (const post of posts) {
       if (!post.success) continue;
 
-      // TODO: 실제 publish 명령어 호출
-      // 현재는 시뮬레이션
+      try {
+        if (!existsSync(post.filePath)) {
+          results.push({
+            filePath: post.filePath,
+            title: post.title,
+            success: false,
+            error: '파일을 찾을 수 없습니다'
+          });
+          continue;
+        }
 
-      results.push({
-        filePath: post.filePath,
-        title: post.title,
-        success: true,
-        blogUrl: `https://example.com/posts/${post.filePath.replace('drafts/', '').replace('.md', '')}`
-      });
+        // 프론트매터에서 카테고리 추출
+        const content = await readFile(post.filePath, 'utf-8');
+        const { data } = matter(content);
+        const category = (data.categories as string[])?.[0] || post.type || 'travel';
+
+        // 블로그 디렉토리로 복사
+        const targetDir = join(blogDir, 'content', 'posts', category);
+        await mkdir(targetDir, { recursive: true });
+        const filename = basename(post.filePath);
+        const targetPath = join(targetDir, filename);
+        await copyFile(post.filePath, targetPath);
+        publishedFiles.push(targetPath);
+
+        const slug = filename.replace('.md', '');
+        const blogUrl = `/posts/${category}/${slug}/`;
+
+        results.push({
+          filePath: post.filePath,
+          title: post.title,
+          success: true,
+          blogUrl
+        });
+
+        console.log(`   발행: ${post.title} → posts/${category}/`);
+      } catch (error) {
+        results.push({
+          filePath: post.filePath,
+          title: post.title,
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    // Git 커밋 & 푸시
+    const successfulResults = results.filter(r => r.success);
+    if (successfulResults.length > 0) {
+      try {
+        const commitMessage = `Add ${successfulResults.length} post(s): ${successfulResults.map(r => r.title).join(', ')}`;
+        await execAsync('git add blog/content/posts/', { cwd: process.cwd() });
+        await execAsync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, { cwd: process.cwd() });
+        await execAsync('git push', { cwd: process.cwd() });
+        console.log(`   Git 푸시 완료 (${successfulResults.length}개 포스트)`);
+      } catch (gitError) {
+        console.log(`   ⚠️ Git 작업 실패: ${gitError instanceof Error ? gitError.message : String(gitError)}`);
+      }
     }
 
     // Moltbook 공유
@@ -537,9 +589,26 @@ export class ContentPipeline {
       if (moltbookConfig) {
         const feedbackLoop = new MoltbookFeedbackLoop(moltbookConfig);
 
-        for (const result of results.filter(r => r.success)) {
-          // TODO: 실제 공유 로직
-          console.log(`   Moltbook 공유: ${result.title}`);
+        for (const result of successfulResults) {
+          try {
+            // 포스트 데이터를 읽어서 요약/토픽 추출
+            const content = await readFile(result.filePath, 'utf-8');
+            const { data } = matter(content);
+            const category = (data.categories as string[])?.[0] || 'travel';
+            const summary = data.description || data.summary || result.title;
+            const topics = (data.tags as string[]) || [];
+
+            await feedbackLoop.sharePost({
+              title: result.title,
+              url: result.blogUrl || '',
+              summary,
+              category: category as 'travel' | 'culture',
+              topics
+            });
+            console.log(`   Moltbook 공유 완료: ${result.title}`);
+          } catch (shareError) {
+            console.log(`   ⚠️ Moltbook 공유 실패: ${result.title} - ${shareError instanceof Error ? shareError.message : String(shareError)}`);
+          }
         }
       }
     }
