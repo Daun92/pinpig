@@ -180,6 +180,7 @@
 
 1. **addPageStore.ts deprecated** - fabStore 직접 사용
 2. **Vercel 배포 계정**: pinpig는 `daunny` 계정(dauns-projects-3fb4a769) 소유 — 브라우저 기본 계정(htry2528@gmail.com)에는 없음. CLI 만료 시 `npx vercel login` 디바이스 인증을 daunny 계정 웹 세션에서 승인
+3. **원격 main 덮임 사고 (2026-08-02 복구)**: 외부 리포(블로그 자동화 계열)가 pinpig.git main을 강제 덮은 적 있음 — `backup/unknown-project-main`에 보존 후 복구. **원인 리포의 origin 미수정 시 재발 가능** — push 전 `git log origin/main -1`로 pinpig 커밋인지 확인 습관화, GitHub main 브랜치 보호 설정 권장
 
 ---
 

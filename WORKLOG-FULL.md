@@ -2566,3 +2566,13 @@
   - 대기 결정: D1 동기화 백엔드(PoC 후) · D2 과금 구조(Track 0 데이터 후) · D4 가격(결제 직전)
 - **변경**: `docs/PHASE2_PLAN.md` 신규 — 결정 로그 + 실행 순서 S0~S5 (맥 셋업 → Track 0 계측 → 데이터 내구성 → Capacitor+TestFlight → 위젯 MVP → 수익화) + 리스크 메모(WKWebView IndexedDB 삭제, 위젯 Swift 네이티브, 기대치 관리)
 - **결과**: 완료 (문서만, 개발 미착수). 다음 액션 = 맥에서 S0 환경 준비
+
+### #135 #133 배포 + 원격 main 덮임 사고 발견·복구
+- **요청**: ① #133 수정분 배포 ② feat→main 병합 정리
+- **① 배포**: 프로덕션 반영·검증 완료 — 신규 index 867KB(라우트 분할 실적용), SW 프리캐시에서 xlsx 청크 제외 확인 (검출 문자열은 런타임 캐시 정규식뿐)
+- **② 병합 중 사고 발견**: `origin/main`이 **무관한 프로젝트 히스토리로 강제 덮여 있었음**
+  - 이질 히스토리: 2023-02 homework1/practice1 → 2026-02-05 블로그 자동화(주제 발굴·queue/daily·Gemini·OpenClaw), 트리 = `claude/`·`cloud/`·`hello`, pinpig와 공통 조상 없음
+  - pinpig 코드는 origin/feat 브랜치에 온전 — 유실 없음
+- **조치** (사용자 승인): 이질 히스토리를 `backup/unknown-project-main` 브랜치로 원격 보존 → pinpig main을 `--force-with-lease`로 복구 (86fdde4, feat와 동일)
+- **⚠ 재발 위험**: 원인 리포(D:\claude 내에는 없음 — 다른 폴더/기기 추정)가 다시 push하면 또 덮임. **원인 리포의 origin 수정 + GitHub main 브랜치 보호(force push 차단) 설정 권장**
+- **결과**: 완료. main = feat 동기화
