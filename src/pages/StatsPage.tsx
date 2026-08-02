@@ -746,9 +746,22 @@ export function StatsPage() {
                         }}
                       />
                     </div>
-                    <p className="text-caption text-ink-light mt-1">
-                      {category.count}건
-                    </p>
+                    <div className="flex justify-between mt-1">
+                      <p className="text-caption text-ink-light">
+                        {category.count}건
+                        {category.budget && category.budgetPercent !== undefined && periodMode === 'monthly' && transactionType === 'expense' && (
+                          <span className={`ml-2 ${category.budgetPercent >= 100 ? 'text-red-500' : category.budgetPercent >= 80 ? 'text-amber-500' : ''}`}>
+                            · 예산의 {category.budgetPercent}%
+                            {category.budgetPercent >= 100 && ' (초과)'}
+                          </span>
+                        )}
+                      </p>
+                      {category.budget && periodMode === 'monthly' && transactionType === 'expense' && (
+                        <p className="text-caption text-ink-light">
+                          / {category.budget.toLocaleString()}원
+                        </p>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -821,11 +834,16 @@ export function StatsPage() {
                     <div className="flex justify-between mt-1">
                       <p className="text-caption text-ink-light">
                         {method.count}건
+                        {method.budget && method.budgetPercent !== undefined && periodMode === 'monthly' && transactionType === 'expense' && (
+                          <span className={`ml-2 ${method.budgetPercent >= 100 ? 'text-red-500' : method.budgetPercent >= 80 ? 'text-amber-500' : ''}`}>
+                            · 한도의 {method.budgetPercent}%
+                            {method.budgetPercent >= 100 && ' (초과)'}
+                          </span>
+                        )}
                       </p>
-                      {method.budget && method.budgetPercent !== undefined && periodMode === 'monthly' && (
-                        <p className={`text-caption ${method.budgetPercent > 100 ? 'text-semantic-negative' : 'text-ink-mid'}`}>
-                          예산의 {method.budgetPercent}%
-                          {method.budgetPercent > 100 && ' (초과)'}
+                      {method.budget && periodMode === 'monthly' && transactionType === 'expense' && (
+                        <p className="text-caption text-ink-light">
+                          / {method.budget.toLocaleString()}원
                         </p>
                       )}
                     </div>

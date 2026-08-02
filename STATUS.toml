@@ -1,0 +1,6 @@
+# watchtower 상태 파일 — 세션 종료 시 갱신 (정적 정보는 watchtower\config\registry.toml)
+phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료
+updated = 2026-08-02
+last_session = "반복거래 월초 선반영 구현·보완(등록 분기·엔진 루트 이동·문구) + 미커밋 작업 일괄 커밋·푸시 (작업 #130~#131)"
+next_action = "Vercel 재배포 — #130~#131 수정분(월초 선반영) 실서비스 반영"
+waiting_on = ["사업화 판단 (docs\\COMMERCIALIZATION.md 검토)", "#130~#131 수정분 배포 지시"]

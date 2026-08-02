@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { Icon } from '@/components/common';
 import { CategoryTrendChart } from './CategoryTrendChart';
 import { useTransactionStore, selectCategoryTrend } from '@/stores/transactionStore';
-import { getTopTransactionsByCategory } from '@/services/queries';
+import {
+  getTopTransactionsByCategory,
+  getCategoryPaymentBreakdown,
+  type PaymentBreakdownItem,
+} from '@/services/queries';
+import { getProgressBarColor } from '@/utils/budgetStatus';
 import type { CategorySummary, Transaction } from '@/types';
 
 interface CategoryTrendModalProps {
@@ -24,9 +30,12 @@ export function CategoryTrendModal({
   month,
   type = 'expense',
 }: CategoryTrendModalProps) {
+  const navigate = useNavigate();
   const { fetchCategoryTrend } = useTransactionStore();
   const categoryTrend = useTransactionStore(selectCategoryTrend);
   const [topTransactions, setTopTransactions] = useState<Transaction[]>([]);
+  const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentBreakdownItem[]>([]);
+  const [showPaymentBreakdown, setShowPaymentBreakdown] = useState(false);
 
   // Use current date if year/month not provided
   const currentDate = new Date();
@@ -39,8 +48,13 @@ export function CategoryTrendModal({
       // Fetch TOP5 transactions
       getTopTransactionsByCategory(targetYear, targetMonth, category.categoryId, 5)
         .then(setTopTransactions);
+      // Fetch payment method breakdown (지출인 경우만)
+      if (type === 'expense') {
+        getCategoryPaymentBreakdown(targetYear, targetMonth, category.categoryId)
+          .then(setPaymentBreakdown);
+      }
     }
-  }, [isOpen, category.categoryId, fetchCategoryTrend, targetYear, targetMonth]);
+  }, [isOpen, category.categoryId, fetchCategoryTrend, targetYear, targetMonth, type]);
 
   if (!isOpen) return null;
 
@@ -53,6 +67,23 @@ export function CategoryTrendModal({
     (max, t) => (t.amount > max.amount ? t : max),
     categoryTrend[0] || { month: 0, amount: 0 }
   );
+
+  // 예산 정보
+  const hasBudget = category.budget && category.budget > 0;
+  const budgetPercent = category.budgetPercent ?? 0;
+  const remaining = hasBudget ? Math.max(category.budget! - category.amount, 0) : 0;
+  const isOverBudget = budgetPercent >= 100;
+
+  // 액션 핸들러
+  const handleViewHistory = () => {
+    onClose();
+    navigate(`/history?categoryId=${category.categoryId}`);
+  };
+
+  const handleAdjustBudget = () => {
+    onClose();
+    navigate('/settings/category-budget');
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -89,6 +120,97 @@ export function CategoryTrendModal({
             <X size={24} />
           </button>
         </div>
+
+        {/* Budget Status (예산 설정된 경우만) */}
+        {hasBudget && type === 'expense' && (
+          <div className="px-6 py-4 border-b border-paper-mid">
+            <div className="flex justify-between items-baseline mb-2">
+              <p className="text-sub text-ink-mid">
+                {targetMonth}월 예산 현황
+              </p>
+              <p className="text-body text-ink-black">
+                {category.amount.toLocaleString()} / {category.budget!.toLocaleString()}원
+              </p>
+            </div>
+            <div className="h-2 bg-paper-mid rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(budgetPercent, 100)}%`,
+                  backgroundColor: getProgressBarColor(budgetPercent, category.categoryColor),
+                }}
+              />
+            </div>
+            <div className="flex justify-between mt-2">
+              <p className={`text-caption ${isOverBudget ? 'text-red-500' : 'text-ink-light'}`}>
+                {isOverBudget
+                  ? `${(category.amount - category.budget!).toLocaleString()}원 초과`
+                  : `${remaining.toLocaleString()}원 남음`
+                }
+              </p>
+              <p className={`text-caption ${isOverBudget ? 'text-red-500' : budgetPercent >= 80 ? 'text-amber-500' : 'text-ink-mid'}`}>
+                {budgetPercent}%
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Method Breakdown (지출인 경우만) */}
+        {type === 'expense' && paymentBreakdown.length > 0 && (
+          <div className="px-6 py-4 border-b border-paper-mid">
+            <button
+              onClick={() => setShowPaymentBreakdown(!showPaymentBreakdown)}
+              className="w-full flex justify-between items-center"
+            >
+              <p className="text-sub text-ink-mid">결제수단별</p>
+              <ChevronRight
+                size={16}
+                className={`text-ink-light transition-transform duration-200 ${showPaymentBreakdown ? 'rotate-90' : ''}`}
+              />
+            </button>
+
+            {showPaymentBreakdown && (
+              <div className="mt-3 space-y-2">
+                {paymentBreakdown.map((pm) => (
+                  <div key={pm.paymentMethodId} className="flex items-center gap-3">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${pm.paymentMethodColor}20` }}
+                    >
+                      <Icon
+                        name={pm.paymentMethodIcon}
+                        size={12}
+                        style={{ color: pm.paymentMethodColor }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sub text-ink-dark truncate">
+                          {pm.paymentMethodName}
+                        </span>
+                        <span className="text-sub text-ink-black">
+                          {pm.amount.toLocaleString()}원
+                        </span>
+                      </div>
+                      <div className="h-1 bg-paper-mid rounded-full overflow-hidden mt-1">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${pm.percentage}%`,
+                            backgroundColor: pm.paymentMethodColor,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-caption text-ink-light w-10 text-right">
+                      {Math.round(pm.percentage)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Chart */}
         <div className="px-6 py-4">
@@ -147,6 +269,26 @@ export function CategoryTrendModal({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Action Links (담담한 스타일) */}
+        {type === 'expense' && (
+          <div className="px-6 pb-6 flex justify-center gap-6">
+            <button
+              onClick={handleViewHistory}
+              className="text-sub text-ink-mid underline underline-offset-2"
+            >
+              내역 보기
+            </button>
+            {hasBudget && (
+              <button
+                onClick={handleAdjustBudget}
+                className="text-sub text-ink-mid underline underline-offset-2"
+              >
+                예산 조정
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -171,10 +171,10 @@ export function CategoryDonutChart({
       {/* 중앙 총액 표시 (천원 단위) */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center">
-          <p className="text-amount text-ink-black dark:text-paper-white">
+          <p className="text-amount text-ink-black">
             {formatThousandWon(totalAmount)}
           </p>
-          <p className="text-caption text-ink-mid dark:text-paper-mid">(천원)</p>
+          <p className="text-caption text-ink-mid">(천원)</p>
         </div>
       </div>
     </div>

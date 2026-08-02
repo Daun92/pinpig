@@ -36,6 +36,12 @@ import { useTheme } from '@/hooks/useTheme';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { useSettingsStore, selectIsOnboardingComplete } from '@/stores/settingsStore';
+import { useTransactionStore } from '@/stores/transactionStore';
+import { useToastStore } from '@/stores/toastStore';
+import { processRecurringTransactions } from '@/services/budgetAlert';
+
+// 앱 실행(세션)당 1회만 반복 거래를 처리하기 위한 가드 (StrictMode 중복 실행 방지 포함)
+let recurringProcessedAtLaunch = false;
 
 export default function App() {
   // Initialize theme management
@@ -55,6 +61,25 @@ export default function App() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  // 앱 시작 시 1회: 반복 거래 도래분 자동 기록
+  // (홈을 거치지 않고 어느 탭으로 진입해도 실행되도록 루트에서 처리)
+  useEffect(() => {
+    if (recurringProcessedAtLaunch) return;
+    recurringProcessedAtLaunch = true;
+
+    processRecurringTransactions().then((count) => {
+      if (count > 0) {
+        const now = new Date();
+        useTransactionStore.getState().fetchTransactions(now);
+        useTransactionStore.getState().fetchCategoryBreakdown(now.getFullYear(), now.getMonth() + 1);
+        useToastStore.getState().showToast({
+          type: 'info',
+          message: `${count}건의 반복 거래가 기록되었어요`,
+        });
+      }
+    });
+  }, []);
 
   // Show splash screen while checking onboarding status
   if (isLoading && !settings) {

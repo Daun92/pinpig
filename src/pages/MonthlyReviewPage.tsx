@@ -103,7 +103,7 @@ export function MonthlyReviewPage() {
             disabled={!canGoNext}
             className="w-8 h-8 flex items-center justify-center"
           >
-            <ChevronRight size={20} className={canGoNext ? 'text-ink-mid' : 'text-paper-mid dark:text-ink-dark'} />
+            <ChevronRight size={20} className={canGoNext ? 'text-ink-mid' : 'text-paper-mid'} />
           </button>
         </div>
         <div className="w-10" />
@@ -121,7 +121,7 @@ export function MonthlyReviewPage() {
                 <div className="h-2 bg-paper-mid rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      review.budgetUsedPercent > 100 ? 'bg-red-500' : 'bg-ink-black dark:bg-pig-pink'
+                      review.budgetUsedPercent > 100 ? 'bg-red-500' : 'bg-ink-black'
                     }`}
                     style={{ width: `${Math.min(review.budgetUsedPercent, 100)}%` }}
                   />
@@ -142,7 +142,7 @@ export function MonthlyReviewPage() {
                     className="flex items-start gap-3 p-3 bg-paper-light rounded-md"
                   >
                     {getInsightIcon(insight.type)}
-                    <p className="text-body text-ink-dark dark:text-paper-mid flex-1">{insight.message}</p>
+                    <p className="text-body text-ink-dark flex-1">{insight.message}</p>
                   </div>
                 ))}
               </div>
@@ -167,9 +167,9 @@ export function MonthlyReviewPage() {
                           className="w-8 h-8 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: cat.categoryColor + '20' }}
                         >
-                          <Icon name={cat.categoryIcon} size={16} className="text-ink-dark dark:text-paper-mid" />
+                          <Icon name={cat.categoryIcon} size={16} className="text-ink-black" />
                         </div>
-                        <span className="text-body text-ink-dark dark:text-paper-mid">{cat.categoryName}</span>
+                        <span className="text-body text-ink-black">{cat.categoryName}</span>
                       </div>
                       <div className="text-right">
                         <p className="text-body text-ink-black">
@@ -194,7 +194,7 @@ export function MonthlyReviewPage() {
                         <div className="h-1.5 bg-paper-mid rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              cat.isOverBudget ? 'bg-red-500' : 'bg-ink-black dark:bg-pig-pink'
+                              cat.isOverBudget ? 'bg-red-500' : 'bg-ink-black'
                             }`}
                             style={{
                               width: `${Math.min((cat.currentAmount / cat.budgetAmount) * 100, 100)}%`,
@@ -235,7 +235,7 @@ export function MonthlyReviewPage() {
               </button>
               <button
                 onClick={() => navigate('/settings/budget-wizard')}
-                className="flex-1 py-3 bg-ink-black dark:bg-pig-pink rounded-md text-body text-paper-white"
+                className="flex-1 py-3 bg-ink-black rounded-md text-body text-paper-white"
               >
                 조정하기
               </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Calendar, FileText, Plus } from 'lucide-react';
+import { X, Calendar, FileText, Plus, Repeat } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import {
   useCategoryStore,
@@ -16,10 +16,11 @@ import {
   selectIncomeSources,
 } from '@/stores/incomeSourceStore';
 import { useFabStore } from '@/stores/fabStore';
+import { useToastStore } from '@/stores/toastStore';
 import { Icon, DateTimePicker } from '@/components/common';
 import { db } from '@/services/database';
-import { getRecentTags } from '@/services/queries';
-import type { Transaction, TransactionType } from '@/types';
+import { getRecentTags, createRecurringTransaction, calculateNextExecutionDate, executeRecurringTransaction } from '@/services/queries';
+import type { Transaction, TransactionType, RecurrenceFrequency } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -54,6 +55,11 @@ export function EditTransactionPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   // 추천 태그 (자주 사용)
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  // 반복 전환 설정
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState<RecurrenceFrequency>('monthly');
+  const [recurringDayOfMonth, setRecurringDayOfMonth] = useState(new Date().getDate());
+  const showToast = useToastStore((state) => state.showToast);
 
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
   const isValidAmount = amount && parseInt(amount) > 0;
@@ -163,6 +169,41 @@ export function EditTransactionPage() {
         time,
       });
 
+      // 반복 거래로 전환
+      if (recurringEnabled) {
+        // 현재 거래에도 "반복" 태그 추가
+        const recurringTags = tags.includes('반복') ? tags : [...tags, '반복'];
+        await updateTransaction(id, { tags: recurringTags });
+
+        const dayOfMonth = recurringFrequency === 'monthly' ? recurringDayOfMonth : undefined;
+        const nextDate = calculateNextExecutionDate(recurringFrequency, date, dayOfMonth);
+
+        const newRecurring = await createRecurringTransaction({
+          type,
+          amount: parseInt(amount),
+          categoryId: selectedCategoryId,
+          paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+          incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
+          memo: memo.trim() || undefined,
+          tags: recurringTags,
+          frequency: recurringFrequency,
+          dayOfMonth,
+          startDate: date,
+          isActive: true,
+          executionMode: 'on_date',
+          nextExecutionDate: nextDate,
+        });
+
+        // 다음 회차 즉시 생성
+        try {
+          await executeRecurringTransaction(newRecurring.id, nextDate);
+        } catch {
+          // 실패해도 반복거래 등록은 완료
+        }
+
+        showToast({ type: 'success', message: '반복 거래로 등록되었어요' });
+      }
+
       await fetchTransactions();
       navigate('/history');
     } catch (error) {
@@ -183,6 +224,10 @@ export function EditTransactionPage() {
     updateTransaction,
     fetchTransactions,
     navigate,
+    recurringEnabled,
+    recurringFrequency,
+    recurringDayOfMonth,
+    showToast,
   ]);
 
   // Register submit handler for FAB
@@ -480,6 +525,77 @@ export function EditTransactionPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 반복 거래로 전환 */}
+          <div className="py-4 border-t border-paper-mid">
+            <button
+              onClick={() => setRecurringEnabled(!recurringEnabled)}
+              className="flex items-center justify-between w-full"
+            >
+              <div className="flex items-center gap-3 text-ink-mid">
+                <Repeat size={20} />
+                <span className="text-body text-ink-dark">반복 거래로 등록</span>
+              </div>
+              <div
+                className={`w-11 h-6 rounded-full transition-colors ${
+                  recurringEnabled ? 'bg-green-500' : 'bg-paper-mid'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 bg-paper-white rounded-full mt-0.5 transition-transform ${
+                    recurringEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
+            </button>
+
+            {recurringEnabled && (
+              <div className="mt-3 ml-8 p-3 bg-paper-light rounded-xl space-y-3 animate-fade-in">
+                {/* 주기 선택 */}
+                <div>
+                  <p className="text-caption text-ink-mid mb-2">반복 주기</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { value: 'daily' as RecurrenceFrequency, label: '매일' },
+                      { value: 'weekly' as RecurrenceFrequency, label: '매주' },
+                      { value: 'monthly' as RecurrenceFrequency, label: '매월' },
+                      { value: 'yearly' as RecurrenceFrequency, label: '매년' },
+                    ]).map(({ value, label }) => (
+                      <button
+                        key={value}
+                        onClick={() => setRecurringFrequency(value)}
+                        className={`px-3 py-2 rounded-full text-sub transition-colors ${
+                          recurringFrequency === value
+                            ? 'bg-ink-black text-paper-white'
+                            : 'bg-paper-white text-ink-mid'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* 매월 일자 설정 */}
+                {recurringFrequency === 'monthly' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sub text-ink-mid">매월</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={recurringDayOfMonth}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        if (v >= 1 && v <= 31) setRecurringDayOfMonth(v);
+                      }}
+                      className="w-16 px-2 py-1.5 rounded-lg bg-paper-white text-body text-ink-dark text-center outline-none focus:ring-2 focus:ring-ink-light"
+                    />
+                    <span className="text-sub text-ink-mid">일</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

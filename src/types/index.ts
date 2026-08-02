@@ -58,11 +58,12 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 // =========================================
 
 export type InsightWidgetType =
-  | 'caution'       // 주의 포인트 (카테고리 예산 70%+)
-  | 'room'          // 여유 영역 (카테고리 예산 <50%)
-  | 'compare'       // 전월 대비 변화
-  | 'interest'      // 이번 달 관심 (TOP 카테고리)
-  | 'upcoming';     // 예정 알림
+  | 'caution'         // 주의 포인트 (카테고리 예산 70%+)
+  | 'room'            // 여유 영역 (카테고리 예산 <50%)
+  | 'compare'         // 전월 대비 변화
+  | 'interest'        // 이번 달 관심 (TOP 카테고리)
+  | 'upcoming'        // 예정 알림
+  | 'budget-overview'; // 예산 배분 현황
 
 export const INSIGHT_WIDGET_CONFIG: Record<InsightWidgetType, {
   label: string;
@@ -105,6 +106,13 @@ export const INSIGHT_WIDGET_CONFIG: Record<InsightWidgetType, {
     requiresCategoryBudget: false,
     requiresLastMonthData: false,
     requiresUpcoming: true,
+  },
+  'budget-overview': {
+    label: '예산 배분 현황',
+    description: '카테고리별 예산 사용률',
+    requiresCategoryBudget: true,
+    requiresLastMonthData: false,
+    requiresUpcoming: false,
   },
 };
 
@@ -214,6 +222,8 @@ export interface CategorySummary {
   amount: number;
   percentage: number;
   count: number;
+  budget?: number;            // 설정된 카테고리 예산
+  budgetPercent?: number;     // 예산 대비 사용 비율
 }
 
 export interface MonthSummary {
@@ -456,7 +466,7 @@ export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 
 
 // 반복 거래 실행 모드
 // - 'on_date': 해당 날짜가 되면 실제 거래로 자동 입력
-// - 'start_of_month': 월 초에 해당 월의 모든 반복 거래를 미리 입력
+// - 'start_of_month': 그 달 첫 앱 실행 시 해당 월의 모든 회차를 미리 입력
 export type RecurringExecutionMode = 'on_date' | 'start_of_month';
 
 export interface RecurringTransaction {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, ChevronDown, ChevronUp, Calendar, CreditCard, Tag, MessageSquare } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Calendar, CreditCard, Tag, MessageSquare, Repeat } from 'lucide-react';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } from '@/stores/categoryStore';
 import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
@@ -8,9 +8,9 @@ import { useIncomeSourceStore, selectIncomeSources, selectDefaultIncomeSource } 
 import { useFabStore } from '@/stores/fabStore';
 import { useCoachMark } from '@/components/coachmark';
 import { Icon, DateTimePicker } from '@/components/common';
-import { getCategorySuggestions } from '@/services/queries';
-import type { TransactionType } from '@/types';
-import { format, isToday, isYesterday, isTomorrow, isFuture, startOfDay } from 'date-fns';
+import { getCategorySuggestions, createRecurringTransaction, calculateNextExecutionDate } from '@/services/queries';
+import type { TransactionType, RecurrenceFrequency } from '@/types';
+import { format, isToday, isYesterday, isTomorrow, isFuture, startOfDay, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 function getDefaultCategoryByTime(hour: number): string {
@@ -21,7 +21,8 @@ function getDefaultCategoryByTime(hour: number): string {
   return 'etc';
 }
 
-type ExpandedSection = 'none' | 'category' | 'payment' | 'extra';
+type ExpandedSection = 'none' | 'category' | 'payment' | 'extra' | 'recurring';
+type RecurringMode = 'none' | 'installment' | 'recurring';
 
 export function AddPage() {
   const navigate = useNavigate();
@@ -64,6 +65,11 @@ export function AddPage() {
   // 태그 직접 입력
   const [newTagInput, setNewTagInput] = useState('');
   const tagInputRef = useRef<HTMLInputElement>(null);
+  // 할부/반복 설정
+  const [recurringMode, setRecurringMode] = useState<RecurringMode>('none');
+  const [installmentMonths, setInstallmentMonths] = useState(3);
+  const [recurringFrequency, setRecurringFrequency] = useState<RecurrenceFrequency>('monthly');
+  const [recurringDayOfMonth, setRecurringDayOfMonth] = useState(new Date().getDate());
 
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
   const selectedCategory = currentCategories.find(c => c.id === selectedCategoryId);
@@ -86,17 +92,35 @@ export function AddPage() {
     }
   }, [selectedCategoryId]);
 
+  // iOS에서 단축어/딥링크로 진입 시 자동 포커스가 차단됨
+  // 화면 터치 시 포커스되도록 처리
+  const [needsFocusOnTouch, setNeedsFocusOnTouch] = useState(true);
+
   useEffect(() => {
-    // 금액 입력창에 자동 포커스 (약간의 지연으로 확실한 포커스)
+    // 금액 입력창에 자동 포커스 시도
     const timer = setTimeout(() => {
       if (amountInputRef.current) {
         amountInputRef.current.focus();
+        // 포커스 성공 여부 확인 (iOS에서는 실패할 수 있음)
+        setTimeout(() => {
+          if (document.activeElement === amountInputRef.current) {
+            setNeedsFocusOnTouch(false);
+          }
+        }, 50);
       }
     }, 100);
     // Start add tour on first visit
     startTour('add');
     return () => clearTimeout(timer);
   }, [startTour]);
+
+  // iOS 단축어 진입 시: 화면 터치하면 포커스
+  const handleScreenTouch = useCallback(() => {
+    if (needsFocusOnTouch && amountInputRef.current && !amount) {
+      amountInputRef.current.focus();
+      setNeedsFocusOnTouch(false);
+    }
+  }, [needsFocusOnTouch, amount]);
 
   useEffect(() => {
     if (currentCategories.length > 0 && !selectedCategoryId) {
@@ -123,6 +147,7 @@ export function AddPage() {
       setHasUserSelectedCategory(false);
       setHasUserSelectedPayment(false);
       setExpandedSection('category');
+      setRecurringMode('none');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]); // Only reset on type change, not on categories change
@@ -200,20 +225,95 @@ export function AddPage() {
   const handleSubmit = useCallback(async () => {
     if (!amount || parseInt(amount) <= 0 || !selectedCategoryId) return;
 
-    await addTransaction({
-      type,
-      amount: parseInt(amount),
-      categoryId: selectedCategoryId,
-      paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
-      incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
-      memo: customMemo.trim() || undefined,  // 순수 메모 텍스트만
-      tags: tags.length > 0 ? tags : undefined,  // 태그는 별도 배열로 저장
-      date,
-      time,
-    });
+    const totalAmount = parseInt(amount);
+
+    if (recurringMode === 'installment' && type === 'expense') {
+      // 할부 모드: 첫 회차 즉시 생성 + 반복거래 등록
+      const perMonth = Math.round(totalAmount / installmentMonths);
+      const endDate = addMonths(date, installmentMonths - 1);
+
+      // 첫 회차 거래 생성
+      await addTransaction({
+        type,
+        amount: perMonth,
+        categoryId: selectedCategoryId,
+        paymentMethodId: selectedPaymentMethodId || undefined,
+        memo: customMemo.trim() ? `${customMemo.trim()} 할부 1/${installmentMonths}` : `할부 1/${installmentMonths}`,
+        tags: tags.length > 0 ? [...tags, '할부'] : ['할부'],
+        date,
+        time,
+      });
+
+      // 나머지 회차를 위한 반복거래 등록 (이후 회차는 실행일 도래 시 자동 기록)
+      if (installmentMonths > 1) {
+        const nextDate = calculateNextExecutionDate('monthly', date, date.getDate());
+        await createRecurringTransaction({
+          type,
+          amount: perMonth,
+          categoryId: selectedCategoryId,
+          paymentMethodId: selectedPaymentMethodId || undefined,
+          memo: customMemo.trim() ? `${customMemo.trim()} 할부` : '할부',
+          tags: tags.length > 0 ? [...tags, '할부'] : ['할부'],
+          frequency: 'monthly',
+          dayOfMonth: date.getDate(),
+          startDate: nextDate,
+          endDate,
+          isActive: true,
+          executionMode: 'on_date',
+          nextExecutionDate: nextDate,
+        });
+      }
+    } else if (recurringMode === 'recurring') {
+      // 반복 모드: 현재 거래 즉시 생성 + 반복거래 등록
+      const recurringTags = tags.includes('반복') ? tags : [...tags, '반복'];
+      await addTransaction({
+        type,
+        amount: totalAmount,
+        categoryId: selectedCategoryId,
+        paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+        incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
+        memo: customMemo.trim() || undefined,
+        tags: recurringTags,
+        date,
+        time,
+      });
+
+      const dayOfMonth = recurringFrequency === 'monthly' ? recurringDayOfMonth : undefined;
+      const nextDate = calculateNextExecutionDate(recurringFrequency, date, dayOfMonth);
+
+      // 다음 회차부터는 실행일 도래 시 자동 기록 (on_date)
+      await createRecurringTransaction({
+        type,
+        amount: totalAmount,
+        categoryId: selectedCategoryId,
+        paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+        incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
+        memo: customMemo.trim() || undefined,
+        tags: recurringTags,
+        frequency: recurringFrequency,
+        dayOfMonth,
+        startDate: date,
+        isActive: true,
+        executionMode: 'on_date',
+        nextExecutionDate: nextDate,
+      });
+    } else {
+      // 일반 모드
+      await addTransaction({
+        type,
+        amount: totalAmount,
+        categoryId: selectedCategoryId,
+        paymentMethodId: type === 'expense' ? selectedPaymentMethodId : undefined,
+        incomeSourceId: type === 'income' ? selectedIncomeSourceId : undefined,
+        memo: customMemo.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        date,
+        time,
+      });
+    }
 
     navigate('/');
-  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, selectedIncomeSourceId, customMemo, tags, date, time, addTransaction, navigate]);
+  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, selectedIncomeSourceId, customMemo, tags, date, time, addTransaction, navigate, recurringMode, installmentMonths, recurringFrequency, recurringDayOfMonth]);
 
   useEffect(() => {
     setSubmitHandler(handleSubmit);
@@ -347,8 +447,11 @@ export function AddPage() {
         <div className="w-10 -mr-1" />
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-y-auto px-5">
+      {/* Main Content - 터치 시 포커스 (iOS 단축어 대응) */}
+      <div
+        className="flex-1 flex flex-col overflow-y-auto px-5"
+        onClick={handleScreenTouch}
+      >
         {/* ==================== */}
         {/* 1. 일시 선택 */}
         {/* ==================== */}
@@ -797,6 +900,168 @@ export function AddPage() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ========================== */}
+        {/* 5. 할부 / 반복 설정 (선택) */}
+        {/* ========================== */}
+        <div className="mt-3">
+          <button
+            onClick={() => toggleSection('recurring')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors ${
+              expandedSection === 'recurring' ? 'bg-paper-mid' : 'bg-paper-light'
+            }`}
+          >
+            <Repeat size={18} className="text-ink-light" />
+            <span className="text-body text-ink-light flex-1 text-left">
+              {recurringMode === 'installment' ? (
+                <span className="text-ink-dark">{installmentMonths}개월 할부</span>
+              ) : recurringMode === 'recurring' ? (
+                <span className="text-ink-dark">
+                  {recurringFrequency === 'daily' ? '매일' : recurringFrequency === 'weekly' ? '매주' : recurringFrequency === 'monthly' ? '매월' : '매년'} 반복
+                </span>
+              ) : (
+                '할부 / 반복 설정'
+              )}
+            </span>
+            {expandedSection === 'recurring' ? (
+              <ChevronUp size={16} className="text-ink-light" />
+            ) : (
+              <ChevronDown size={16} className="text-ink-light" />
+            )}
+          </button>
+
+          {/* 할부/반복 설정 (펼침) */}
+          {expandedSection === 'recurring' && (
+            <div className="mt-1.5 p-4 bg-paper-light rounded-xl animate-fade-in space-y-4">
+              {/* 3-way 토글 */}
+              <div className="flex bg-paper-white rounded-full p-0.5">
+                <button
+                  onClick={() => setRecurringMode('none')}
+                  className={`flex-1 py-2 rounded-full text-sub font-medium transition-colors ${
+                    recurringMode === 'none' ? 'bg-ink-black text-paper-white' : 'text-ink-light'
+                  }`}
+                >
+                  없음
+                </button>
+                {type === 'expense' && (
+                  <button
+                    onClick={() => setRecurringMode('installment')}
+                    className={`flex-1 py-2 rounded-full text-sub font-medium transition-colors ${
+                      recurringMode === 'installment' ? 'bg-ink-black text-paper-white' : 'text-ink-light'
+                    }`}
+                  >
+                    할부
+                  </button>
+                )}
+                <button
+                  onClick={() => setRecurringMode('recurring')}
+                  className={`flex-1 py-2 rounded-full text-sub font-medium transition-colors ${
+                    recurringMode === 'recurring' ? 'bg-ink-black text-paper-white' : 'text-ink-light'
+                  }`}
+                >
+                  반복
+                </button>
+              </div>
+
+              {/* 할부 설정 (지출 전용) */}
+              {recurringMode === 'installment' && type === 'expense' && (
+                <div className="space-y-3">
+                  <label className="text-sub text-ink-dark font-medium">개월 수</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[2, 3, 6, 10, 12, 18, 24, 36].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setInstallmentMonths(m)}
+                        className={`px-3 py-2 rounded-full text-sub transition-colors ${
+                          installmentMonths === m
+                            ? 'bg-ink-black text-paper-white'
+                            : 'bg-paper-white text-ink-mid'
+                        }`}
+                      >
+                        {m}개월
+                      </button>
+                    ))}
+                  </div>
+                  {amount && parseInt(amount) > 0 && (
+                    <p className="text-caption text-ink-mid">
+                      월 {Math.round(parseInt(amount) / installmentMonths).toLocaleString()}원씩 납부
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 반복 설정 */}
+              {recurringMode === 'recurring' && (
+                <div className="space-y-3">
+                  <label className="text-sub text-ink-dark font-medium">반복 주기</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { value: 'daily' as RecurrenceFrequency, label: '매일' },
+                      { value: 'weekly' as RecurrenceFrequency, label: '매주' },
+                      { value: 'monthly' as RecurrenceFrequency, label: '매월' },
+                      { value: 'yearly' as RecurrenceFrequency, label: '매년' },
+                    ]).map(({ value, label }) => (
+                      <button
+                        key={value}
+                        onClick={() => setRecurringFrequency(value)}
+                        className={`px-3 py-2 rounded-full text-sub transition-colors ${
+                          recurringFrequency === value
+                            ? 'bg-ink-black text-paper-white'
+                            : 'bg-paper-white text-ink-mid'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {recurringFrequency === 'monthly' && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sub text-ink-mid">매월</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={recurringDayOfMonth}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value);
+                          if (v >= 1 && v <= 31) setRecurringDayOfMonth(v);
+                        }}
+                        className="w-16 px-2 py-1.5 rounded-lg bg-paper-white text-body text-ink-dark text-center outline-none focus:ring-2 focus:ring-ink-light"
+                      />
+                      <span className="text-sub text-ink-mid">일</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 확인 버튼 */}
+              <button
+                onClick={() => setExpandedSection('none')}
+                className="w-full py-3 rounded-lg bg-ink-black text-paper-white text-body font-medium hover:bg-ink-dark transition-colors"
+              >
+                완료
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 미니 칩: 할부/반복 설정 완료 표시 */}
+        {recurringMode !== 'none' && expandedSection !== 'recurring' && (
+          <div className="flex justify-center mt-2">
+            <button
+              onClick={() => toggleSection('recurring')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-ink-black text-paper-white text-caption"
+            >
+              <Repeat size={12} />
+              <span>
+                {recurringMode === 'installment'
+                  ? `${installmentMonths}개월 할부`
+                  : `${recurringFrequency === 'daily' ? '매일' : recurringFrequency === 'weekly' ? '매주' : recurringFrequency === 'monthly' ? '매월' : '매년'} 반복`
+                }
+              </span>
+            </button>
           </div>
         )}
 

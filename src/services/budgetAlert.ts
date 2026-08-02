@@ -5,9 +5,9 @@
  */
 
 import { db } from './database';
-import { getMonthlyBudgetStructure, getRecurringTransactions, getPaymentMethodBreakdown } from './queries';
+import { getMonthlyBudgetStructure, getRecurringTransactions, getPaymentMethodBreakdown, getActiveRecurringTransactions, executeRecurringTransaction } from './queries';
 import { useToastStore } from '@/stores/toastStore';
-import { format, differenceInDays, startOfDay } from 'date-fns';
+import { format, differenceInDays, startOfDay, endOfMonth, isBefore, isSameDay, isAfter } from 'date-fns';
 import type { Settings, BudgetStatus, CategoryAlertSetting, RecurringAlertSetting, RecurringTransaction, PaymentMethodAlertSetting } from '@/types';
 import { DEFAULT_CATEGORY_ALERT_THRESHOLDS, DEFAULT_PAYMENT_METHOD_ALERT_THRESHOLDS } from '@/types';
 
@@ -628,5 +628,103 @@ export async function checkPaymentMethodAfterTransaction(
 
       return; // 가장 높은 도달 임계값만 알림
     }
+  }
+}
+
+const MAX_CATCHUP = 365; // 안전장치: 반복거래 1건당 최대 실행 수
+
+/**
+ * 단일 반복 거래의 도래 회차 실행 (내부 공용)
+ * - on_date: 오늘까지 도래한 회차 생성 (밀린 거래 catch-up)
+ * - start_of_month(월초 선반영): 이번 달 말일까지의 회차를 미리 생성
+ * @returns 생성된 거래 수
+ */
+async function executeDueOccurrences(
+  rt: RecurringTransaction,
+  today: Date,
+  monthEnd: Date
+): Promise<number> {
+  // 종료일이 지났으면 비활성화
+  if (rt.endDate && isBefore(rt.endDate, today)) {
+    await db.recurringTransactions.update(rt.id, {
+      isActive: false,
+      updatedAt: new Date(),
+    });
+    return 0;
+  }
+
+  // 실행 한도일: on_date는 오늘까지, start_of_month는 이번 달 말일까지
+  const executeUntil = rt.executionMode === 'start_of_month' ? monthEnd : today;
+
+  let executionCount = 0;
+  let nextDate = startOfDay(new Date(rt.nextExecutionDate));
+
+  while (
+    (isBefore(nextDate, executeUntil) || isSameDay(nextDate, executeUntil)) &&
+    executionCount < MAX_CATCHUP
+  ) {
+    // 종료일 체크
+    if (rt.endDate && isAfter(nextDate, rt.endDate)) {
+      break;
+    }
+
+    const result = await executeRecurringTransaction(rt.id, nextDate);
+    if (!result) break; // 실행 실패 시 중단
+
+    executionCount++;
+
+    // DB에서 갱신된 nextExecutionDate를 다시 조회
+    const updated = await db.recurringTransactions.get(rt.id);
+    if (!updated || !updated.isActive) break;
+
+    nextDate = startOfDay(new Date(updated.nextExecutionDate));
+  }
+
+  return executionCount;
+}
+
+/**
+ * 반복 거래 자동 실행
+ * 앱 시작 시 호출하여 활성 반복 거래 전체의 도래 회차를 실제 거래로 생성
+ * @returns 생성된 거래 수
+ */
+export async function processRecurringTransactions(): Promise<number> {
+  try {
+    const today = startOfDay(new Date());
+    const monthEnd = startOfDay(endOfMonth(today));
+    let totalExecuted = 0;
+
+    // 활성 반복 거래 목록 조회
+    const activeList = await getActiveRecurringTransactions();
+    console.log(`[RecurringTx] 활성 반복거래 ${activeList.length}건 조회됨`);
+
+    for (const rt of activeList) {
+      totalExecuted += await executeDueOccurrences(rt, today, monthEnd);
+    }
+
+    console.log(`[RecurringTx] 총 ${totalExecuted}건 실행 완료`);
+    return totalExecuted;
+  } catch (error) {
+    console.error('Failed to process recurring transactions:', error);
+    return 0;
+  }
+}
+
+/**
+ * 단일 반복 거래 즉시 처리 (등록·편집 직후 호출용)
+ * 실행 모드에 따라 도래한 회차를 곧바로 생성한다
+ * @returns 생성된 거래 수
+ */
+export async function processSingleRecurringTransaction(recurringId: string): Promise<number> {
+  try {
+    const rt = await db.recurringTransactions.get(recurringId);
+    if (!rt || !rt.isActive) return 0;
+
+    const today = startOfDay(new Date());
+    const monthEnd = startOfDay(endOfMonth(today));
+    return await executeDueOccurrences(rt, today, monthEnd);
+  } catch (error) {
+    console.error('Failed to process single recurring transaction:', error);
+    return 0;
   }
 }

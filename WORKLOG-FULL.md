@@ -2310,4 +2310,216 @@
      - 카테고리/수단 항목명, 금액, 퍼센트, 건수 등 `dark:` prefix 클래스 제거
      - CSS 변수(`text-ink-dark`, `text-ink-black` 등)가 `.dark` 클래스에 따라 자동 전환
      - CategoryDonutChart.tsx, PaymentMethodDonutChart.tsx: 다크모드 텍스트 색상을 globals.css 값과 일치 (`#F0F2F5`)
+  11. **월간 리뷰 페이지 다크모드 수정**
+     - `src/pages/MonthlyReviewPage.tsx`: 잘못 추가된 `dark:` prefix 모두 제거
+     - CSS 변수 시스템이 `.dark` 클래스에 따라 자동으로 색상 전환
+     - `dark:bg-ink-black` → 제거 (다크모드에서 ink-black은 밝은색이므로 배경이 흰색처럼 보임)
+     - 기본 CSS 변수 클래스(`bg-paper-white`, `text-ink-black` 등)만 사용
 - **결과**: 다크모드 전반적 가시성 개선, 입력 UX 향상, 모바일 친화적 토스트
+
+---
+
+## 2026-01-16
+
+### #122 Add 페이지 iOS 단축어 포커스 대응 + 인사이트 설정 FAB 저장 UI (2026-01-16)
+- **요청**:
+  1. 외부에서 `/add` 페이지 직접 접속 시 금액 입력 박스에 커서 자동 포커스
+  2. 설정 > 인사이트 카드 화면에서 저장 UI를 우상단 버튼 → 하단 FAB 버튼으로 변경
+- **변경**:
+  1. **AddPage iOS 단축어 포커스 대응**
+     - `src/pages/AddPage.tsx`: iOS Safari 보안 정책으로 단축어/딥링크 진입 시 자동 포커스 차단됨
+     - `needsFocusOnTouch` 상태 추가: 포커스 실패 시 화면 터치로 포커스 트리거
+     - Main Content div에 `onClick={handleScreenTouch}` 추가
+  2. **인사이트 설정 페이지 FAB 저장 UI**
+     - `src/pages/InsightSettingsPage.tsx`: 우상단 저장 버튼 제거, useFabStore 연동
+     - `canSubmit` 상태로 FAB 체크 버튼 활성화/비활성화
+     - `pb-safe` → `pb-nav`로 하단 여백 조정
+  3. **TabBar FAB 패턴 등록**
+     - `src/components/layout/TabBar.tsx`: `/settings/insights` 경로 FAB_SUBMIT_PATTERNS에 추가
+- **결과**:
+  - iOS 단축어로 `/add` 진입 시 화면 터치하면 금액 입력에 포커스
+  - 인사이트 설정 페이지에서 변경사항 있을 때만 하단 FAB 체크 버튼 활성화
+
+
+---
+
+## 2026-01-21
+
+### #123 예산 현황 기능 확장 (Phase 1~4 완료)
+- **요청**: 카테고리별/결제수단별 월별 예산 대비 사용현황 확인 + 액션 연결
+- **철학 준수**: "얼마나 남았지?" 관점, 판단 없는 비춤, 1초 확인, 기존 디자인 패턴 유지
+- **변경**:
+  1. **Phase 1.3: 공통 유틸**
+     - `src/utils/budgetStatus.ts`: getBudgetLevel, getProgressBarColor, getBudgetMessage 함수
+  2. **Phase 1.1: 타입/쿼리 확장**
+     - `src/types/index.ts`: CategorySummary에 budget/budgetPercent 필드 추가
+     - `src/types/index.ts`: InsightWidgetType에 'budget-overview' 추가 + config
+     - `src/services/queries.ts`: getCategoryBreakdown()에서 예산 정보 포함
+  3. **Phase 1.2: StatsPage UI**
+     - `src/pages/StatsPage.tsx`: 카테고리/수단 리스트에 예산/한도 % 표시
+     - 100% 이상 빨간색, 80% 이상 주황색 색상 코드
+  4. **Phase 2.1: CategoryTrendModal 확장**
+     - `src/components/report/CategoryTrendModal.tsx`: 예산 현황 프로그레스 바, 결제수단별 breakdown (접힘식), 액션 링크 (내역 보기, 예산 조정)
+     - `src/services/queries.ts`: getCategoryPaymentBreakdown() 추가
+  5. **Phase 2.2: PaymentMethodTrendModal 확장**
+     - `src/components/report/PaymentMethodTrendModal.tsx`: 한도 현황 프로그레스 바, 카테고리별 breakdown (접힘식), 액션 링크 (내역 보기, 한도 설정/조정)
+     - `src/services/queries.ts`: getPaymentMethodCategoryBreakdown() 추가
+  6. **Phase 3: BudgetOverviewInsight**
+     - `src/components/home/insights/BudgetOverviewInsight.tsx`: 홈 캐러셀용 예산 배분 현황 카드
+     - `src/components/home/insights/index.ts`: export 추가
+     - `src/components/home/InsightCard.tsx`: budget-overview 위젯 렌더링 + 데이터 로드
+     - `src/pages/InsightSettingsPage.tsx`: budget-overview 위젯 옵션 추가
+     - `src/services/queries.ts`: getBudgetOverview() 추가
+  7. **Phase 4: 결제수단 한도 UI**
+     - `src/pages/PaymentMethodEditPage.tsx`: (이미 있음) 월 한도 필드
+     - `src/pages/PaymentMethodManagePage.tsx`: 한도 설정된 경우 목록에서 표시
+- **결과**: 예산 대비 현황 확인 → 액션 연결 플로우 완성
+
+## 2026-02-13
+
+### #124 v0.2.4 개선 3건 (다크모드 토스트, 반복거래 자동 실행, 할부/반복 설정)
+- **요청**: 다크모드 토스트 시인성, 반복거래 월초 자동 반영, 거래 등록 시 할부/반복 설정 3가지 개선
+- **변경**:
+  1. **Toast 다크모드 수정** (`src/components/common/Toast.tsx`)
+     - `dark:text-paper-white`, `dark:text-paper-mid` 제거 → CSS 변수 자동 전환 활용
+     - 배경 opacity 30%→50%, border 700/50→600/60으로 강화
+     - 닫기 버튼 dark: override 제거
+  2. **반복거래 자동 실행** (`src/services/queries.ts`, `src/services/budgetAlert.ts`, `src/pages/HomePage.tsx`)
+     - `executeRecurringTransaction()`: targetDate 파라미터 추가, endDate 도달 시 자동 비활성화
+     - `processRecurringTransactions()` 신규 함수: 활성 반복거래 중 밀린 건 catch-up (최대 365건 안전장치)
+     - `HomePage`: mount 시 processRecurringTransactions() 호출 → 데이터 갱신 + 토스트 알림
+  3. **할부/반복 설정 UI** (`src/pages/AddPage.tsx`)
+     - ExpandedSection에 'recurring' 추가
+     - recurringMode 3-way 토글 (없음/할부/반복)
+     - 할부: 개월 수 선택 (2~36), 월 납부 금액 자동 계산, 첫 회차 즉시 생성 + 반복거래 등록
+     - 반복: 주기 선택 (매일/매주/매월/매년), monthly 일자 입력
+     - type 변경 시 recurringMode 리셋, 수입 시 할부 옵션 숨김
+     - 미니 칩으로 설정 완료 표시
+- **결과**: 3건 모두 완료, 빌드/타입체크 통과
+
+### #125 추가 개선 3건 (토스트 배경, 반복거래 즉시 실행, 미래 월 탐색) (2026-02-13)
+- **요청**: 다크모드 토스트 박스 배경 겹침, 반복거래 등록 시 즉시 반영 안 됨, 기록 페이지 미래 월 이동 불가
+- **변경**:
+  1. **토스트 다크모드 배경** (`src/components/common/Toast.tsx`)
+     - `dark:bg-*-900/50` → `dark:bg-paper-mid` + `dark:border-*-500/70`으로 전환
+     - paper-mid(#1E2229)가 paper-white(#0D0F12) 대비 확실히 구별, 컬러 border로 타입 구분
+  2. **반복거래 등록 시 즉시 실행** (`src/pages/RecurringTransactionEditPage.tsx`)
+     - 신규 등록(isEditing=false) 후 nextExecutionDate <= today이면 executeRecurringTransaction() 호출
+     - 즉시 실행 성공: "반복 거래가 등록되고 이번 달 거래가 기록되었어요" 토스트
+     - 미래 날짜: "반복 거래가 등록되었어요" 토스트
+  3. **기록 페이지 미래 월 탐색** (`src/pages/HistoryPage.tsx`)
+     - canGoNext: 항상 true
+     - canGoToNextMonth: 항상 true (스와이프)
+     - handleNextMonth: 미래 월 조건 제거
+     - isMonthDisabled: 항상 false
+     - 년도 네비: pickerYear >= currentYear+1로 완화 (내년까지 허용)
+- **결과**: 3건 모두 완료, 타입체크 통과
+
+### #126 반복 전환 + 다음달 기록 생성 + 태그 자동 부여 + 토스트 다크모드 개선 (2026-02-13)
+- **요청**: ① 거래 수정 시 반복 전환 불가 ② 반복/할부 등록 시 다음달 기록 누락 ③ 반복 등록 시 "반복" 태그 자동 부여 ④ 토스트 다크모드 차별화
+- **변경**:
+  1. **EditTransactionPage 반복 전환 UI** (`src/pages/EditTransactionPage.tsx`)
+     - "반복 거래로 등록" 토글 + 주기 선택(매일/매주/매월/매년) + 매월 일자 입력 UI 추가
+     - handleSubmit: recurringEnabled=true일 때 createRecurringTransaction + executeRecurringTransaction 호출
+     - 현재 거래에도 "반복" 태그 자동 추가
+     - import: Repeat, useToastStore, createRecurringTransaction, calculateNextExecutionDate, executeRecurringTransaction, RecurrenceFrequency
+  2. **AddPage 다음달 기록 즉시 생성** (`src/pages/AddPage.tsx`)
+     - 할부 모드: createRecurringTransaction 반환값 캡처 → executeRecurringTransaction(newRecurring.id, nextDate)로 2회차 즉시 생성
+     - 반복 모드: 동일하게 다음 회차 즉시 생성
+     - 반복 모드: "반복" 태그 자동 부여 (중복 방지 포함)
+     - import에 executeRecurringTransaction 추가
+  3. **RecurringTransactionEditPage 다음달 기록 즉시 생성** (`src/pages/RecurringTransactionEditPage.tsx`)
+     - nextDate ≤ today: 당월 실행 → DB에서 갱신된 nextExecutionDate 조회 → 다음달도 실행
+     - nextDate > today: 첫 회차 + 다음 회차 2회 생성
+     - 신규 생성 시 "반복" 태그 자동 부여
+     - 토스트 메시지 차별화: "이번 달, 다음 달 거래가 기록되었어요" / "다음 2회 거래가 기록되었어요"
+  4. **토스트 다크모드 차별화** (`src/components/common/Toast.tsx`)
+     - 기존: 4타입 모두 `dark:bg-paper-mid` 동일 배경 → 구분 불가
+     - 변경: success=`dark:bg-green-950/60`, warning=`dark:bg-amber-950/60`, danger=`dark:bg-red-950/60`, info=`dark:bg-blue-950/60`
+     - border도 각 색상 `700/50` 톤으로 조화
+     - subMessage `dark:text-ink-dark` 제거 (ink-mid 통일)
+- **결과**: 4건 모두 완료, 타입체크 통과
+
+---
+
+## 2026-03-13
+
+### #127 반복거래 자동 적용 미작동 버그 수정
+- **요청**: 반복거래가 매월 자동 적용되지 않는 문제 원인 조사 및 수정
+- **변경**:
+  1. **근본 원인 수정** (`src/services/queries.ts:1003`)
+     - `getActiveRecurringTransactions()`에서 `.where('isActive').equals(1)` → `.filter((rt) => rt.isActive === true)`
+     - IndexedDB에서 boolean `true`와 number `1`은 다른 키 타입이라 항상 0건 반환되던 버그
+     - 영향 범위: `processRecurringTransactions()` (catch-up 불능), `getProjectedTransactions()` (예상 거래 미표시), `getUpcomingRecurringTransactions()` (알림 0건)
+  2. **편집 시 nextExecutionDate 보존** (`src/pages/RecurringTransactionEditPage.tsx`)
+     - 기존: 메모/금액만 수정해도 nextExecutionDate가 현재 날짜 기준으로 재계산됨
+     - 수정: `frequency`나 `dayOfMonth` 변경 시에만 재계산, 그 외에는 기존 값 유지
+     - `originalNextExecRef`, `originalFrequencyRef`, `originalDayOfMonthRef` 추가
+  3. **디버그 로그 추가** (`src/services/budgetAlert.ts`)
+     - `processRecurringTransactions()`에 활성 거래 수, 실행 건수 console.log 추가
+- **결과**: 타입체크 통과, 빌드 통과, Vercel 배포 완료
+
+---
+
+## 2026-07-16
+
+### #128 제품 문서 체계화: 기획서-정의서-유저플로우-와이어프레임
+- **요청**: 프로젝트를 분석하여 기획서-정의서-유저플로우-와이어프레임을 체계적으로 문서화
+- **변경**:
+  1. **manyfast(claude.ai MCP) 프로젝트 생성 + PRD 등록**
+     - 프로젝트: "PinPig - 비춰주는 거울 가계부" (버전 1: "v0.2.5 PRD 초안" 저장)
+     - PRD 전 섹션 작성: 한줄정의/목표/배경/타겟/문제/해결/차별화/시나리오/KPI/리스크/디바이스/역할
+     - 요구사항·기능명세 쓰기는 manyfast PRO 플랜 전용이라 차단 → 리포 마크다운으로 전환
+  2. **`docs/product/` 문서 세트 신규 생성** (4종, 실제 코드 역설계 기반)
+     - `01_PRD.md`: 제품 기획서 (컨셉/페르소나/KPI/리스크/범위 R-01~R-12/로드맵)
+     - `02_REQUIREMENTS.md`: 기능 정의서 (데이터 모델 요약, 요구사항 12영역 + 기능 F-xx 정의 + 인수 기준 + NFR 8종 + 기능-화면 매핑)
+     - `03_USER_FLOW.md`: 유저 플로우 (Mermaid 10종: 진입 게이트/내비 맵/1초확인/3터치기록/내역검색/월말리뷰/예산 3경로/반복거래 라이프사이클/알림 트리거/인사이트 연결)
+     - `04_WIREFRAMES.md`: 와이어프레임 (ASCII, 15개 섹션 — 온보딩 5스텝/홈 2스크린/AddPage 아코디언/기록/분석/월간리뷰/설정/예산마법사/반복거래/인사이트설정 등 + 28페이지 인벤토리)
+  - 근거 자료: App.tsx 라우트, types/index.ts 전체, CONTEXT/CONCEPT/USER_JOURNEY/FEATURE_MAP + Explore 에이전트의 18개 페이지 UI 구조 조사
+- **결과**: 완료. 문서 4종 생성 + manyfast PRD 등록. CONTEXT.md 참조 문서 갱신
+
+---
+
+## 2026-07-20
+
+### #129 서비스화 평가 및 상용화 제언 문서 작성
+- **요청**: 현재 서비스 평가 + 상용 앱 발전에 필요한 부분·BM 모델 제언·개발 방향 정리
+- **전제 확인**: 1인 운영 수익화 / 한국+글로벌 병행 / 리포 문서로 저장
+- **변경**: `docs/COMMERCIALIZATION.md` 신규
+  1. **총평**: 개인용 완결 vs 상용 3축(신뢰 인프라·학습 루프·지불 장치) = 0 진단. 코드 실측(114파일/27,276 LOC/테스트 0/analytics 0) 기반
+  2. **갭 분석**: 데이터 안전·품질·관측·발견성·법무·리텐션 미검증 6영역. local-first의 양면성(차별점이자 최대 리스크) → opt-in 동기화가 해소책이자 과금 지점
+  3. **BM 제언**: 광고·마이데이터 배제 근거, 옵션 A(무료+동기화 구독, Dexie Cloud 경로) 권장 / B(일회성) / 혼합 비교. 가격 벤치마크(편한가계부·뱅샐·Buddy·YNAB) → 연 15,000~24,000원 / $15~25 제안. 결제 채널(iOS IAP 15% + 웹 MoR)
+  4. **개발 방향**: Track 0 검증(측정+외부 리텐션 실측 최우선) → 1 신뢰 인프라 → 2 품질·법무 → 3 채널(iOS·위젯·i18n) → 4 결제. 의사결정 지점 D1~D3 명시
+  5. **철학 충돌 관리**: 판별 기준 "행동을 평가·유도하는가" 제시
+- **근거**: 웹 리서치(2026-07 국내외 가격·Dexie Cloud·결제 인프라, 출처 링크 문서 내 첨부) + 기존 문서(PRD/ROADMAP/COMPLETION_REPORT)
+- **결과**: 완료. CONTEXT.md 참조 문서 갱신
+
+---
+
+## 2026-08-02
+
+### #130 반복거래 '월초 선반영(start_of_month)' 미구현 진단·수정
+- **요청**: 배포본에서 반복거래 월초 선입력 항목이 기록에 반영되지 않고 해당 일에만 새로 생기는 문제 상태 점검 → 보고 후 수정 착수
+- **진단**:
+  - '월초 선반영' 모드는 타입(`RecurringExecutionMode`)과 편집 UI에만 존재. 실행 엔진 `processRecurringTransactions()`가 `executionMode`를 전혀 읽지 않아 모든 반복거래가 on_date(실행일 도래 시 생성)로만 처리됨 — 버그가 아니라 미구현
+  - 배포 번들(pinpig.vercel.app) 직접 분석: `start_of_month` 문자열이 UI 옵션 정의 1곳뿐(분기 로직 없음), `[RecurringTx]` 엔진·#126 토스트·#127 수정 모두 포함 → 배포본 = 로컬 작업본(v0.2.5)
+  - 부수 발견: 반복거래 기능(#124~#127) 대부분이 미커밋 작업본에만 존재. HEAD에는 실행 엔진 자체가 없고 origin/main은 v0.1.6 — 로컬 유실 시 배포 기능 소스 소실 위험
+- **변경**:
+  - `src/services/budgetAlert.ts`: 실행 한도일 분기 추가 — on_date는 오늘까지(catch-up 유지), start_of_month는 이번 달 말일까지 선생성
+  - `src/services/budgetAlert.test.ts` 신규: 재현 테스트 7건 (선반영 당월 생성 / weekly 당월 전체 선반영 / on_date 미도래 미생성 / on_date catch-up 회귀 / executionMode 미지정 하위호환 / endDate 경계 2건)
+  - 테스트 인프라 신규: `vitest.config.ts`(빌드 설정 분리), `src/test/setup.ts`(fake-indexeddb), devDep `fake-indexeddb@6.2.5` 추가
+- **검증**: 수정 전 start_of_month 3건 실패(재현 확인) → 수정 후 7/7 통과. type-check·build 통과. lint는 기존 작업본 잔존 문제 2건(HistoryPage `_month` 미사용 에러, HomePage exhaustive-deps 경고)만 — 이번 변경 파일은 지적 없음
+- **결과**: 완료. 배포·커밋은 미실행(지시 대기)
+- **피드백**: 보완 아이디어 5건 보고 (등록 시 선생성 모드 비인지, UI 문구 "매월 1일" 부정확, 엔진 호출 위치 홈 한정, 선반영 거래 예산 반영 UX, git 위생) → #131
+
+### #131 반복거래 보완 아이디어 반영 (등록 분기·문구·엔진 위치·lint·커밋)
+- **요청**: #130 보고의 보완 아이디어 수용 → 추가 반영
+- **변경**:
+  1. **등록·편집 직후 처리 모드 분기**: `budgetAlert.ts`에 항목별 실행 루프를 `executeDueOccurrences()`로 추출, `processSingleRecurringTransaction()` 신규 export. RecurringTransactionEditPage 등록/편집 직후 이를 호출 — on_date는 도래분만, start_of_month는 당월 선반영. 기존 "무조건 첫 회차+다음 회차 2건 선생성"(#126) 제거. AddPage 할부/반복의 다음 회차 즉시 생성도 제거 (on_date 의미와 일치)
+  2. **UI 문구 정확화**: "매월 1일에" → "매월 첫 앱 실행 시" (옵션 설명·활성화 안내·타입 주석 3곳)
+  3. **엔진 호출 위치 App 루트 이동**: HomePage 마운트 의존 제거 → App.tsx에서 세션당 1회 실행(모듈 가드), 생성 시 스토어 갱신+토스트. 어느 탭으로 진입해도 반복거래 반영
+  4. **lint 완전 정리**: HistoryPage `isMonthDisabled(_month)` 미사용 파라미터 제거(상수 false 인라인), HomePage exhaustive-deps 경고는 엔진 이동으로 자연 해소 → lint 0 에러 0 경고
+  5. **선반영 거래 구분 표시(아이디어 4)**: 홈에 미래 거래 별도 섹션·기록에 미래 그룹 스타일이 이미 존재해 추가 변경 없음 확인
+  6. **git 위생**: .gitignore에 `tmpclaude-*`, `nul` 추가. v0.2.4~0.2.5 미커밋 작업 전체를 일괄 커밋·푸시 (origin/feat/v0.2.4-improvements)
+- **검증**: vitest 11/11 통과 (processSingle 4건 신규: on_date 미래 미생성 / start_of_month 즉시 선반영 / 당일 실행 / 비활성 무시), type-check·lint·build 모두 통과
+- **결과**: 완료. 배포는 미실행(지시 대기)

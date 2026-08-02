@@ -223,9 +223,16 @@ export function PaymentMethodManagePage() {
                   </div>
                   <div className="flex-1 min-w-0" onClick={() => goToEdit(pm)}>
                     <p className="text-body text-ink-black truncate">{pm.name}</p>
-                    {pm.isDefault && (
-                      <p className="text-caption text-ink-light">기본</p>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {pm.isDefault && (
+                        <span className="text-caption text-ink-light">기본</span>
+                      )}
+                      {pm.budget && pm.budget > 0 && (
+                        <span className="text-caption text-ink-light">
+                          {pm.isDefault && '· '}월 한도 {pm.budget.toLocaleString()}원
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </SwipeToDelete>

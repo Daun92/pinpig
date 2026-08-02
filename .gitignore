@@ -30,3 +30,7 @@ coverage/
 
 # PWA
 dev-dist/
+
+# Claude Code 세션 잔여물
+tmpclaude-*
+nul

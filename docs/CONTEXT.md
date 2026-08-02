@@ -1,6 +1,6 @@
 # PinPig 프로젝트 컨텍스트
 
-> **최종 갱신**: 2026-01-15
+> **최종 갱신**: 2026-08-02
 > **버전**: 0.2.5
 > **이 파일은 새 대화 시작 시 빠른 맥락 파악용입니다.**
 
@@ -13,8 +13,9 @@
 | 버전 | 0.2.5 |
 | MVP 완성도 | 100% |
 | 배포 URL | https://pinpig.vercel.app |
-| ESLint | 0 에러 |
+| ESLint | 0 에러 0 경고 (#131에서 완전 정리) |
 | 빌드 | 통과 |
+| 테스트 | vitest + fake-indexeddb, budgetAlert 11건 통과 |
 
 ---
 
@@ -67,27 +68,51 @@
 
 ## 최근 작업 (최신순)
 
-### #121 UX/UI 개선 패키지 (v0.2.5) (2026-01-15)
-- 반복거래 메모/태그 입력 분리 (커서 문제 해결)
-- 토스트 알림 위치 상단 이동 + 다크모드 가시성 개선
-- 금액 입력 천단위 콤마 적용
-- 분석 탭 다크모드 가시성 개선 (아이콘, 라벨, 차트)
-- AddPage 자동 포커스 + Enter 키 UX 개선
-- 차트 라벨 overflow 문제 해결
-- **브라우저 light + 앱 dark 모드 가시성**: CSS 변수 시스템 활용으로 올바른 색상 적용
+### #131 반복거래 보완 반영 + 일괄 커밋 (2026-08-02)
+- **등록·편집 직후 모드 분기**: `processSingleRecurringTransaction()` 신규 — on_date는 도래분만, start_of_month는 당월 선반영. 기존 "다음 회차 무조건 선생성"(#126) 제거
+- **엔진 App 루트 이동**: 홈 미경유 진입에도 반복거래 반영 (세션당 1회)
+- **문구 정확화**: "매월 1일에" → "매월 첫 앱 실행 시"
+- **lint 0 에러 0 경고 완전 정리** + 미커밋 작업 전체 일괄 커밋·푸시
 
-### #120 발전 방향 로드맵 문서 작성 (2026-01-13)
-- `docs/ROADMAP.md` 신규 생성
-- 단기/중기/장기 계획, 기술 부채 관리
+### #130 반복거래 '월초 선반영' 미구현 수정 (2026-08-02)
+- **진단**: start_of_month 모드가 타입·UI에만 존재, 실행 엔진이 executionMode 미참조 → 전부 on_date로 동작. 배포 번들 분석으로 배포본=로컬 작업본 확인
+- **수정**: `processRecurringTransactions` 실행 한도일 분기 — on_date는 오늘, start_of_month는 당월 말일까지 선생성
+- **테스트 인프라 신규**: vitest.config.ts + fake-indexeddb, `budgetAlert.test.ts` 7건 (재현 3건 실패 → 수정 후 전부 통과)
+- **⚠ 미배포**: #130~#131 수정분은 Vercel 재배포 필요 (커밋·푸시는 #131에서 완료)
 
-### #119 예정 지출 기록 및 날짜 탐색 개선 (2026-01-13)
-- AddPage: 미래 날짜 선택 가능 (`disableFuture={false}`)
-- DateTimePicker: 일~토 달력 구조, 주말 색상 구분
-- HomePage → HistoryPage: 요약카드 클릭 시 해당 날짜로 스크롤
+### #129 서비스화 평가 및 상용화 제언 (2026-07-20)
+- **`docs/COMMERCIALIZATION.md` 신규**: 상용 3축(신뢰·측정·결제) 갭 진단, BM 제언(무료+동기화 구독 권장, 연 15,000~24,000원 / $15~25), 개발 방향 Track 0~4 (검증 → 신뢰 인프라 → 품질·법무 → iOS 채널 → 결제)
+- **전제**: 1인 운영 수익화, 한국+글로벌 병행
 
-### #118 앱 내 알림 마스터 토글 추가 (2026-01-13)
-- 설정 > 알림 섹션 최상단에 "앱 내 알림" 전체 on/off 토글 추가
-- 마스터 토글 OFF 시 세부 알림 설정 항목 숨김
+### #128 제품 문서 체계화 (2026-07-16)
+- **`docs/product/` 신규**: 01_PRD(기획서) · 02_REQUIREMENTS(기능 정의서 R-01~R-12 + NFR) · 03_USER_FLOW(Mermaid 10종) · 04_WIREFRAMES(ASCII 15섹션) — v0.2.5 코드 역설계 기반
+- **manyfast PRD 등록**: claude.ai MCP로 "PinPig - 비춰주는 거울 가계부" 프로젝트 생성, PRD 버전 1 저장 (요구사항 쓰기는 PRO 플랜 전용이라 리포 문서로 대체)
+
+### #126 반복 전환 + 다음달 기록 + 태그 자동 + 토스트 개선 (2026-02-13)
+- **EditTransactionPage 반복 전환**: 기존 거래를 반복거래로 전환하는 토글 UI + 주기 설정
+- **다음달 기록 즉시 생성**: AddPage(할부/반복), RecurringTransactionEditPage에서 다음 회차 미리 생성
+- **"반복" 태그 자동 부여**: 반복거래 등록 시 모든 경로에서 "반복" 태그 자동 추가
+- **토스트 다크모드 차별화**: 타입별 tinted 배경(green/amber/red/blue-950/60)으로 시각적 구분
+
+### #125 추가 개선 3건 (2026-02-13)
+- **토스트 다크모드 배경**: `dark:bg-*-900/50` → `dark:bg-paper-mid` + 컬러 border로 가시성 확보
+- **반복거래 즉시 실행**: 등록 시 nextExecutionDate ≤ today이면 즉시 거래 생성 + 토스트 안내
+- **미래 월 탐색 허용**: 기록 페이지 다음 달/월선택 모달에서 미래 월 이동 가능
+
+### #127 반복거래 자동 적용 미작동 버그 수정 (2026-03-13)
+- **근본 원인**: `getActiveRecurringTransactions()`에서 `.equals(1)` vs boolean `true` 타입 불일치 → 활성 거래 항상 0건 반환
+- **수정**: `.filter((rt) => rt.isActive === true)` 전환 + 편집 시 nextExecutionDate 불필요한 재계산 방지
+- **영향**: processRecurringTransactions catch-up, 예상 거래 표시, 반복거래 알림 모두 정상화
+
+### #124 v0.2.4 개선 3건 (2026-02-13)
+- **다크모드 토스트 수정**: `dark:text-paper-*` override 제거, CSS 변수 자동 전환 활용, 배경 opacity 강화
+- **반복거래 자동 실행**: `processRecurringTransactions()` 신규 — 밀린 거래 catch-up (최대 365건), HomePage mount 시 호출
+- **할부/반복 설정 UI**: AddPage에 3-way 토글 (없음/할부/반복), 할부 시 분할 거래 + 반복 등록, 반복 시 주기 선택
+
+### #123 예산 현황 기능 확장 (Phase 1~4) (2026-01-21)
+- **StatsPage**: 카테고리/수단 리스트에 예산/한도 대비 % 표시
+- **BudgetOverviewInsight**: 홈 캐러셀용 예산 배분 현황 카드 추가
+
 
 ---
 
@@ -148,8 +173,13 @@
 
 | 문서 | 용도 |
 |------|------|
+| `docs/product/01_PRD.md` | **제품 기획서 (v0.2.5 기준)** |
+| `docs/product/02_REQUIREMENTS.md` | **기능 정의서 (R-01~R-12 + NFR)** |
+| `docs/product/03_USER_FLOW.md` | 유저 플로우 (Mermaid) |
+| `docs/product/04_WIREFRAMES.md` | 와이어프레임 (전 화면) |
 | `docs/FEATURE_MAP.md` | **기능 연관 맵 (수정 전 필수)** |
 | `docs/ROADMAP.md` | **발전 방향 로드맵** |
+| `docs/COMMERCIALIZATION.md` | **서비스화 평가·BM 제언 (2026-07-20)** |
 | `WORKLOG-FULL.md` | 전체 작업 히스토리 |
 | `docs/COMPLETION_REPORT.md` | 완성도 평가 보고서 |
 | `docs/CONCEPT.md` | 앱 컨셉 |

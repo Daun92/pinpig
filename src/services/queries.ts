@@ -116,6 +116,11 @@ export async function getCategoryBreakdown(
   return categories
     .map((cat) => {
       const data = categoryMap.get(cat.id) || { amount: 0, count: 0 };
+      // 예산 대비 사용률 계산 (예산 설정된 경우만)
+      const budgetPercent = cat.budget && cat.budget > 0
+        ? Math.round((data.amount / cat.budget) * 100)
+        : undefined;
+
       return {
         categoryId: cat.id,
         categoryName: cat.name,
@@ -124,6 +129,8 @@ export async function getCategoryBreakdown(
         amount: data.amount,
         percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
         count: data.count,
+        budget: cat.budget,
+        budgetPercent,
       };
     })
     .filter((summary) => summary.amount > 0)
@@ -993,7 +1000,7 @@ export async function getRecurringTransactions(): Promise<RecurringTransaction[]
  * Get active recurring transactions
  */
 export async function getActiveRecurringTransactions(): Promise<RecurringTransaction[]> {
-  return db.recurringTransactions.where('isActive').equals(1).toArray();
+  return db.recurringTransactions.filter((rt) => rt.isActive === true).toArray();
 }
 
 /**
@@ -1284,12 +1291,14 @@ export async function getUpcomingRecurringTransactions(
  * Execute a recurring transaction (create actual transaction from recurring)
  */
 export async function executeRecurringTransaction(
-  recurringId: string
+  recurringId: string,
+  targetDate?: Date
 ): Promise<Transaction | null> {
   const recurring = await db.recurringTransactions.get(recurringId);
   if (!recurring || !recurring.isActive) return null;
 
   const now = new Date();
+  const txDate = targetDate || now;
   const transaction: Transaction = {
     id: generateId(),
     type: recurring.type,
@@ -1299,8 +1308,8 @@ export async function executeRecurringTransaction(
     incomeSourceId: recurring.incomeSourceId,
     memo: recurring.memo,
     tags: recurring.tags,
-    date: now,
-    time: format(now, 'HH:mm'),
+    date: txDate,
+    time: format(txDate, 'HH:mm'),
     createdAt: now,
     updatedAt: now,
   };
@@ -1308,16 +1317,20 @@ export async function executeRecurringTransaction(
   // Add transaction
   await db.transactions.add(transaction);
 
-  // Update recurring transaction's next execution date
+  // Update recurring transaction's next execution date (based on execution date, not now)
   const nextDate = calculateNextExecutionDate(
     recurring.frequency,
-    now,
+    txDate,
     recurring.dayOfMonth
   );
+
+  // Check if recurring has ended
+  const isEnded = recurring.endDate && isAfter(nextDate, recurring.endDate);
 
   await db.recurringTransactions.update(recurringId, {
     lastExecutedDate: now,
     nextExecutionDate: nextDate,
+    ...(isEnded ? { isActive: false } : {}),
     updatedAt: now,
   });
 
@@ -2183,4 +2196,209 @@ export async function getInsightDetail(
     default:
       return null;
   }
+}
+
+// =========================================
+// 교차 분석 쿼리 (Cross Analysis)
+// =========================================
+
+/**
+ * 교차 분석용 결제수단 breakdown 아이템
+ */
+export interface PaymentBreakdownItem {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  paymentMethodIcon: string;
+  paymentMethodColor: string;
+  amount: number;
+  percentage: number;
+  count: number;
+}
+
+/**
+ * 교차 분석용 카테고리 breakdown 아이템
+ */
+export interface CategoryBreakdownItem {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  amount: number;
+  percentage: number;
+  count: number;
+}
+
+/**
+ * 특정 카테고리의 결제수단별 breakdown 조회
+ * (카테고리 모달에서 "이 카테고리는 어떤 수단으로 지출했는지" 표시용)
+ */
+export async function getCategoryPaymentBreakdown(
+  year: number,
+  month: number,
+  categoryId: string
+): Promise<PaymentBreakdownItem[]> {
+  const transactions = await getTransactionsByMonth(year, month);
+  const paymentMethods = await db.paymentMethods.orderBy('order').toArray();
+
+  // 해당 카테고리의 지출만 필터
+  const categoryTransactions = transactions.filter(
+    (tx) => tx.type === 'expense' && tx.categoryId === categoryId
+  );
+
+  const totalAmount = categoryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+  // 결제수단별로 그룹핑
+  const methodMap = new Map<string, { amount: number; count: number }>();
+
+  for (const tx of categoryTransactions) {
+    const pmId = tx.paymentMethodId || 'none';
+    const current = methodMap.get(pmId) || { amount: 0, count: 0 };
+    methodMap.set(pmId, {
+      amount: current.amount + tx.amount,
+      count: current.count + 1,
+    });
+  }
+
+  return paymentMethods
+    .map((pm) => {
+      const data = methodMap.get(pm.id) || { amount: 0, count: 0 };
+      return {
+        paymentMethodId: pm.id,
+        paymentMethodName: pm.name,
+        paymentMethodIcon: pm.icon,
+        paymentMethodColor: pm.color,
+        amount: data.amount,
+        percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
+        count: data.count,
+      };
+    })
+    .filter((item) => item.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * 특정 결제수단의 카테고리별 breakdown 조회
+ * (결제수단 모달에서 "이 수단으로 어떤 카테고리에 지출했는지" 표시용)
+ */
+export async function getPaymentMethodCategoryBreakdown(
+  year: number,
+  month: number,
+  paymentMethodId: string
+): Promise<CategoryBreakdownItem[]> {
+  const transactions = await getTransactionsByMonth(year, month);
+  const categories = await db.categories.where('type').equals('expense').toArray();
+
+  // 해당 결제수단의 지출만 필터
+  const pmTransactions = transactions.filter(
+    (tx) => tx.type === 'expense' && tx.paymentMethodId === paymentMethodId
+  );
+
+  const totalAmount = pmTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+  // 카테고리별로 그룹핑
+  const categoryMap = new Map<string, { amount: number; count: number }>();
+
+  for (const tx of pmTransactions) {
+    const current = categoryMap.get(tx.categoryId) || { amount: 0, count: 0 };
+    categoryMap.set(tx.categoryId, {
+      amount: current.amount + tx.amount,
+      count: current.count + 1,
+    });
+  }
+
+  return categories
+    .map((cat) => {
+      const data = categoryMap.get(cat.id) || { amount: 0, count: 0 };
+      return {
+        categoryId: cat.id,
+        categoryName: cat.name,
+        categoryIcon: cat.icon,
+        categoryColor: cat.color,
+        amount: data.amount,
+        percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
+        count: data.count,
+      };
+    })
+    .filter((item) => item.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * 예산 배분 현황 조회 (홈 인사이트용)
+ * 예산이 설정된 카테고리만 반환, 예산 대비 사용률 기준 정렬
+ */
+export interface BudgetOverviewItem {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  budget: number;
+  spent: number;
+  percentUsed: number;
+  isOverBudget: boolean;
+}
+
+export async function getBudgetOverview(
+  year: number,
+  month: number
+): Promise<{
+  items: BudgetOverviewItem[];
+  totalBudget: number;
+  totalSpent: number;
+  overBudgetCount: number;
+}> {
+  const transactions = await getTransactionsByMonth(year, month);
+  const categories = await db.categories.where('type').equals('expense').toArray();
+
+  // 예산이 설정된 카테고리만 필터
+  const budgetedCategories = categories.filter((cat) => cat.budget && cat.budget > 0);
+
+  if (budgetedCategories.length === 0) {
+    return {
+      items: [],
+      totalBudget: 0,
+      totalSpent: 0,
+      overBudgetCount: 0,
+    };
+  }
+
+  // 카테고리별 지출 집계
+  const spentMap = new Map<string, number>();
+  for (const tx of transactions) {
+    if (tx.type === 'expense') {
+      const current = spentMap.get(tx.categoryId) || 0;
+      spentMap.set(tx.categoryId, current + tx.amount);
+    }
+  }
+
+  const items: BudgetOverviewItem[] = budgetedCategories.map((cat) => {
+    const spent = spentMap.get(cat.id) || 0;
+    const budget = cat.budget!;
+    const percentUsed = Math.round((spent / budget) * 100);
+
+    return {
+      categoryId: cat.id,
+      categoryName: cat.name,
+      categoryIcon: cat.icon,
+      categoryColor: cat.color,
+      budget,
+      spent,
+      percentUsed,
+      isOverBudget: percentUsed >= 100,
+    };
+  });
+
+  // 예산 대비 사용률 높은 순으로 정렬
+  items.sort((a, b) => b.percentUsed - a.percentUsed);
+
+  const totalBudget = items.reduce((sum, item) => sum + item.budget, 0);
+  const totalSpent = items.reduce((sum, item) => sum + item.spent, 0);
+  const overBudgetCount = items.filter((item) => item.isOverBudget).length;
+
+  return {
+    items,
+    totalBudget,
+    totalSpent,
+    overBudgetCount,
+  };
 }

@@ -20,6 +20,7 @@ const FAB_SUBMIT_PATTERNS = [
   '/settings/payment-methods/*/edit',
   '/settings/recurring/new',
   '/settings/recurring/*/edit',
+  '/settings/insights',
 ];
 
 // FAB 버튼을 숨기는 관리 페이지들 (목록 화면)

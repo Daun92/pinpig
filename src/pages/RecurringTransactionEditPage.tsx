@@ -10,6 +10,8 @@ import {
   deleteRecurringTransaction,
   getCategorySuggestions,
 } from '@/services/queries';
+import { processSingleRecurringTransaction } from '@/services/budgetAlert';
+import { useToastStore } from '@/stores/toastStore';
 import { db } from '@/services/database';
 import type { Category, PaymentMethod, IncomeSource, RecurrenceFrequency, RecurringExecutionMode, TransactionType } from '@/types';
 import { format } from 'date-fns';
@@ -24,7 +26,7 @@ const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
 
 const EXECUTION_MODE_OPTIONS: { value: RecurringExecutionMode; label: string; description: string }[] = [
   { value: 'on_date', label: '실행일에 입력', description: '해당 날짜가 되면 거래가 자동 입력됩니다' },
-  { value: 'start_of_month', label: '월초 선반영', description: '매월 1일에 해당 월의 거래가 미리 입력됩니다' },
+  { value: 'start_of_month', label: '월초 선반영', description: '매월 첫 앱 실행 시 그 달의 거래가 미리 입력됩니다' },
 ];
 
 export function RecurringTransactionEditPage() {
@@ -35,6 +37,7 @@ export function RecurringTransactionEditPage() {
   const isEditing = !!id;
 
   const { setSubmitHandler, setCanSubmit, reset: resetFab } = useFabStore();
+  const showToast = useToastStore((state) => state.showToast);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -60,6 +63,11 @@ export function RecurringTransactionEditPage() {
   const [formEndDate, setFormEndDate] = useState('');
   const [formIsActive, setFormIsActive] = useState(true);
   const [formExecutionMode, setFormExecutionMode] = useState<RecurringExecutionMode>('on_date');
+
+  // 편집 시 기존 값 보존용
+  const originalNextExecRef = useRef<Date | null>(null);
+  const originalFrequencyRef = useRef<RecurrenceFrequency | null>(null);
+  const originalDayOfMonthRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -132,6 +140,11 @@ export function RecurringTransactionEditPage() {
       setFormEndDate(item.endDate ? format(item.endDate, 'yyyy-MM-dd') : '');
       setFormIsActive(item.isActive);
       setFormExecutionMode(item.executionMode || 'on_date');
+
+      // 편집 시 기존 값 보존
+      originalNextExecRef.current = new Date(item.nextExecutionDate);
+      originalFrequencyRef.current = item.frequency;
+      originalDayOfMonthRef.current = item.dayOfMonth || 1;
     }
   };
 
@@ -189,7 +202,17 @@ export function RecurringTransactionEditPage() {
 
       // Calculate next execution date
       let nextExecutionDate: Date;
-      if (formFrequency === 'monthly') {
+
+      // 편집 모드에서 frequency/dayOfMonth가 변경되지 않았으면 기존 nextExecutionDate 유지
+      const scheduleChanged = isEditing && (
+        formFrequency !== originalFrequencyRef.current ||
+        (formFrequency === 'monthly' && formDayOfMonth !== originalDayOfMonthRef.current)
+      );
+
+      if (isEditing && originalNextExecRef.current && !scheduleChanged) {
+        // 스케줄 변경 없으면 기존 값 유지
+        nextExecutionDate = originalNextExecRef.current;
+      } else if (formFrequency === 'monthly') {
         const now = new Date();
         if (now.getDate() <= formDayOfMonth) {
           nextExecutionDate = new Date(now.getFullYear(), now.getMonth(), formDayOfMonth);
@@ -217,15 +240,25 @@ export function RecurringTransactionEditPage() {
           executionMode: formExecutionMode,
           nextExecutionDate,
         });
+
+        // 편집 직후 도래 회차 즉시 반영 (실행 모드 변경이 바로 체감되도록)
+        if (formIsActive) {
+          const created = await processSingleRecurringTransaction(id);
+          if (created > 0) {
+            showToast({ type: 'success', message: `${created}건의 반복 거래가 기록되었어요` });
+          }
+        }
       } else {
-        await createRecurringTransaction({
+        // "반복" 태그 자동 부여
+        const recurringTags = formTags.includes('반복') ? formTags : [...formTags, '반복'];
+        const newRecurring = await createRecurringTransaction({
           type: formType,
           amount,
           categoryId: formCategoryId,
           paymentMethodId: formType === 'expense' ? formPaymentMethodId || undefined : undefined,
           incomeSourceId: formType === 'income' ? formIncomeSourceId || undefined : undefined,
           memo: formMemo.trim() || undefined,
-          tags: formTags.length > 0 ? formTags : undefined,
+          tags: recurringTags,
           frequency: formFrequency,
           dayOfMonth: formFrequency === 'monthly' ? formDayOfMonth : undefined,
           startDate,
@@ -234,6 +267,22 @@ export function RecurringTransactionEditPage() {
           executionMode: formExecutionMode,
           nextExecutionDate,
         });
+
+        // 등록 직후 실행 모드에 따라 도래 회차 즉시 반영
+        // - on_date: 실행일이 이미 도래한 회차만 생성
+        // - start_of_month: 이번 달 말일까지의 회차 선반영
+        if (newRecurring && formIsActive) {
+          const created = await processSingleRecurringTransaction(newRecurring.id);
+          if (created > 0) {
+            showToast({ type: 'success', message: `반복 거래가 등록되고 ${created}건이 기록되었어요` });
+          } else if (formExecutionMode === 'start_of_month') {
+            showToast({ type: 'success', message: '반복 거래가 등록되었어요. 다음 달 첫 실행 시 미리 입력돼요' });
+          } else {
+            showToast({ type: 'success', message: '반복 거래가 등록되었어요. 실행일에 자동 입력돼요' });
+          }
+        } else {
+          showToast({ type: 'success', message: '반복 거래가 등록되었어요' });
+        }
       }
       navigate(-1);
     } finally {
@@ -257,6 +306,7 @@ export function RecurringTransactionEditPage() {
     formExecutionMode,
     isSaving,
     navigate,
+    showToast,
   ]);
 
   const handleDelete = async () => {
@@ -625,7 +675,7 @@ export function RecurringTransactionEditPage() {
             <p className="text-caption text-ink-light mt-1">
               {formExecutionMode === 'on_date'
                 ? '활성화하면 예상 거래로 표시되고, 해당 날짜에 실제 거래로 입력됩니다'
-                : '활성화하면 매월 1일에 해당 월의 거래가 미리 입력됩니다'}
+                : '활성화하면 매월 첫 앱 실행 시 그 달의 거래가 미리 입력됩니다'}
             </p>
           </div>
           <button

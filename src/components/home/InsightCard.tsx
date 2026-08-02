@@ -15,9 +15,11 @@ import {
   getMonthComparison,
   getUpcomingThisMonth,
   getCurrentMonthRecordSummary,
+  getBudgetOverview,
   type CategoryBudgetStatus,
   type MonthCompareItem,
   type UpcomingItem,
+  type BudgetOverviewItem,
 } from '@/services/queries';
 import {
   CautionInsight,
@@ -27,6 +29,7 @@ import {
   UpcomingInsight,
   BudgetCtaInsight,
   RecordSummaryInsight,
+  BudgetOverviewInsight,
 } from './insights';
 
 interface InsightCardProps {
@@ -50,6 +53,12 @@ interface InsightData {
     transactionCount: number;
     totalExpense: number;
     totalIncome: number;
+  };
+  budgetOverview: {
+    items: BudgetOverviewItem[];
+    totalBudget: number;
+    totalSpent: number;
+    overBudgetCount: number;
   };
 }
 
@@ -75,11 +84,12 @@ export function InsightCard({
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
 
-      const [budgetStatus, comparison, upcoming, recordSummary] = await Promise.all([
+      const [budgetStatus, comparison, upcoming, recordSummary, budgetOverview] = await Promise.all([
         getCategoryBudgetStatus(year, month),
         getMonthComparison(year, month),
         getUpcomingThisMonth(year, month),
         getCurrentMonthRecordSummary(year, month),
+        getBudgetOverview(year, month),
       ]);
 
       setInsightData({
@@ -93,6 +103,7 @@ export function InsightCard({
         upcomingTotalExpense: upcoming.totalExpense,
         upcomingTotalIncome: upcoming.totalIncome,
         recordSummary,
+        budgetOverview,
       });
     };
 
@@ -234,6 +245,18 @@ export function InsightCard({
             items={insightData.upcomingItems}
             totalExpense={insightData.upcomingTotalExpense}
             totalIncome={insightData.upcomingTotalIncome}
+            onNavigate={onNavigate}
+          />
+        );
+
+      case 'budget-overview':
+        if (insightData.budgetOverview.items.length === 0) return null;
+        return (
+          <BudgetOverviewInsight
+            key="budget-overview"
+            items={insightData.budgetOverview.items}
+            overBudgetCount={insightData.budgetOverview.overBudgetCount}
+            totalWithBudget={insightData.budgetOverview.items.length}
             onNavigate={onNavigate}
           />
         );

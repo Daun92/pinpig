@@ -39,7 +39,10 @@
       "Bash(powershell -c:*)",
       "Bash(gh pr create:*)",
       "Bash(gh auth status:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(gh pr list:*)",
+      "Bash(npx vercel:*)"
     ]
   }
 }

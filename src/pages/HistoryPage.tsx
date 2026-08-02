@@ -298,12 +298,8 @@ export function HistoryPage() {
   const [isHorizontalSwipe, setIsHorizontalSwipe] = useState<boolean | null>(null);
   const swipeThreshold = 80;
 
-  // Check if can go to next month (not beyond current month)
-  const canGoToNextMonth = useMemo(() => {
-    const now = new Date();
-    return currentMonth.getFullYear() < now.getFullYear() ||
-      (currentMonth.getFullYear() === now.getFullYear() && currentMonth.getMonth() < now.getMonth());
-  }, [currentMonth]);
+  // Always allow navigating to next month
+  const canGoToNextMonth = true;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (searchQuery.trim()) return;
@@ -399,13 +395,11 @@ export function HistoryPage() {
 
   const handleNextMonth = () => {
     const next = addMonths(currentMonth, 1);
-    if (next <= new Date()) {
-      setCurrentMonth(next);
-      fetchTransactions(next);
-    }
+    setCurrentMonth(next);
+    fetchTransactions(next);
   };
 
-  const canGoNext = addMonths(currentMonth, 1) <= new Date();
+  const canGoNext = true;
 
   // Month picker handlers
   const openMonthPicker = () => {
@@ -418,17 +412,6 @@ export function HistoryPage() {
     setCurrentMonth(selected);
     fetchTransactions(selected);
     setShowMonthPicker(false);
-  };
-
-  const isMonthDisabled = (month: number) => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonthNum = now.getMonth();
-
-    // Disable future months
-    if (pickerYear > currentYear) return true;
-    if (pickerYear === currentYear && month > currentMonthNum) return true;
-    return false;
   };
 
   // Category filter toggle
@@ -867,7 +850,7 @@ export function HistoryPage() {
 
               <button
                 onClick={() => setPickerYear((prev) => prev + 1)}
-                disabled={pickerYear >= new Date().getFullYear()}
+                disabled={pickerYear >= new Date().getFullYear() + 1}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-paper-light disabled:opacity-30"
               >
                 <ChevronRight size={20} className="text-ink-dark" />
@@ -880,7 +863,7 @@ export function HistoryPage() {
                 const isSelected =
                   pickerYear === currentMonth.getFullYear() &&
                   i === currentMonth.getMonth();
-                const disabled = isMonthDisabled(i);
+                const disabled = false; // 미래 월 탐색 허용 (#125)
 
                 return (
                   <button

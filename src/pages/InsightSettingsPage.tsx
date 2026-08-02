@@ -5,23 +5,25 @@
  * 최대 3개까지 선택 가능
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, Info } from 'lucide-react';
 import { getSettings, updateSettings } from '@/services/database';
+import { useFabStore } from '@/stores/fabStore';
 import { INSIGHT_WIDGET_CONFIG, DEFAULT_INSIGHT_WIDGETS } from '@/types';
 import type { InsightWidgetType, Settings } from '@/types';
 
 const MAX_WIDGETS = 3;
 
 // 위젯 순서 정의
-const WIDGET_ORDER: InsightWidgetType[] = ['caution', 'room', 'compare', 'interest', 'upcoming'];
+const WIDGET_ORDER: InsightWidgetType[] = ['caution', 'room', 'budget-overview', 'compare', 'interest', 'upcoming'];
 
 export function InsightSettingsPage() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [selectedWidgets, setSelectedWidgets] = useState<InsightWidgetType[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const { setSubmitHandler, setCanSubmit, reset: resetFab } = useFabStore();
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -47,8 +49,8 @@ export function InsightSettingsPage() {
     });
   };
 
-  const handleSave = async () => {
-    if (!settings) return;
+  const handleSave = useCallback(async () => {
+    if (!settings || isSaving) return;
 
     setIsSaving(true);
     try {
@@ -59,13 +61,25 @@ export function InsightSettingsPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [settings, selectedWidgets, navigate, isSaving]);
 
   const isChanged = settings &&
-    JSON.stringify(selectedWidgets.sort()) !== JSON.stringify((settings.insightWidgets || DEFAULT_INSIGHT_WIDGETS).sort());
+    JSON.stringify([...selectedWidgets].sort()) !== JSON.stringify([...(settings.insightWidgets || DEFAULT_INSIGHT_WIDGETS)].sort());
+
+  const canSubmit = !!isChanged && !isSaving;
+
+  // FAB 저장 버튼 연동
+  useEffect(() => {
+    setCanSubmit(canSubmit);
+    setSubmitHandler(canSubmit ? handleSave : null);
+
+    return () => {
+      resetFab();
+    };
+  }, [canSubmit, handleSave, setCanSubmit, setSubmitHandler, resetFab]);
 
   return (
-    <div className="min-h-screen bg-paper-white pb-safe">
+    <div className="min-h-screen bg-paper-white pb-nav">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 border-b border-paper-mid">
         <button
@@ -75,17 +89,7 @@ export function InsightSettingsPage() {
           <ArrowLeft size={24} className="text-ink-black" />
         </button>
         <h1 className="text-title text-ink-black">인사이트 카드</h1>
-        <button
-          onClick={handleSave}
-          disabled={!isChanged || isSaving}
-          className={`px-3 py-1 rounded-md text-sub transition-colors ${
-            isChanged && !isSaving
-              ? 'bg-ink-black text-paper-white'
-              : 'bg-paper-mid text-ink-light'
-          }`}
-        >
-          저장
-        </button>
+        <div className="w-10" />
       </header>
 
       {/* Info Section */}

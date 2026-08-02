@@ -131,18 +131,24 @@ export function HomePage() {
     }
   }, [isLoading, startTour]);
 
-  // Check budget alerts when budget data changes (once per page load)
+  // Check budget alerts (once per page load)
+  // 반복 거래 자동 실행은 App 루트에서 처리 (App.tsx)
   useEffect(() => {
     if (!isLoading && settings && !alertCheckedRef.current) {
       alertCheckedRef.current = true;
-      // 예산 알림 체크 (예산이 설정된 경우만)
-      if (monthlyBudget > 0) {
-        checkBudgetAlerts(budgetStatus, settings);
-      }
-      // 반복 거래 알림 체크
-      checkRecurringAlerts(settings);
-      // 결제수단별 알림 체크
-      checkPaymentMethodAlerts(settings);
+
+      const runChecks = async () => {
+        // 1. 예산 알림 체크 (예산이 설정된 경우만)
+        if (monthlyBudget > 0) {
+          checkBudgetAlerts(budgetStatus, settings);
+        }
+        // 2. 반복 거래 사전 알림 체크
+        checkRecurringAlerts(settings);
+        // 3. 결제수단별 알림 체크
+        checkPaymentMethodAlerts(settings);
+      };
+
+      runChecks();
     }
   }, [isLoading, settings, monthlyBudget, budgetStatus]);
 

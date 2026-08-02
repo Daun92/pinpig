@@ -5,4 +5,5 @@ export { InterestInsight } from './InterestInsight';
 export { UpcomingInsight } from './UpcomingInsight';
 export { BudgetCtaInsight } from './BudgetCtaInsight';
 export { RecordSummaryInsight } from './RecordSummaryInsight';
+export { BudgetOverviewInsight } from './BudgetOverviewInsight';
 export { InsightCardWrapper } from './InsightCardWrapper';
