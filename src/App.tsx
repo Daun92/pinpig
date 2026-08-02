@@ -1,33 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { HomePage } from '@/pages/HomePage';
 import { AddPage } from '@/pages/AddPage';
-import { EditTransactionPage } from '@/pages/EditTransactionPage';
-import { TransactionDetailPage } from '@/pages/TransactionDetailPage';
-import { HistoryPage } from '@/pages/HistoryPage';
-import { StatsPage } from '@/pages/StatsPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { CategoryManagePage } from '@/pages/CategoryManagePage';
-import { CategoryEditPage } from '@/pages/CategoryEditPage';
-import { PaymentMethodManagePage } from '@/pages/PaymentMethodManagePage';
-import { PaymentMethodEditPage } from '@/pages/PaymentMethodEditPage';
-import { IncomeSourceManagePage } from '@/pages/IncomeSourceManagePage';
-import { IncomeSourceEditPage } from '@/pages/IncomeSourceEditPage';
-import { MethodManagePage } from '@/pages/MethodManagePage';
-import { BudgetWizardPage } from '@/pages/BudgetWizardPage';
-import { CategoryBudgetPage } from '@/pages/CategoryBudgetPage';
-import { AnnualExpensesPage } from '@/pages/AnnualExpensesPage';
-import { MonthlyReviewPage } from '@/pages/MonthlyReviewPage';
-import { ImportDataPage } from '@/pages/ImportDataPage';
-import { ExportDataPage } from '@/pages/ExportDataPage';
-import { RecurringTransactionPage } from '@/pages/RecurringTransactionPage';
-import { RecurringTransactionEditPage } from '@/pages/RecurringTransactionEditPage';
-import { InsightSettingsPage } from '@/pages/InsightSettingsPage';
-import { CategoryAlertSettingsPage } from '@/pages/CategoryAlertSettingsPage';
-import { BudgetAlertSettingsPage } from '@/pages/BudgetAlertSettingsPage';
-import { RecurringAlertSettingsPage } from '@/pages/RecurringAlertSettingsPage';
-import { PaymentMethodAlertSettingsPage } from '@/pages/PaymentMethodAlertSettingsPage';
-import { OnboardingPage } from '@/pages/OnboardingPage';
 import { TabBar } from '@/components/layout/TabBar';
 import { SplashScreen } from '@/components/layout/SplashScreen';
 import { CoachMarkProvider } from '@/components/coachmark';
@@ -39,6 +13,40 @@ import { useSettingsStore, selectIsOnboardingComplete } from '@/stores/settingsS
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useToastStore } from '@/stores/toastStore';
 import { processRecurringTransactions } from '@/services/budgetAlert';
+
+// 홈·입력 외 페이지는 지연 로드로 분할 — 초기 번들 축소 + 업데이트 시 변경 청크만 재다운로드
+// (PWA 프리캐시 대상이라 지연 청크도 설치 후에는 캐시에서 즉시 로드됨)
+const EditTransactionPage = lazy(() => import('@/pages/EditTransactionPage').then((m) => ({ default: m.EditTransactionPage })));
+const TransactionDetailPage = lazy(() => import('@/pages/TransactionDetailPage').then((m) => ({ default: m.TransactionDetailPage })));
+const HistoryPage = lazy(() => import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+const StatsPage = lazy(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const CategoryManagePage = lazy(() => import('@/pages/CategoryManagePage').then((m) => ({ default: m.CategoryManagePage })));
+const CategoryEditPage = lazy(() => import('@/pages/CategoryEditPage').then((m) => ({ default: m.CategoryEditPage })));
+const PaymentMethodManagePage = lazy(() => import('@/pages/PaymentMethodManagePage').then((m) => ({ default: m.PaymentMethodManagePage })));
+const PaymentMethodEditPage = lazy(() => import('@/pages/PaymentMethodEditPage').then((m) => ({ default: m.PaymentMethodEditPage })));
+const IncomeSourceManagePage = lazy(() => import('@/pages/IncomeSourceManagePage').then((m) => ({ default: m.IncomeSourceManagePage })));
+const IncomeSourceEditPage = lazy(() => import('@/pages/IncomeSourceEditPage').then((m) => ({ default: m.IncomeSourceEditPage })));
+const MethodManagePage = lazy(() => import('@/pages/MethodManagePage').then((m) => ({ default: m.MethodManagePage })));
+const BudgetWizardPage = lazy(() => import('@/pages/BudgetWizardPage').then((m) => ({ default: m.BudgetWizardPage })));
+const CategoryBudgetPage = lazy(() => import('@/pages/CategoryBudgetPage').then((m) => ({ default: m.CategoryBudgetPage })));
+const AnnualExpensesPage = lazy(() => import('@/pages/AnnualExpensesPage').then((m) => ({ default: m.AnnualExpensesPage })));
+const MonthlyReviewPage = lazy(() => import('@/pages/MonthlyReviewPage').then((m) => ({ default: m.MonthlyReviewPage })));
+const ImportDataPage = lazy(() => import('@/pages/ImportDataPage').then((m) => ({ default: m.ImportDataPage })));
+const ExportDataPage = lazy(() => import('@/pages/ExportDataPage').then((m) => ({ default: m.ExportDataPage })));
+const RecurringTransactionPage = lazy(() => import('@/pages/RecurringTransactionPage').then((m) => ({ default: m.RecurringTransactionPage })));
+const RecurringTransactionEditPage = lazy(() => import('@/pages/RecurringTransactionEditPage').then((m) => ({ default: m.RecurringTransactionEditPage })));
+const InsightSettingsPage = lazy(() => import('@/pages/InsightSettingsPage').then((m) => ({ default: m.InsightSettingsPage })));
+const CategoryAlertSettingsPage = lazy(() => import('@/pages/CategoryAlertSettingsPage').then((m) => ({ default: m.CategoryAlertSettingsPage })));
+const BudgetAlertSettingsPage = lazy(() => import('@/pages/BudgetAlertSettingsPage').then((m) => ({ default: m.BudgetAlertSettingsPage })));
+const RecurringAlertSettingsPage = lazy(() => import('@/pages/RecurringAlertSettingsPage').then((m) => ({ default: m.RecurringAlertSettingsPage })));
+const PaymentMethodAlertSettingsPage = lazy(() => import('@/pages/PaymentMethodAlertSettingsPage').then((m) => ({ default: m.PaymentMethodAlertSettingsPage })));
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
+
+// 지연 청크 로드 중 표시 (SW 캐시 적중 시 사실상 보이지 않음)
+function RouteFallback() {
+  return <div className="flex-1" aria-busy="true" />;
+}
 
 // 반복 거래 처리 가드: 날짜 키로 하루 1회 보장
 // (PWA가 메모리에 며칠 유지돼도 날짜가 바뀌면 재실행, StrictMode 중복 실행 방지 겸용)
@@ -102,13 +110,18 @@ export default function App() {
 
   // Show onboarding if not complete
   if (!isOnboardingComplete) {
-    return <OnboardingPage />;
+    return (
+      <Suspense fallback={<SplashScreen />}>
+        <OnboardingPage />
+      </Suspense>
+    );
   }
 
   return (
     <CoachMarkProvider>
       <div className="flex flex-col h-full bg-paper-white text-ink-black">
         <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none">
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/add" element={<AddPage />} />
@@ -142,6 +155,7 @@ export default function App() {
             <Route path="/settings/payment-method-alerts" element={<PaymentMethodAlertSettingsPage />} />
             <Route path="/review" element={<MonthlyReviewPage />} />
           </Routes>
+          </Suspense>
         </main>
         <TabBar />
         <ToastContainer />

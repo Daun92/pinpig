@@ -55,7 +55,24 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // xlsx 청크(약 400KB)는 가져오기 기능 사용 시에만 필요 — 프리캐시에서 제외하고
+        // 아래 runtimeCaching으로 최초 사용 시 캐시
+        globIgnores: ['**/xlsx-*.js'],
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/xlsx-[\w-]+\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'xlsx-chunk',
+              expiration: {
+                maxEntries: 2,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

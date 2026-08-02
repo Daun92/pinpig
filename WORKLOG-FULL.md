@@ -2537,3 +2537,21 @@
   - `?scrollTo=future` 딥링크 회귀 → 예정 그룹 앵커(116px) + URL 정리 + 자동 앵커 미개입 ✓
   - vitest 11/11, type-check·lint·build 통과
 - **결과**: 완료. 커밋·푸시 + Vercel 프로덕션 배포 완료 (2026-08-02 19:48 KST, 번들 `index-CotKEr13.js` 교체 확인)
+
+### #133 정합성·안정성·번들 최적화 3패키지 (점검 후속)
+- **요청**: #132 후 추가 검토·최적화 점검 → 발견 사항 A-1~A-5 + 최적화 패키지 승인
+- **패키지1 — 정합성** (커밋 176be69):
+  - A-1: 홈 `budgetStructure`를 transactions 변경에 반응해 재계산 (엔진 자동 생성 직후 히어로 '남은 예산' 불일치 해소)
+  - A-2: 엔진 가드를 날짜 키(`lastRecurringProcessDate`)로 전환 + `visibilitychange` 재실행 — PWA 장기 세션에서 날짜 바뀌면 하루 1회 재처리
+  - A-3: AddPage(할부/반복)·EditTransactionPage(반복 전환) 등록 직후 `processSingleRecurringTransaction` 호출. EditTransactionPage에 남아 있던 구 '다음 회차 즉시 생성' 블록 제거(#131 누락분)
+  - 프로덕션 console.log DEV 가드 (budgetAlert·main·database·importData)
+- **패키지2 — 안정성** (커밋 551ec85):
+  - A-4: `executeRecurringTransaction`을 Dexie 트랜잭션으로 원자화 + 실행일 전진 재검사 → 멀티 탭 동시 실행 중복 생성 방지
+  - A-5: 엔진 항목별 try 격리 — 한 항목 실패가 나머지 처리를 중단시키지 않음
+  - 테스트 4건 추가: 동시 실행 가드 / 에러 격리 / 월말 31일·윤년 경계 → 15/15 통과
+- **패키지3 — 번들 최적화**:
+  - 26개 페이지 React.lazy 라우트 분할 (홈·입력만 즉시 로드), Suspense 폴백 2종
+  - workbox: xlsx 청크(419KB) 프리캐시 제외 + 최초 사용 시 CacheFirst 런타임 캐시
+  - 실측: index 1,137→866KB(-24%), 시작 JS 1,719→1,048KB(-39%, charts 400KB가 분석 진입 시 지연 로드), PWA 프리캐시 2,193→1,788KB
+- **검증**: vitest 15/15, type-check·lint(0/0)·build 통과. preview 빌드 실브라우저 스모크 — 온보딩(lazy)/홈/기록/분석 렌더 + 페이지 청크·charts 지연 로드 확인
+- **결과**: 완료. 배포는 지시 대기
