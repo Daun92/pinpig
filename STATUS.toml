@@ -1,6 +1,6 @@
 # watchtower 상태 파일 — 세션 종료 시 갱신 (정적 정보는 watchtower\config\registry.toml)
 phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료
 updated = 2026-08-02
-last_session = "반복거래 월초 선반영 구현·보완 + 일괄 커밋·푸시 + Vercel 프로덕션 배포·검증 (작업 #130~#131)"
-next_action = "실기기에서 월초 선반영 동작 확인 (반복거래 설정을 '월초 선반영'으로 변경 후 다음 달 첫 실행 시 확인)"
-waiting_on = ["사업화 판단 (docs\\COMMERCIALIZATION.md 검토)"]
+last_session = "반복거래 월초 선반영 구현·배포 + 기록 탭 '오늘' 자동 앵커 (작업 #130~#132)"
+next_action = "#132(기록 탭 오늘 앵커) Vercel 재배포"
+waiting_on = ["사업화 판단 (docs\\COMMERCIALIZATION.md 검토)", "#132 배포 지시"]

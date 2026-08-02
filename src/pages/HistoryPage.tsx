@@ -148,6 +148,7 @@ export function HistoryPage() {
   // Scroll refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollToTargetProcessed = useRef<string | null>(null);
+  const autoAnchoredRef = useRef(false); // 무파라미터 진입 시 '오늘' 자동 앵커 1회 가드
 
   // URL query params
   const [searchParams, setSearchParams] = useSearchParams();
@@ -206,43 +207,41 @@ export function HistoryPage() {
   }, [transactions.length, startTour]);
 
   // Scroll to target group using data attribute selector
-  const scrollToGroupBySelector = useCallback((selector: string, target: string) => {
+  // clearParams: scrollTo 딥링크 모드에서만 true (스크롤 후 URL 파라미터 제거)
+  const scrollToGroupBySelector = useCallback((selector: string, target: string, opts?: { clearParams?: boolean }) => {
+    const clearParams = opts?.clearParams ?? true;
+
     // DOM에서 직접 요소 찾기
     const element = document.querySelector(selector) as HTMLElement | null;
     if (!element) {
-      return;
+      return false;
     }
 
     // 실제 스크롤 컨테이너 찾기 (App.tsx의 main 요소)
     const scrollContainer = document.querySelector('main.overflow-y-auto') as HTMLElement | null;
     if (!scrollContainer) {
-      return;
+      return false;
     }
 
-    // 먼저 스크롤 컨테이너 상단으로 리셋
-    scrollContainer.scrollTop = 0;
+    // 요소의 위치를 스크롤 컨테이너 기준으로 계산
+    // (현재 scrollTop을 더하므로 리셋·다음 프레임 대기 없이 어느 위치에서든 정확)
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const relativeTop = elementRect.top - containerRect.top + scrollContainer.scrollTop;
 
-    // 다음 프레임에서 정확한 위치 계산
-    requestAnimationFrame(() => {
-      // 요소의 위치를 스크롤 컨테이너 기준으로 계산
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
+    scrollContainer.scrollTo({
+      top: relativeTop - FIXED_HEADER_HEIGHT,
+      behavior: 'auto',
+    });
 
-      // 요소가 컨테이너 내에서 얼마나 떨어져 있는지 계산
-      const relativeTop = elementRect.top - containerRect.top + scrollContainer.scrollTop;
-      const headerOffset = FIXED_HEADER_HEIGHT;
-
-      scrollContainer.scrollTo({
-        top: relativeTop - headerOffset,
-        behavior: 'auto',
-      });
-
-      // 처리 완료 표시
+    if (clearParams) {
+      // 처리 완료 표시 (딥링크 모드만 — 자동 앵커는 autoAnchoredRef로 관리)
       scrollToTargetProcessed.current = target;
 
       // Clear the scrollTo param after scrolling
       setSearchParams({}, { replace: true });
-    });
+    }
+    return true;
   }, [setSearchParams]);
 
   // Search all transactions when query changes
@@ -385,6 +384,39 @@ export function HistoryPage() {
       }
     }
   }, [allDateGroups.length, searchQuery, scrollToTarget, scrollToGroupBySelector]);
+
+  // 파라미터 없이 진입한 경우: 현재 월이면 '오늘' 그룹으로 1회 자동 앵커 (#132)
+  // 선반영된 미래 거래가 상단에 쌓여도 진입 화면은 오늘 기준이 되도록 한다
+  useEffect(() => {
+    if (
+      autoAnchoredRef.current ||
+      scrollToTarget ||
+      categoryIdParam ||
+      insightParam ||
+      searchQuery ||
+      scrollToTargetProcessed.current || // 딥링크 스크롤이 이미 수행된 마운트에서는 건너뜀
+      allDateGroups.length === 0
+    ) {
+      return;
+    }
+
+    // 현재 월을 보고 있을 때만 앵커 (과거/미래 월 탐색 중에는 개입하지 않음)
+    const now = new Date();
+    if (getYear(currentMonth) !== getYear(now) || getMonth(currentMonth) !== getMonth(now)) {
+      return;
+    }
+
+    // 가드는 실제 실행 시점에 세운다 (StrictMode 이중 마운트에서 타이머가 취소돼도 재시도되도록)
+    const timer = setTimeout(() => {
+      autoAnchoredRef.current = true;
+      const anchored = scrollToGroupBySelector('[data-scroll-target="today"]', 'today', { clearParams: false });
+      if (!anchored) {
+        // 오늘 기록이 없으면 가장 가까운 예정 그룹에 앵커 (바로 아래가 최신 과거 기록)
+        scrollToGroupBySelector('[data-scroll-target="future"]', 'future', { clearParams: false });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [allDateGroups.length, searchQuery, scrollToTarget, categoryIdParam, insightParam, currentMonth, scrollToGroupBySelector]);
 
   // Quick month navigation (without modal)
   const handlePrevMonth = () => {
