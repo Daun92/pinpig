@@ -68,6 +68,11 @@
 
 ## 최근 작업 (최신순)
 
+### #134 Phase 2 방향 확정 + 실행 계획 문서화 (2026-08-02)
+- **결정 4건**: Mac mini M4 확보(P-1) / 한국 선행 출시·i18n 연기(P-2=D3) / 위젯 v1은 홈 2종(P-3) / PWA 무료 티어 유지(P-4)
+- **`docs/PHASE2_PLAN.md` 신규**: 결정 로그 + 실행 순서 S0(맥 셋업)~S5(수익화) + 대기 결정(D1·D2·가격) 트리거 명시
+- **개발 미착수** — 방향 논의 우선, 실행은 별도 지시로 시작
+
 ### #133 정합성·안정성·번들 최적화 (2026-08-02)
 - **정합성**: 홈 예산구조 transactions 반응 재계산, 엔진 날짜 키 가드+visibilitychange(장기 세션 대응), 등록 직후 도래분 즉시 처리 통일, console.log DEV 가드
 - **안정성**: executeRecurringTransaction Dexie 트랜잭션 원자화(멀티 탭 중복 방지), 엔진 항목별 에러 격리 — 테스트 15건
@@ -189,6 +194,7 @@
 | `docs/FEATURE_MAP.md` | **기능 연관 맵 (수정 전 필수)** |
 | `docs/ROADMAP.md` | **발전 방향 로드맵** |
 | `docs/COMMERCIALIZATION.md` | **서비스화 평가·BM 제언 (2026-07-20)** |
+| `docs/PHASE2_PLAN.md` | **Phase 2 결정 로그·실행 순서 (2026-08-02)** |
 | `WORKLOG-FULL.md` | 전체 작업 히스토리 |
 | `docs/COMPLETION_REPORT.md` | 완성도 평가 보고서 |
 | `docs/CONCEPT.md` | 앱 컨셉 |

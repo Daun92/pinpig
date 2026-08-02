@@ -1,6 +1,6 @@
 # watchtower 상태 파일 — 세션 종료 시 갱신 (정적 정보는 watchtower\config\registry.toml)
-phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료
+phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료. Phase 2(iOS)는 방향 확정 단계
 updated = 2026-08-02
-last_session = "점검 후속 3패키지 — 반복거래 정합성·실행 원자화·번들 최적화(-39% 시작 JS) (작업 #133)"
-next_action = "#133 Vercel 재배포 (정합성 수정 + 번들 최적화 반영)"
-waiting_on = ["사업화 판단 (docs\\COMMERCIALIZATION.md 검토)", "#133 배포 지시"]
+last_session = "Phase 2 방향 확정 (한국 선행·위젯 2종·PWA 무료 유지·Mac mini M4) + PHASE2_PLAN.md 작성 (작업 #134)"
+next_action = "① #133 수정분 Vercel 재배포 ② Mac에서 S0 환경 준비 (PHASE2_PLAN.md 참조)"
+waiting_on = ["#133 배포 지시", "feat→main 병합 지시", "S1(Track 0 계측) 착수 지시 — 개발 재개 신호"]
