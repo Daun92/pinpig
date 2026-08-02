@@ -19,7 +19,8 @@ import { useFabStore } from '@/stores/fabStore';
 import { useToastStore } from '@/stores/toastStore';
 import { Icon, DateTimePicker } from '@/components/common';
 import { db } from '@/services/database';
-import { getRecentTags, createRecurringTransaction, calculateNextExecutionDate, executeRecurringTransaction } from '@/services/queries';
+import { getRecentTags, createRecurringTransaction, calculateNextExecutionDate } from '@/services/queries';
+import { processSingleRecurringTransaction } from '@/services/budgetAlert';
 import type { Transaction, TransactionType, RecurrenceFrequency } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -194,9 +195,9 @@ export function EditTransactionPage() {
           nextExecutionDate: nextDate,
         });
 
-        // 다음 회차 즉시 생성
+        // 이미 도래한 회차만 즉시 반영 (on_date 의미 유지 — 미래 회차는 실행일에 자동 기록)
         try {
-          await executeRecurringTransaction(newRecurring.id, nextDate);
+          await processSingleRecurringTransaction(newRecurring.id);
         } catch {
           // 실패해도 반복거래 등록은 완료
         }

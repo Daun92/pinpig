@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock } from 'lucide-react';
 import { useTransactionStore, selectBudgetStatus, selectCategoryBreakdown } from '@/stores/transactionStore';
@@ -118,7 +118,6 @@ export function HomePage() {
     fetchSettings();
     fetchCategories();
     fetchTransactions(new Date());
-    loadBudgetData();
     // 이번 달 카테고리 breakdown 로드
     const now = new Date();
     fetchCategoryBreakdown(now.getFullYear(), now.getMonth() + 1);
@@ -152,7 +151,7 @@ export function HomePage() {
     }
   }, [isLoading, settings, monthlyBudget, budgetStatus]);
 
-  const loadBudgetData = async () => {
+  const loadBudgetData = useCallback(async () => {
     try {
       const now = new Date();
       const structure = await getMonthlyBudgetStructure(now.getFullYear(), now.getMonth() + 1);
@@ -160,7 +159,12 @@ export function HomePage() {
     } catch (error) {
       console.error('Failed to load budget data:', error);
     }
-  };
+  }, []);
+
+  // 거래 목록이 갱신되면(수동 입력·반복 자동 생성 포함) 예산 구조도 재계산
+  useEffect(() => {
+    loadBudgetData();
+  }, [transactions, loadBudgetData]);
 
   const today = new Date();
   const currentDateLabel = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });

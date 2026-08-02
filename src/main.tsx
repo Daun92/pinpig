@@ -28,8 +28,8 @@ async function requestPersistentStorage() {
     const isPersisted = await navigator.storage.persisted();
     if (!isPersisted) {
       const granted = await navigator.storage.persist();
-      console.log(`Storage persistence: ${granted ? 'granted' : 'denied'}`);
-    } else {
+      if (import.meta.env.DEV) console.log(`Storage persistence: ${granted ? 'granted' : 'denied'}`);
+    } else if (import.meta.env.DEV) {
       console.log('Storage persistence: already granted');
     }
   }

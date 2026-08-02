@@ -696,13 +696,13 @@ export async function processRecurringTransactions(): Promise<number> {
 
     // 활성 반복 거래 목록 조회
     const activeList = await getActiveRecurringTransactions();
-    console.log(`[RecurringTx] 활성 반복거래 ${activeList.length}건 조회됨`);
+    if (import.meta.env.DEV) console.log(`[RecurringTx] 활성 반복거래 ${activeList.length}건 조회됨`);
 
     for (const rt of activeList) {
       totalExecuted += await executeDueOccurrences(rt, today, monthEnd);
     }
 
-    console.log(`[RecurringTx] 총 ${totalExecuted}건 실행 완료`);
+    if (import.meta.env.DEV) console.log(`[RecurringTx] 총 ${totalExecuted}건 실행 완료`);
     return totalExecuted;
   } catch (error) {
     console.error('Failed to process recurring transactions:', error);

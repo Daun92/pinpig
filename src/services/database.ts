@@ -289,7 +289,7 @@ export async function initializeDatabase(): Promise<void> {
     await initializePaymentMethods();
     await initializeIncomeSources();
     await initializeSettings();
-    console.log('Database initialized successfully');
+    if (import.meta.env.DEV) console.log('Database initialized successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error);
     throw error;

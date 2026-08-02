@@ -40,8 +40,27 @@ import { useTransactionStore } from '@/stores/transactionStore';
 import { useToastStore } from '@/stores/toastStore';
 import { processRecurringTransactions } from '@/services/budgetAlert';
 
-// 앱 실행(세션)당 1회만 반복 거래를 처리하기 위한 가드 (StrictMode 중복 실행 방지 포함)
-let recurringProcessedAtLaunch = false;
+// 반복 거래 처리 가드: 날짜 키로 하루 1회 보장
+// (PWA가 메모리에 며칠 유지돼도 날짜가 바뀌면 재실행, StrictMode 중복 실행 방지 겸용)
+let lastRecurringProcessDate: string | null = null;
+
+function runRecurringProcessing() {
+  const today = new Date().toDateString();
+  if (lastRecurringProcessDate === today) return;
+  lastRecurringProcessDate = today;
+
+  processRecurringTransactions().then((count) => {
+    if (count > 0) {
+      const now = new Date();
+      useTransactionStore.getState().fetchTransactions(now);
+      useTransactionStore.getState().fetchCategoryBreakdown(now.getFullYear(), now.getMonth() + 1);
+      useToastStore.getState().showToast({
+        type: 'info',
+        message: `${count}건의 반복 거래가 기록되었어요`,
+      });
+    }
+  });
+}
 
 export default function App() {
   // Initialize theme management
@@ -62,23 +81,18 @@ export default function App() {
     fetchSettings();
   }, [fetchSettings]);
 
-  // 앱 시작 시 1회: 반복 거래 도래분 자동 기록
-  // (홈을 거치지 않고 어느 탭으로 진입해도 실행되도록 루트에서 처리)
+  // 반복 거래 도래분 자동 기록 (홈을 거치지 않고 어느 탭으로 진입해도 실행되도록 루트에서 처리)
+  // 앱 시작 시 + 백그라운드에 머물다 날짜가 바뀐 뒤 돌아온 경우 재실행
   useEffect(() => {
-    if (recurringProcessedAtLaunch) return;
-    recurringProcessedAtLaunch = true;
+    runRecurringProcessing();
 
-    processRecurringTransactions().then((count) => {
-      if (count > 0) {
-        const now = new Date();
-        useTransactionStore.getState().fetchTransactions(now);
-        useTransactionStore.getState().fetchCategoryBreakdown(now.getFullYear(), now.getMonth() + 1);
-        useToastStore.getState().showToast({
-          type: 'info',
-          message: `${count}건의 반복 거래가 기록되었어요`,
-        });
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        runRecurringProcessing();
       }
-    });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // Show splash screen while checking onboarding status

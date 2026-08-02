@@ -78,7 +78,7 @@ export async function importTransactionsFromJSON(url: string): Promise<number> {
       imported += transactions.length;
     }
 
-    console.log(`가져오기 진행: ${imported}/${data.length}`);
+    if (import.meta.env.DEV) console.log(`가져오기 진행: ${imported}/${data.length}`);
   }
 
   return imported;

@@ -9,6 +9,7 @@ import { useFabStore } from '@/stores/fabStore';
 import { useCoachMark } from '@/components/coachmark';
 import { Icon, DateTimePicker } from '@/components/common';
 import { getCategorySuggestions, createRecurringTransaction, calculateNextExecutionDate } from '@/services/queries';
+import { processSingleRecurringTransaction } from '@/services/budgetAlert';
 import type { TransactionType, RecurrenceFrequency } from '@/types';
 import { format, isToday, isYesterday, isTomorrow, isFuture, startOfDay, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -247,7 +248,7 @@ export function AddPage() {
       // 나머지 회차를 위한 반복거래 등록 (이후 회차는 실행일 도래 시 자동 기록)
       if (installmentMonths > 1) {
         const nextDate = calculateNextExecutionDate('monthly', date, date.getDate());
-        await createRecurringTransaction({
+        const newRecurring = await createRecurringTransaction({
           type,
           amount: perMonth,
           categoryId: selectedCategoryId,
@@ -262,6 +263,11 @@ export function AddPage() {
           executionMode: 'on_date',
           nextExecutionDate: nextDate,
         });
+
+        // 과거 날짜 등록 등으로 이미 도래한 회차는 즉시 반영
+        try {
+          await processSingleRecurringTransaction(newRecurring.id);
+        } catch { /* 실패해도 다음 자동 실행에서 회수 */ }
       }
     } else if (recurringMode === 'recurring') {
       // 반복 모드: 현재 거래 즉시 생성 + 반복거래 등록
@@ -282,7 +288,7 @@ export function AddPage() {
       const nextDate = calculateNextExecutionDate(recurringFrequency, date, dayOfMonth);
 
       // 다음 회차부터는 실행일 도래 시 자동 기록 (on_date)
-      await createRecurringTransaction({
+      const newRecurring = await createRecurringTransaction({
         type,
         amount: totalAmount,
         categoryId: selectedCategoryId,
@@ -297,6 +303,11 @@ export function AddPage() {
         executionMode: 'on_date',
         nextExecutionDate: nextDate,
       });
+
+      // 과거 날짜 등록 등으로 이미 도래한 회차는 즉시 반영
+      try {
+        await processSingleRecurringTransaction(newRecurring.id);
+      } catch { /* 실패해도 다음 자동 실행에서 회수 */ }
     } else {
       // 일반 모드
       await addTransaction({
