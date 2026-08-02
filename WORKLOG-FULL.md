@@ -2522,4 +2522,5 @@
   5. **선반영 거래 구분 표시(아이디어 4)**: 홈에 미래 거래 별도 섹션·기록에 미래 그룹 스타일이 이미 존재해 추가 변경 없음 확인
   6. **git 위생**: .gitignore에 `tmpclaude-*`, `nul` 추가. v0.2.4~0.2.5 미커밋 작업 전체를 일괄 커밋·푸시 (origin/feat/v0.2.4-improvements)
 - **검증**: vitest 11/11 통과 (processSingle 4건 신규: on_date 미래 미생성 / start_of_month 즉시 선반영 / 당일 실행 / 비활성 무시), type-check·lint·build 모두 통과
-- **결과**: 완료. 배포는 미실행(지시 대기)
+- **결과**: 완료. Vercel 프로덕션 배포 완료 (2026-08-02 18:55 KST, `pinpig.vercel.app` 신규 번들 마커 검증)
+- **배포 계정 메모**: pinpig는 Vercel `daunny` 계정(dauns-projects-3fb4a769) 소유. 브라우저 기본 로그인(htry2528@gmail.com, daun92s-projects)에는 없음 — CLI 재로그인 시 daunny 계정으로 디바이스 인증 필요

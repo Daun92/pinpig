@@ -78,7 +78,7 @@
 - **진단**: start_of_month 모드가 타입·UI에만 존재, 실행 엔진이 executionMode 미참조 → 전부 on_date로 동작. 배포 번들 분석으로 배포본=로컬 작업본 확인
 - **수정**: `processRecurringTransactions` 실행 한도일 분기 — on_date는 오늘, start_of_month는 당월 말일까지 선생성
 - **테스트 인프라 신규**: vitest.config.ts + fake-indexeddb, `budgetAlert.test.ts` 7건 (재현 3건 실패 → 수정 후 전부 통과)
-- **⚠ 미배포**: #130~#131 수정분은 Vercel 재배포 필요 (커밋·푸시는 #131에서 완료)
+- **배포**: 2026-08-02 프로덕션 반영 완료 (#131에서 커밋·푸시·배포·번들 검증)
 
 ### #129 서비스화 평가 및 상용화 제언 (2026-07-20)
 - **`docs/COMMERCIALIZATION.md` 신규**: 상용 3축(신뢰·측정·결제) 갭 진단, BM 제언(무료+동기화 구독 권장, 연 15,000~24,000원 / $15~25), 개발 방향 Track 0~4 (검증 → 신뢰 인프라 → 품질·법무 → iOS 채널 → 결제)
@@ -166,6 +166,7 @@
 ## 주의사항
 
 1. **addPageStore.ts deprecated** - fabStore 직접 사용
+2. **Vercel 배포 계정**: pinpig는 `daunny` 계정(dauns-projects-3fb4a769) 소유 — 브라우저 기본 계정(htry2528@gmail.com)에는 없음. CLI 만료 시 `npx vercel login` 디바이스 인증을 daunny 계정 웹 세션에서 승인
 
 ---
 
