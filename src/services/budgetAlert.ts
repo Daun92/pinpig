@@ -699,7 +699,12 @@ export async function processRecurringTransactions(): Promise<number> {
     if (import.meta.env.DEV) console.log(`[RecurringTx] 활성 반복거래 ${activeList.length}건 조회됨`);
 
     for (const rt of activeList) {
-      totalExecuted += await executeDueOccurrences(rt, today, monthEnd);
+      try {
+        totalExecuted += await executeDueOccurrences(rt, today, monthEnd);
+      } catch (error) {
+        // 한 항목의 실패가 다른 항목 처리를 막지 않도록 격리
+        console.error(`Failed to process recurring transaction ${rt.id}:`, error);
+      }
     }
 
     if (import.meta.env.DEV) console.log(`[RecurringTx] 총 ${totalExecuted}건 실행 완료`);

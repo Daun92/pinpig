@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vites
 import { format } from 'date-fns';
 import { db } from '@/services/database';
 import { processRecurringTransactions, processSingleRecurringTransaction } from '@/services/budgetAlert';
+import { executeRecurringTransaction, calculateNextExecutionDate } from '@/services/queries';
 import type { RecurringTransaction } from '@/types';
 
 // 기준일: 2026-08-02 (월 초, 이번 달 실행일들이 아직 오지 않은 시점)
@@ -210,5 +211,61 @@ describe('processSingleRecurringTransaction — 등록·편집 직후 처리', (
 
     expect(created).toBe(0);
     expect(await db.transactions.count()).toBe(0);
+  });
+});
+
+describe('executeRecurringTransaction — 동시 실행 안전성', () => {
+  it('동일 회차 동시 실행 시 한 번만 생성된다 (멀티 탭 가드)', async () => {
+    const rt = makeRecurring({
+      executionMode: 'on_date',
+      dayOfMonth: 1,
+      nextExecutionDate: new Date(2026, 7, 1),
+    });
+    await db.recurringTransactions.add(rt);
+
+    const target = new Date(2026, 7, 1);
+    const [a, b] = await Promise.all([
+      executeRecurringTransaction(rt.id, target),
+      executeRecurringTransaction(rt.id, target),
+    ]);
+
+    expect([a, b].filter(Boolean)).toHaveLength(1);
+    expect(await db.transactions.count()).toBe(1);
+
+    const updated = await getRecurring(rt.id);
+    expect(format(updated.nextExecutionDate, 'yyyy-MM-dd')).toBe('2026-09-01');
+  });
+});
+
+describe('processRecurringTransactions — 에러 격리', () => {
+  it('한 반복거래 처리 실패가 다른 항목 처리를 막지 않는다', async () => {
+    const rt1 = makeRecurring({ dayOfMonth: 1, nextExecutionDate: new Date(2026, 7, 1) });
+    const rt2 = makeRecurring({ dayOfMonth: 1, nextExecutionDate: new Date(2026, 7, 1) });
+    await db.recurringTransactions.add(rt1);
+    await db.recurringTransactions.add(rt2);
+
+    // 첫 번째 거래 생성만 실패시킴 (둘 중 어느 항목이 먼저든 나머지는 처리돼야 함)
+    const addSpy = vi.spyOn(db.transactions, 'add').mockRejectedValueOnce(new Error('boom'));
+    const created = await processRecurringTransactions();
+    addSpy.mockRestore();
+
+    expect(created).toBe(1);
+    expect(await db.transactions.count()).toBe(1);
+  });
+});
+
+describe('calculateNextExecutionDate — 월말 경계', () => {
+  it('매월 31일 기준: 2월엔 말일로 축소되고 이후 31일로 복원된다', () => {
+    const jan31 = new Date(2026, 0, 31);
+    const feb = calculateNextExecutionDate('monthly', jan31, 31);
+    expect(format(feb, 'yyyy-MM-dd')).toBe('2026-02-28');
+
+    const mar = calculateNextExecutionDate('monthly', feb, 31);
+    expect(format(mar, 'yyyy-MM-dd')).toBe('2026-03-31');
+  });
+
+  it('윤년 2월은 29일까지 허용된다', () => {
+    const jan31 = new Date(2028, 0, 31);
+    expect(format(calculateNextExecutionDate('monthly', jan31, 31), 'yyyy-MM-dd')).toBe('2028-02-29');
   });
 });

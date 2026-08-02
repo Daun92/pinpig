@@ -1,5 +1,5 @@
 import { db, generateId } from './database';
-import { endOfMonth, subMonths, startOfYear, endOfYear, format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay, differenceInDays } from 'date-fns';
+import { endOfMonth, subMonths, startOfYear, endOfYear, format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay, differenceInDays, startOfDay } from 'date-fns';
 import type {
   Transaction,
   MonthSummary,
@@ -1294,47 +1294,59 @@ export async function executeRecurringTransaction(
   recurringId: string,
   targetDate?: Date
 ): Promise<Transaction | null> {
-  const recurring = await db.recurringTransactions.get(recurringId);
-  if (!recurring || !recurring.isActive) return null;
+  // 읽기→거래 생성→실행일 전진을 단일 트랜잭션으로 묶어
+  // 동시 실행(멀티 탭 등) 시 같은 회차가 중복 생성되는 것을 방지
+  return db.transaction('rw', db.recurringTransactions, db.transactions, async () => {
+    const recurring = await db.recurringTransactions.get(recurringId);
+    if (!recurring || !recurring.isActive) return null;
 
-  const now = new Date();
-  const txDate = targetDate || now;
-  const transaction: Transaction = {
-    id: generateId(),
-    type: recurring.type,
-    amount: recurring.amount,
-    categoryId: recurring.categoryId,
-    paymentMethodId: recurring.paymentMethodId,
-    incomeSourceId: recurring.incomeSourceId,
-    memo: recurring.memo,
-    tags: recurring.tags,
-    date: txDate,
-    time: format(txDate, 'HH:mm'),
-    createdAt: now,
-    updatedAt: now,
-  };
+    // 다른 실행 주체가 이미 이 회차를 처리해 실행일이 전진했다면 건너뜀
+    if (
+      targetDate &&
+      isBefore(startOfDay(targetDate), startOfDay(new Date(recurring.nextExecutionDate)))
+    ) {
+      return null;
+    }
 
-  // Add transaction
-  await db.transactions.add(transaction);
+    const now = new Date();
+    const txDate = targetDate || now;
+    const transaction: Transaction = {
+      id: generateId(),
+      type: recurring.type,
+      amount: recurring.amount,
+      categoryId: recurring.categoryId,
+      paymentMethodId: recurring.paymentMethodId,
+      incomeSourceId: recurring.incomeSourceId,
+      memo: recurring.memo,
+      tags: recurring.tags,
+      date: txDate,
+      time: format(txDate, 'HH:mm'),
+      createdAt: now,
+      updatedAt: now,
+    };
 
-  // Update recurring transaction's next execution date (based on execution date, not now)
-  const nextDate = calculateNextExecutionDate(
-    recurring.frequency,
-    txDate,
-    recurring.dayOfMonth
-  );
+    // Add transaction
+    await db.transactions.add(transaction);
 
-  // Check if recurring has ended
-  const isEnded = recurring.endDate && isAfter(nextDate, recurring.endDate);
+    // Update recurring transaction's next execution date (based on execution date, not now)
+    const nextDate = calculateNextExecutionDate(
+      recurring.frequency,
+      txDate,
+      recurring.dayOfMonth
+    );
 
-  await db.recurringTransactions.update(recurringId, {
-    lastExecutedDate: now,
-    nextExecutionDate: nextDate,
-    ...(isEnded ? { isActive: false } : {}),
-    updatedAt: now,
+    // Check if recurring has ended
+    const isEnded = recurring.endDate && isAfter(nextDate, recurring.endDate);
+
+    await db.recurringTransactions.update(recurringId, {
+      lastExecutedDate: now,
+      nextExecutionDate: nextDate,
+      ...(isEnded ? { isActive: false } : {}),
+      updatedAt: now,
+    });
+
+    return transaction;
   });
-
-  return transaction;
 }
 
 /**
