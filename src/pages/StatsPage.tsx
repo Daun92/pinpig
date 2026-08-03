@@ -34,6 +34,11 @@ import type { Settings, CategorySummary, CategoryTrend, PaymentMethodSummary, Mo
 // Tab swipe navigation TABS - defined outside component to avoid dependency issues
 const TABS = ['category', 'paymentMethod', 'trend'] as const;
 
+// 예산 대비로 표현할 수 있는 카테고리인지 (예산이 설정되고 사용률이 계산된 경우)
+function hasCategoryBudget(category: CategorySummary): boolean {
+  return !!category.budget && category.budget > 0 && category.budgetPercent !== undefined;
+}
+
 export function StatsPage() {
   const navigate = useNavigate();
   const { startTour } = useCoachMark();
@@ -61,6 +66,10 @@ export function StatsPage() {
 
   // 수단별 모달
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodSummary | null>(null);
+
+  // 카테고리 리스트 보기 기준 (정렬 + 막대/비율 기준을 함께 전환)
+  // 'budget': 예산 대비 사용률 / 'amount': 전체 지출 구성비
+  const [categoryViewMode, setCategoryViewMode] = useState<'budget' | 'amount'>('budget');
 
   const {
     monthSummary,
@@ -183,6 +192,27 @@ export function StatsPage() {
   const activeSummary = periodMode === 'monthly' ? monthSummary : yearlySummary;
   const activeCategoryBreakdown = periodMode === 'monthly' ? categoryBreakdown : yearlyCategoryBreakdown;
   const activePaymentMethodBreakdown = periodMode === 'monthly' ? paymentMethodBreakdown : yearlyPaymentMethodBreakdown;
+
+  // 카테고리 예산 기준 보기는 월간 지출 + 예산이 하나라도 설정된 경우에만 의미가 있다
+  // (수입·연간, 예산 미설정 사용자는 기존 금액 기준 그대로)
+  const isBudgetViewAvailable =
+    periodMode === 'monthly' &&
+    transactionType === 'expense' &&
+    activeCategoryBreakdown.some(hasCategoryBudget);
+  const useBudgetView = isBudgetViewAvailable && categoryViewMode === 'budget';
+
+  // 카테고리 리스트 정렬 — 도넛·인사이트·필터칩은 금액순 원본을 그대로 쓴다
+  const categoryListItems = useBudgetView
+    ? [...activeCategoryBreakdown].sort((a, b) => {
+        const aBudget = hasCategoryBudget(a);
+        const bBudget = hasCategoryBudget(b);
+        // 예산 설정된 항목을 위로, 그 안에서 사용률 내림차순
+        if (aBudget !== bBudget) return aBudget ? -1 : 1;
+        if (aBudget && bBudget) return (b.budgetPercent ?? 0) - (a.budgetPercent ?? 0);
+        // 예산 없는 항목끼리는 기존대로 금액순
+        return b.amount - a.amount;
+      })
+    : activeCategoryBreakdown;
 
   const totalExpense = activeSummary?.expense || 0;
   const totalIncome = activeSummary?.income || 0;
@@ -703,67 +733,112 @@ export function StatsPage() {
                 />
               </div>
 
-              {/* Category List */}
-              <div className="space-y-4 mt-6">
-                {activeCategoryBreakdown.map((category) => (
+              {/* 보기 기준 전환 — 정렬과 막대 기준을 함께 바꾼다 */}
+              {isBudgetViewAvailable && (
+                <div className="flex items-center justify-end gap-2 mt-6">
                   <button
-                    key={category.categoryId}
-                    className="w-full py-2 text-left"
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => setCategoryViewMode('amount')}
+                    className={`text-caption transition-colors ${
+                      categoryViewMode === 'amount'
+                        ? 'text-ink-black underline underline-offset-4'
+                        : 'text-ink-light'
+                    }`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: category.categoryColor }}
-                        >
-                          <Icon
-                            name={category.categoryIcon}
-                            size={16}
-                            className="text-paper-white"
-                          />
-                        </div>
-                        <span className="text-body text-ink-dark">
-                          {category.categoryName}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
-                          {transactionType === 'income' && '+ '}
-                          {category.amount.toLocaleString()}원
-                        </span>
-                        <span className="text-sub text-ink-mid ml-2">
-                          {Math.round(category.percentage)}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{
-                          width: `${category.percentage}%`,
-                          backgroundColor: category.categoryColor,
-                        }}
-                      />
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <p className="text-caption text-ink-light">
-                        {category.count}건
-                        {category.budget && category.budgetPercent !== undefined && periodMode === 'monthly' && transactionType === 'expense' && (
-                          <span className={`ml-2 ${category.budgetPercent >= 100 ? 'text-red-500' : category.budgetPercent >= 80 ? 'text-amber-500' : ''}`}>
-                            · 예산의 {category.budgetPercent}%
-                            {category.budgetPercent >= 100 && ' (초과)'}
-                          </span>
-                        )}
-                      </p>
-                      {category.budget && periodMode === 'monthly' && transactionType === 'expense' && (
-                        <p className="text-caption text-ink-light">
-                          / {category.budget.toLocaleString()}원
-                        </p>
-                      )}
-                    </div>
+                    금액순
                   </button>
-                ))}
+                  <span className="text-caption text-ink-light">|</span>
+                  <button
+                    onClick={() => setCategoryViewMode('budget')}
+                    className={`text-caption transition-colors ${
+                      categoryViewMode === 'budget'
+                        ? 'text-ink-black underline underline-offset-4'
+                        : 'text-ink-light'
+                    }`}
+                  >
+                    예산순
+                  </button>
+                </div>
+              )}
+
+              {/* Category List */}
+              <div className={`space-y-4 ${isBudgetViewAvailable ? 'mt-3' : 'mt-6'}`}>
+                {categoryListItems.map((category) => {
+                  // 예산순 모드에서 예산이 설정된 카테고리만 예산 대비로 그린다
+                  const showBudget = useBudgetView && hasCategoryBudget(category);
+                  const budgetUsage = category.budgetPercent ?? 0;
+                  const isOverBudget = showBudget && budgetUsage > 100;
+                  const barWidth = showBudget
+                    ? Math.min(budgetUsage, 100)
+                    : category.percentage;
+                  // 예산순인데 예산이 없는 항목은 회색 구성비 막대로 구분한다
+                  const barColor = isOverBudget
+                    ? '#EF4444'
+                    : useBudgetView && !showBudget
+                      ? 'var(--color-ink-light)'
+                      : category.categoryColor;
+                  const usageToneClass = isOverBudget
+                    ? 'text-red-500'
+                    : budgetUsage >= 80
+                      ? 'text-amber-500'
+                      : 'text-ink-mid';
+
+                  return (
+                    <button
+                      key={category.categoryId}
+                      className="w-full py-2 text-left"
+                      onClick={() => setSelectedCategory(category)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: category.categoryColor }}
+                          >
+                            <Icon
+                              name={category.categoryIcon}
+                              size={16}
+                              className="text-paper-white"
+                            />
+                          </div>
+                          <span className="text-body text-ink-dark">
+                            {category.categoryName}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-amount ${transactionType === 'income' ? 'text-semantic-positive' : 'text-ink-black'}`}>
+                            {transactionType === 'income' && '+ '}
+                            {category.amount.toLocaleString()}원
+                          </span>
+                          <span className={`text-sub ml-2 ${showBudget ? usageToneClass : 'text-ink-mid'}`}>
+                            {showBudget
+                              ? `예산의 ${budgetUsage}%`
+                              : `${Math.round(category.percentage)}%`}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1 bg-paper-mid rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${barWidth}%`,
+                            backgroundColor: barColor,
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <p className="text-caption text-ink-light">
+                          {category.count}건
+                          {useBudgetView && !showBudget && ' · 예산 미설정'}
+                        </p>
+                        {showBudget && (
+                          <p className="text-caption text-ink-light">
+                            / {category.budget?.toLocaleString()}원
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
