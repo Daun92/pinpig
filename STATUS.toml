@@ -1,6 +1,6 @@
 # watchtower 상태 파일 — 세션 종료 시 갱신 (정적 정보는 watchtower\config\registry.toml)
 phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료. Phase 2(iOS)는 방향 확정 단계
 updated = 2026-08-03
-last_session = "분석 카테고리 리스트 '금액순 | 예산순' 보기 기준 토글 추가 — 막대·% 기준 혼재로 인한 인지 오해 해소 (작업 #136, 미커밋·미배포)"
-next_action = "#136 UI 실브라우저 확인 후 커밋·배포 여부 결정 / Mac mini에서 S0 환경 준비 (docs/PHASE2_PLAN.md 참조)"
-waiting_on = ["#136 UI 확인 및 배포 지시", "원인 리포 확인 (pinpig.git으로 push하는 외부 리포의 origin 수정 — 재발 방지)", "GitHub main 브랜치 보호 설정 여부", "S1(Track 0 계측) 착수 지시"]
+last_session = "분석 카테고리 리스트 '금액순 | 예산순' 보기 기준 토글 추가 — 막대·% 기준 혼재로 인한 인지 오해 해소 (작업 #136, 배포 완료)"
+next_action = "#136 실사용 확인 후 피드백 반영 / Mac mini에서 S0 환경 준비 (docs/PHASE2_PLAN.md 참조)"
+waiting_on = ["#136 실사용 피드백 (초과 시 막대 빨강 처리·수단별 탭 동일 적용 여부)", "원인 리포 확인 (pinpig.git으로 push하는 외부 리포의 origin 수정 — 재발 방지)", "GitHub main 브랜치 보호 설정 여부", "S1(Track 0 계측) 착수 지시"]
