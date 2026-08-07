@@ -3,6 +3,7 @@
 > **문서 버전**: 1.0 | **작성일**: 2026-07-16 | **기준 앱 버전**: v0.2.5 (MVP 100%)
 > **배포**: https://pinpig.vercel.app | **카테고리**: Finance / Lifestyle
 > 문서 세트: [01 기획서](./01_PRD.md) · [02 기능 정의서](./02_REQUIREMENTS.md) · [03 유저 플로우](./03_USER_FLOW.md) · [04 와이어프레임](./04_WIREFRAMES.md)
+> **시각화 문서**: [PRD 구조도](./PinPig_PRD_구조도.html) · [유저 플로우](./PinPig_유저플로우.html) · [IA 화면구조](./PinPig_IA_화면구조.html) — 브라우저에서 열어 드래그·휠로 탐색
 
 ---
 

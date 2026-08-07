@@ -1,6 +1,6 @@
 # watchtower 상태 파일 — 세션 종료 시 갱신 (정적 정보는 watchtower\config\registry.toml)
 phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료. Phase 2(iOS)는 방향 확정 단계
 updated = 2026-08-07
-last_session = "예정 거래(미래 날짜 선입력) 정합화 — 분석·카테고리 예산은 실지출만, 홈 남은 예산은 예정 차감 유지+명시. 편집 화면 미래 날짜 수정 허용 (작업 #137, 설계 docs/UPCOMING_TRANSACTIONS.md, 배포 완료)"
-next_action = "#137 실사용 확인 후 피드백 반영 / 검증용 테스트 데이터 정리(이 PC Chrome의 pinpig.vercel.app — 설정 → 데이터베이스 초기화) / Mac mini에서 S0 환경 준비 (docs/PHASE2_PLAN.md 참조)"
+last_session = "제품 문서 시각화 3종 생성 — PRD 구조도·유저플로우·IA(27라우트 전량). 참고 HTML 시각 체계 역설계 + 생성기 scripts/docviz 보관 (작업 #138)"
+next_action = "#138 시각화 문서 검토 후 내용 보완 / #137 실사용 확인 후 피드백 반영 / 검증용 테스트 데이터 정리(이 PC Chrome의 pinpig.vercel.app — 설정 → 데이터베이스 초기화) / Mac mini에서 S0 환경 준비 (docs/PHASE2_PLAN.md 참조)"
 waiting_on = ["#137 실사용 피드백 (기록 탭 행 단위 '예정' 배지 필요 여부 — 현재는 날짜 그룹 헤더에만 표시)", "#136 실사용 피드백 (초과 시 막대 빨강 처리·수단별 탭 동일 적용 여부)", "원인 리포 확인 (pinpig.git으로 push하는 외부 리포의 origin 수정 — 재발 방지)", "GitHub main 브랜치 보호 설정 여부", "S1(Track 0 계측) 착수 지시"]

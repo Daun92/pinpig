@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PinPig 제품 기획서</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#f7f7f9;}
+  #vp{position:relative;width:100%;height:100vh;cursor:grab;
+      background-image:radial-gradient(circle,#dcdce4 1.1px,transparent 1.1px);
+      background-size:24px 24px;}
+  #vp.drag{cursor:grabbing;}
+  #cv{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;}
+  .ui{font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;}
+  #hd{position:fixed;left:14px;top:14px;background:rgba(255,255,255,.92);
+      border:1px solid #e6e6ee;border-radius:10px;padding:10px 14px;backdrop-filter:blur(6px);}
+  #hd h1{margin:0;font-size:14.5px;color:#2a2a30;font-weight:600;letter-spacing:-.01em;}
+  #hd p{margin:3px 0 0;font-size:11.5px;color:#77778a;}
+  #hd .m{margin-top:6px;font-size:10.5px;color:#9a9aa8;}
+  #lg{position:fixed;left:14px;bottom:14px;background:rgba(255,255,255,.92);
+      border:1px solid #e6e6ee;border-radius:10px;padding:9px 12px;backdrop-filter:blur(6px);
+      display:flex;gap:14px;align-items:center;font-size:11px;color:#55555f;}
+  #lg span{display:flex;gap:6px;align-items:center;}
+  #lg i{width:16px;height:11px;display:inline-block;}
+  #hud{position:fixed;right:14px;bottom:14px;display:flex;gap:6px;}
+  #hud button{border:1px solid #d9d9e3;background:#ffffff;border-radius:8px;
+      padding:6px 12px;font-size:12.5px;color:#44444c;cursor:pointer;}
+  #hud button:hover{background:#f1f1f5;}
+</style>
+</head>
+<body>
+<div id="vp"><svg id="cv" xmlns="http://www.w3.org/2000/svg" width="1488" height="3152" viewBox="0 0 1488 3152" font-family="'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif" font-size="13">
+<defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#c5c5d2"/></marker></defs>
+<text x="18" y="68.0" fill="#9a9aa8" font-size="11.5">정의 · 프레임 전환</text>
+<line x1="14" y1="355.0" x2="1474" y2="355.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="402.0" fill="#9a9aa8" font-size="11.5">타겟 사용자</text>
+<line x1="14" y1="689.0" x2="1474" y2="689.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="736.0" fill="#9a9aa8" font-size="11.5">문제 정의</text>
+<line x1="14" y1="935.0" x2="1474" y2="935.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="982.0" fill="#9a9aa8" font-size="11.5">해결 방안</text>
+<line x1="14" y1="1225.0" x2="1474" y2="1225.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="1272.0" fill="#9a9aa8" font-size="11.5">차별화</text>
+<line x1="14" y1="1471.0" x2="1474" y2="1471.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="1518.0" fill="#9a9aa8" font-size="11.5">범위 — In Scope (12영역 전부 완료)</text>
+<line x1="14" y1="2025.0" x2="1474" y2="2025.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="2072.0" fill="#9a9aa8" font-size="11.5">범위 — Out of Scope</text>
+<line x1="14" y1="2315.0" x2="1474" y2="2315.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="2362.0" fill="#9a9aa8" font-size="11.5">성공 지표 · 리스크</text>
+<line x1="14" y1="2825.0" x2="1474" y2="2825.0" stroke="#e6e6ee" stroke-width="1"/>
+<text x="18" y="2872.0" fill="#9a9aa8" font-size="11.5">플랫폼 · 기술</text>
+<path d="M 212.4 196.0 L 276.4 196.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 152.0 L 636.8 152.0 Q 643.8 152.0 643.8 145.0 L 643.8 71.0 Q 643.8 64.0 650.8 64.0 L 742.6 64.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 152.0 L 636.8 152.0 Q 643.8 152.0 643.8 145.0 L 643.8 115.0 Q 643.8 108.0 650.8 108.0 L 742.6 108.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 889.6 240.0 L 995.5 240.0 Q 1002.5 240.0 1002.5 233.0 L 1002.5 159.0 Q 1002.5 152.0 1009.5 152.0 L 1115.4 152.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 889.6 240.0 L 995.5 240.0 Q 1002.5 240.0 1002.5 233.0 L 1002.5 203.0 Q 1002.5 196.0 1009.5 196.0 L 1115.4 196.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 889.6 240.0 L 1115.4 240.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 889.6 240.0 L 995.5 240.0 Q 1002.5 240.0 1002.5 247.0 L 1002.5 277.0 Q 1002.5 284.0 1009.5 284.0 L 1115.4 284.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 889.6 240.0 L 995.5 240.0 Q 1002.5 240.0 1002.5 247.0 L 1002.5 321.0 Q 1002.5 328.0 1009.5 328.0 L 1115.4 328.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 152.0 L 636.8 152.0 Q 643.8 152.0 643.8 159.0 L 643.8 233.0 Q 643.8 240.0 650.8 240.0 L 742.6 240.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 189.0 L 417.4 159.0 Q 417.4 152.0 424.4 152.0 L 449.4 152.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 678.6 508.0 L 703.6 508.0 Q 710.6 508.0 710.6 501.0 L 710.6 405.0 Q 710.6 398.0 717.6 398.0 L 742.6 398.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 678.6 508.0 L 703.6 508.0 Q 710.6 508.0 710.6 501.0 L 710.6 449.0 Q 710.6 442.0 717.6 442.0 L 742.6 442.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 678.6 508.0 L 703.6 508.0 Q 710.6 508.0 710.6 501.0 L 710.6 493.0 Q 710.6 486.0 717.6 486.0 L 742.6 486.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 678.6 508.0 L 703.6 508.0 Q 710.6 508.0 710.6 515.0 L 710.6 523.0 Q 710.6 530.0 717.6 530.0 L 742.6 530.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 838.2 618.0 L 969.8 618.0 Q 976.8 618.0 976.8 611.0 L 976.8 581.0 Q 976.8 574.0 983.8 574.0 L 1115.4 574.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 838.2 618.0 L 1115.4 618.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 838.2 618.0 L 969.8 618.0 Q 976.8 618.0 976.8 625.0 L 976.8 655.0 Q 976.8 662.0 983.8 662.0 L 1115.4 662.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 678.6 508.0 L 703.6 508.0 Q 710.6 508.0 710.6 515.0 L 710.6 611.0 Q 710.6 618.0 717.6 618.0 L 742.6 618.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 501.0 Q 417.4 508.0 424.4 508.0 L 449.4 508.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 809.0 L 621.4 809.0 Q 628.4 809.0 628.4 802.0 L 628.4 739.0 Q 628.4 732.0 635.4 732.0 L 742.6 732.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 809.0 L 621.4 809.0 Q 628.4 809.0 628.4 802.0 L 628.4 783.0 Q 628.4 776.0 635.4 776.0 L 742.6 776.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 809.0 L 622.9 809.0 Q 628.4 809.0 628.4 814.5 L 628.4 814.5 Q 628.4 820.0 633.9 820.0 L 742.6 820.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 807.4 886.0 L 954.4 886.0 Q 961.4 886.0 961.4 879.0 L 961.4 871.0 Q 961.4 864.0 968.4 864.0 L 1115.4 864.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 807.4 886.0 L 954.4 886.0 Q 961.4 886.0 961.4 893.0 L 961.4 901.0 Q 961.4 908.0 968.4 908.0 L 1115.4 908.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 809.0 L 621.4 809.0 Q 628.4 809.0 628.4 816.0 L 628.4 879.0 Q 628.4 886.0 635.4 886.0 L 742.6 886.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 802.0 Q 417.4 809.0 424.4 809.0 L 449.4 809.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 1039.6 978.0 L 1115.4 978.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 1088.0 L 621.4 1088.0 Q 628.4 1088.0 628.4 1081.0 L 628.4 985.0 Q 628.4 978.0 635.4 978.0 L 742.6 978.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 1047.6 1044.0 L 1074.5 1044.0 Q 1081.5 1044.0 1081.5 1037.0 L 1081.5 1029.0 Q 1081.5 1022.0 1088.5 1022.0 L 1115.4 1022.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 1047.6 1044.0 L 1074.5 1044.0 Q 1081.5 1044.0 1081.5 1051.0 L 1081.5 1059.0 Q 1081.5 1066.0 1088.5 1066.0 L 1115.4 1066.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 1088.0 L 621.4 1088.0 Q 628.4 1088.0 628.4 1081.0 L 628.4 1051.0 Q 628.4 1044.0 635.4 1044.0 L 742.6 1044.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 961.4 1110.0 L 1115.4 1110.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 1088.0 L 621.4 1088.0 Q 628.4 1088.0 628.4 1095.0 L 628.4 1103.0 Q 628.4 1110.0 635.4 1110.0 L 742.6 1110.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 1088.0 L 621.4 1088.0 Q 628.4 1088.0 628.4 1095.0 L 628.4 1147.0 Q 628.4 1154.0 635.4 1154.0 L 742.6 1154.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 999.4 1198.0 L 1115.4 1198.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 514.2 1088.0 L 621.4 1088.0 Q 628.4 1088.0 628.4 1095.0 L 628.4 1191.0 Q 628.4 1198.0 635.4 1198.0 L 742.6 1198.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 1081.0 Q 417.4 1088.0 424.4 1088.0 L 449.4 1088.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 527.6 1356.0 L 628.1 1356.0 Q 635.1 1356.0 635.1 1349.0 L 635.1 1275.0 Q 635.1 1268.0 642.1 1268.0 L 742.6 1268.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 527.6 1356.0 L 628.1 1356.0 Q 635.1 1356.0 635.1 1349.0 L 635.1 1319.0 Q 635.1 1312.0 642.1 1312.0 L 742.6 1312.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 527.6 1356.0 L 742.6 1356.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 527.6 1356.0 L 628.1 1356.0 Q 635.1 1356.0 635.1 1363.0 L 635.1 1393.0 Q 635.1 1400.0 642.1 1400.0 L 742.6 1400.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 527.6 1356.0 L 628.1 1356.0 Q 635.1 1356.0 635.1 1363.0 L 635.1 1437.0 Q 635.1 1444.0 642.1 1444.0 L 742.6 1444.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 1349.0 Q 417.4 1356.0 424.4 1356.0 L 449.4 1356.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1749.0 L 657.2 1521.0 Q 657.2 1514.0 664.2 1514.0 L 742.6 1514.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1749.0 L 657.2 1565.0 Q 657.2 1558.0 664.2 1558.0 L 742.6 1558.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1749.0 L 657.2 1609.0 Q 657.2 1602.0 664.2 1602.0 L 742.6 1602.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1749.0 L 657.2 1653.0 Q 657.2 1646.0 664.2 1646.0 L 742.6 1646.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1749.0 L 657.2 1697.0 Q 657.2 1690.0 664.2 1690.0 L 742.6 1690.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1749.0 L 657.2 1741.0 Q 657.2 1734.0 664.2 1734.0 L 742.6 1734.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1763.0 L 657.2 1771.0 Q 657.2 1778.0 664.2 1778.0 L 742.6 1778.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1763.0 L 657.2 1815.0 Q 657.2 1822.0 664.2 1822.0 L 742.6 1822.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1763.0 L 657.2 1859.0 Q 657.2 1866.0 664.2 1866.0 L 742.6 1866.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1763.0 L 657.2 1903.0 Q 657.2 1910.0 664.2 1910.0 L 742.6 1910.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1763.0 L 657.2 1947.0 Q 657.2 1954.0 664.2 1954.0 L 742.6 1954.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 571.8 1756.0 L 650.2 1756.0 Q 657.2 1756.0 657.2 1763.0 L 657.2 1991.0 Q 657.2 1998.0 664.2 1998.0 L 742.6 1998.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 1749.0 Q 417.4 1756.0 424.4 1756.0 L 449.4 1756.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 558.4 2178.0 L 643.5 2178.0 Q 650.5 2178.0 650.5 2171.0 L 650.5 2075.0 Q 650.5 2068.0 657.5 2068.0 L 742.6 2068.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 558.4 2178.0 L 643.5 2178.0 Q 650.5 2178.0 650.5 2171.0 L 650.5 2119.0 Q 650.5 2112.0 657.5 2112.0 L 742.6 2112.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 558.4 2178.0 L 643.5 2178.0 Q 650.5 2178.0 650.5 2171.0 L 650.5 2163.0 Q 650.5 2156.0 657.5 2156.0 L 742.6 2156.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 558.4 2178.0 L 643.5 2178.0 Q 650.5 2178.0 650.5 2185.0 L 650.5 2193.0 Q 650.5 2200.0 657.5 2200.0 L 742.6 2200.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 558.4 2178.0 L 643.5 2178.0 Q 650.5 2178.0 650.5 2185.0 L 650.5 2237.0 Q 650.5 2244.0 657.5 2244.0 L 742.6 2244.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 558.4 2178.0 L 643.5 2178.0 Q 650.5 2178.0 650.5 2185.0 L 650.5 2281.0 Q 650.5 2288.0 657.5 2288.0 L 742.6 2288.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 2171.0 Q 417.4 2178.0 424.4 2178.0 L 449.4 2178.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 2468.0 L 636.8 2468.0 Q 643.8 2468.0 643.8 2461.0 L 643.8 2365.0 Q 643.8 2358.0 650.8 2358.0 L 742.6 2358.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 2468.0 L 636.8 2468.0 Q 643.8 2468.0 643.8 2461.0 L 643.8 2409.0 Q 643.8 2402.0 650.8 2402.0 L 742.6 2402.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 2468.0 L 636.8 2468.0 Q 643.8 2468.0 643.8 2461.0 L 643.8 2453.0 Q 643.8 2446.0 650.8 2446.0 L 742.6 2446.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 2468.0 L 636.8 2468.0 Q 643.8 2468.0 643.8 2475.0 L 643.8 2483.0 Q 643.8 2490.0 650.8 2490.0 L 742.6 2490.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 2468.0 L 636.8 2468.0 Q 643.8 2468.0 643.8 2475.0 L 643.8 2527.0 Q 643.8 2534.0 650.8 2534.0 L 742.6 2534.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 545.0 2468.0 L 636.8 2468.0 Q 643.8 2468.0 643.8 2475.0 L 643.8 2571.0 Q 643.8 2578.0 650.8 2578.0 L 742.6 2578.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 961.4 2622.0 L 1115.4 2622.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2710.0 L 652.2 2710.0 Q 659.2 2710.0 659.2 2703.0 L 659.2 2629.0 Q 659.2 2622.0 666.2 2622.0 L 742.6 2622.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 895.8 2666.0 L 1115.4 2666.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2710.0 L 652.2 2710.0 Q 659.2 2710.0 659.2 2703.0 L 659.2 2673.0 Q 659.2 2666.0 666.2 2666.0 L 742.6 2666.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 991.5 2710.0 L 1115.4 2710.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2710.0 L 742.6 2710.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 1005.6 2754.0 L 1115.4 2754.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2710.0 L 652.2 2710.0 Q 659.2 2710.0 659.2 2717.0 L 659.2 2747.0 Q 659.2 2754.0 666.2 2754.0 L 742.6 2754.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2710.0 L 652.2 2710.0 Q 659.2 2710.0 659.2 2717.0 L 659.2 2791.0 Q 659.2 2798.0 666.2 2798.0 L 742.6 2798.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 2461.0 Q 417.4 2468.0 424.4 2468.0 L 449.4 2468.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 2703.0 Q 417.4 2710.0 424.4 2710.0 L 449.4 2710.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 978.0 2868.0 L 1115.4 2868.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2978.0 L 652.2 2978.0 Q 659.2 2978.0 659.2 2971.0 L 659.2 2875.0 Q 659.2 2868.0 666.2 2868.0 L 742.6 2868.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 982.5 2912.0 L 1115.4 2912.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2978.0 L 652.2 2978.0 Q 659.2 2978.0 659.2 2971.0 L 659.2 2919.0 Q 659.2 2912.0 666.2 2912.0 L 742.6 2912.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 838.2 3000.0 L 969.8 3000.0 Q 976.8 3000.0 976.8 2993.0 L 976.8 2963.0 Q 976.8 2956.0 983.8 2956.0 L 1115.4 2956.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 838.2 3000.0 L 1115.4 3000.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 838.2 3000.0 L 969.8 3000.0 Q 976.8 3000.0 976.8 3007.0 L 976.8 3037.0 Q 976.8 3044.0 983.8 3044.0 L 1115.4 3044.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2978.0 L 652.2 2978.0 Q 659.2 2978.0 659.2 2985.0 L 659.2 2993.0 Q 659.2 3000.0 666.2 3000.0 L 742.6 3000.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 575.8 2978.0 L 652.2 2978.0 Q 659.2 2978.0 659.2 2985.0 L 659.2 3081.0 Q 659.2 3088.0 666.2 3088.0 L 742.6 3088.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 385.4 196.0 L 410.4 196.0 Q 417.4 196.0 417.4 203.0 L 417.4 2971.0 Q 417.4 2978.0 424.4 2978.0 L 449.4 2978.0" fill="none" stroke="#c5c5d2" stroke-width="1.5" marker-end="url(#arr)"/>
+<g><rect x="130.0" y="180.0" width="82.4" height="32" rx="7.0" fill="#ececf0" stroke="#ececf0" stroke-width="1"/><text x="171.2" y="200.5" text-anchor="middle" fill="#2a2a30">PinPig</text></g>
+<g><rect x="276.4" y="180.0" width="109.0" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="330.9" y="200.5" text-anchor="middle" fill="#ffffff">제품 기획서</text></g>
+<g><rect x="449.4" y="136.0" width="95.6" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="497.2" y="156.5" text-anchor="middle" fill="#ffffff">제품 정의</text></g>
+<g><rect x="449.4" y="492.0" width="229.2" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="564.0" y="512.5" text-anchor="middle" fill="#ffffff">페르소나 — 김지원 29세 마케터</text></g>
+<g><rect x="449.4" y="793.0" width="64.8" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="481.8" y="813.5" text-anchor="middle" fill="#ffffff">문제</text></g>
+<g><rect x="449.4" y="1072.0" width="64.8" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="481.8" y="1092.5" text-anchor="middle" fill="#ffffff">해결</text></g>
+<g><rect x="449.4" y="1340.0" width="78.2" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="488.5" y="1360.5" text-anchor="middle" fill="#ffffff">차별화</text></g>
+<g><rect x="449.4" y="1740.0" width="122.4" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="510.6" y="1760.5" text-anchor="middle" fill="#ffffff">요구사항 영역</text></g>
+<g><rect x="449.4" y="2162.0" width="109.0" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="503.9" y="2182.5" text-anchor="middle" fill="#ffffff">의도적 제외</text></g>
+<g><rect x="449.4" y="2452.0" width="95.6" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="497.2" y="2472.5" text-anchor="middle" fill="#ffffff">성공 지표</text></g>
+<g><rect x="449.4" y="2694.0" width="126.4" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="512.6" y="2714.5" text-anchor="middle" fill="#ffffff">리스크 · 완화</text></g>
+<g><rect x="449.4" y="2962.0" width="126.4" height="32" rx="7.0" fill="#7461e6" stroke="#7461e6" stroke-width="1"/><text x="512.6" y="2982.5" text-anchor="middle" fill="#ffffff">플랫폼 · 기술</text></g>
+<g><rect x="742.6" y="48.0" width="308.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="896.7" y="68.5" text-anchor="middle" fill="#2a2a30">"얼마나 남았지?"를 1초에 비춰주는 예산 PWA</text></g>
+<g><rect x="742.6" y="92.0" width="287.4" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="886.3" y="112.5" text-anchor="middle" fill="#2a2a30">기록하는 가계부가 아니라, 비춰주는 거울</text></g>
+<g><rect x="742.6" y="224.0" width="147.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="816.1" y="244.5" text-anchor="middle" fill="#2a2a30">프레임 전환 5가지</text></g>
+<g><rect x="742.6" y="382.0" width="197.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="841.2" y="402.5" text-anchor="middle" fill="#2a2a30">월급 300만원 · 25일 입금</text></g>
+<g><rect x="742.6" y="426.0" width="245.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="865.5" y="446.5" text-anchor="middle" fill="#2a2a30">고정지출 70만 (월세·통신·구독)</text></g>
+<g><rect x="742.6" y="470.0" width="230.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="857.6" y="490.5" text-anchor="middle" fill="#2a2a30">가계부 앱 3개 설치 후 전부 삭제</text></g>
+<g><rect x="742.6" y="514.0" width="283.6" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="884.4" y="534.5" text-anchor="middle" fill="#2a2a30">목표는 자산관리가 아닌 "이번 달 버티기"</text></g>
+<g><rect x="742.6" y="602.0" width="95.6" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="790.4" y="622.5" text-anchor="middle" fill="#2a2a30">사용 패턴</text></g>
+<g><rect x="742.6" y="716.0" width="297.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="891.5" y="736.5" text-anchor="middle" fill="#2a2a30">① 질문에 답하지 않음 — 남은 돈이 안 보임</text></g>
+<g><rect x="742.6" y="760.0" width="281.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="883.5" y="780.5" text-anchor="middle" fill="#2a2a30">② 과도한 복잡성 — 계좌연동·자산관리</text></g>
+<g><rect x="742.6" y="804.0" width="276.4" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="880.8" y="824.5" text-anchor="middle" fill="#2a2a30">③ 감정 비용 — 판단형 메시지의 죄책감</text></g>
+<g><rect x="742.6" y="870.0" width="64.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="775.0" y="890.5" text-anchor="middle" fill="#2a2a30">귀결</text></g>
+<g><rect x="742.6" y="962.0" width="297.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="891.1" y="982.5" text-anchor="middle" fill="#2a2a30">1초 확인 — 히어로에 남은 돈·하루 가용액</text></g>
+<g><rect x="742.6" y="1028.0" width="305.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="895.1" y="1048.5" text-anchor="middle" fill="#2a2a30">3터치 기록 — FAB → 금액+카테고리 → 저장</text></g>
+<g><rect x="742.6" y="1094.0" width="218.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="852.0" y="1114.5" text-anchor="middle" fill="#2a2a30">판단 없는 비춤 — 중립 문구만</text></g>
+<g><rect x="742.6" y="1138.0" width="296.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="891.0" y="1158.5" text-anchor="middle" fill="#2a2a30">소비=관심 프레임 — 통계·리뷰·인사이트</text></g>
+<g><rect x="742.6" y="1182.0" width="256.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="871.0" y="1202.5" text-anchor="middle" fill="#2a2a30">자동화 — 반복거래 실행 · 알림 4종</text></g>
+<g><rect x="742.6" y="1252.0" width="263.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="874.1" y="1272.5" text-anchor="middle" fill="#2a2a30">프레임 전환 — 절약 강요가 아닌 인식</text></g>
+<g><rect x="742.6" y="1296.0" width="249.6" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="867.4" y="1316.5" text-anchor="middle" fill="#2a2a30">감정 설계 — 죄책감 없는 중립 어조</text></g>
+<g><rect x="742.6" y="1340.0" width="308.6" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="896.9" y="1360.5" text-anchor="middle" fill="#2a2a30">로컬 우선 — 회원가입·서버·계좌연동 없음</text></g>
+<g><rect x="742.6" y="1384.0" width="269.6" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="877.4" y="1404.5" text-anchor="middle" fill="#2a2a30">극단적 단순화 — 3터치 기록, 1초 확인</text></g>
+<g><rect x="742.6" y="1428.0" width="248.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="866.6" y="1448.5" text-anchor="middle" fill="#2a2a30">설치 장벽 없음 — PWA로 즉시 시작</text></g>
+<g><rect x="742.6" y="1498.0" width="207.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="846.1" y="1518.5" text-anchor="middle" fill="#2a2a30">R-01 온보딩 및 첫 예산 설정</text></g>
+<g><rect x="742.6" y="1542.0" width="208.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="846.6" y="1562.5" text-anchor="middle" fill="#2a2a30">R-02 홈 대시보드 (1초 확인)</text></g>
+<g><rect x="742.6" y="1586.0" width="176.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="830.7" y="1606.5" text-anchor="middle" fill="#2a2a30">R-03 거래 기록 및 수정</text></g>
+<g><rect x="742.6" y="1630.0" width="158.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="822.0" y="1650.5" text-anchor="middle" fill="#2a2a30">R-04 거래 내역 조회</text></g>
+<g><rect x="742.6" y="1674.0" width="128.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="806.6" y="1694.5" text-anchor="middle" fill="#2a2a30">R-05 예산 관리</text></g>
+<g><rect x="742.6" y="1718.0" width="267.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="876.5" y="1738.5" text-anchor="middle" fill="#2a2a30">R-06 분류 체계 관리 (카테고리·수단)</text></g>
+<g><rect x="742.6" y="1762.0" width="251.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="868.2" y="1782.5" text-anchor="middle" fill="#2a2a30">R-07 반복 거래 자동화 · 연간 지출</text></g>
+<g><rect x="742.6" y="1806.0" width="158.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="822.0" y="1826.5" text-anchor="middle" fill="#2a2a30">R-08 통계 및 리포트</text></g>
+<g><rect x="742.6" y="1850.0" width="141.4" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="813.3" y="1870.5" text-anchor="middle" fill="#2a2a30">R-09 홈 인사이트</text></g>
+<g><rect x="742.6" y="1894.0" width="141.4" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="813.3" y="1914.5" text-anchor="middle" fill="#2a2a30">R-10 알림 시스템</text></g>
+<g><rect x="742.6" y="1938.0" width="243.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="864.2" y="1958.5" text-anchor="middle" fill="#2a2a30">R-11 데이터 내보내기 · 가져오기</text></g>
+<g><rect x="742.6" y="1982.0" width="158.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="822.0" y="2002.5" text-anchor="middle" fill="#2a2a30">R-12 설정 및 개인화</text></g>
+<g><rect x="742.6" y="2052.0" width="205.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="845.3" y="2072.5" text-anchor="middle" fill="#ffffff">투자 · 자산 추적 — 복잡성</text></g>
+<g><rect x="742.6" y="2096.0" width="259.0" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="872.1" y="2116.5" text-anchor="middle" fill="#ffffff">또래 비교 — 프라이버시 · 스트레스</text></g>
+<g><rect x="742.6" y="2140.0" width="193.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="839.3" y="2160.5" text-anchor="middle" fill="#ffffff">게이미피케이션 — 미검증</text></g>
+<g><rect x="742.6" y="2184.0" width="261.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="873.3" y="2204.5" text-anchor="middle" fill="#ffffff">영수증 OCR — 비용 대비 효과 불명확</text></g>
+<g><rect x="742.6" y="2228.0" width="201.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="843.3" y="2248.5" text-anchor="middle" fill="#ffffff">복식부기 — 타겟 니즈 아님</text></g>
+<g><rect x="742.6" y="2272.0" width="249.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="867.4" y="2292.5" text-anchor="middle" fill="#ffffff">계좌 연동 · 서버 저장 · 회원가입</text></g>
+<g><rect x="742.6" y="2342.0" width="152.0" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="818.6" y="2362.5" text-anchor="middle" fill="#ffffff">온보딩 완료율 90%+</text></g>
+<g><rect x="742.6" y="2386.0" width="127.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="806.3" y="2406.5" text-anchor="middle" fill="#ffffff">D1 리텐션 60%+</text></g>
+<g><rect x="742.6" y="2430.0" width="127.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="806.3" y="2450.5" text-anchor="middle" fill="#ffffff">D7 리텐션 40%+</text></g>
+<g><rect x="742.6" y="2474.0" width="139.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="812.2" y="2494.5" text-anchor="middle" fill="#ffffff">일평균 기록 2회+</text></g>
+<g><rect x="742.6" y="2518.0" width="158.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="821.7" y="2538.5" text-anchor="middle" fill="#ffffff">기록 소요 15초 이내</text></g>
+<g><rect x="742.6" y="2562.0" width="293.8" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="889.5" y="2582.5" text-anchor="middle" fill="#ffffff">정성 — 복잡하지 않다 · 죄책감이 안 든다</text></g>
+<g><rect x="742.6" y="2606.0" width="218.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="852.0" y="2626.5" text-anchor="middle" fill="#2a2a30">데이터 유실 — 로컬 단독 저장</text></g>
+<g><rect x="742.6" y="2650.0" width="153.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="819.2" y="2670.5" text-anchor="middle" fill="#2a2a30">다기기 동기화 부재</text></g>
+<g><rect x="742.6" y="2694.0" width="248.9" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="867.0" y="2714.5" text-anchor="middle" fill="#2a2a30">iOS PWA 제약 — 푸시 · 설치 경험</text></g>
+<g><rect x="742.6" y="2738.0" width="263.0" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="874.1" y="2758.5" text-anchor="middle" fill="#2a2a30">수동 기록 지속성 — 습관 끊기면 공백</text></g>
+<g><rect x="742.6" y="2782.0" width="228.2" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="856.7" y="2802.5" text-anchor="middle" fill="#2a2a30">수익모델 부재 — 개인 프로젝트</text></g>
+<g><rect x="742.6" y="2852.0" width="235.4" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="860.3" y="2872.5" text-anchor="middle" fill="#2a2a30">Phase 1 — 모바일 웹 PWA (완료)</text></g>
+<g><rect x="742.6" y="2896.0" width="239.9" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="862.5" y="2916.5" text-anchor="middle" fill="#2a2a30">Phase 2 — iOS Capacitor (예정)</text></g>
+<g><rect x="742.6" y="2984.0" width="95.6" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="790.4" y="3004.5" text-anchor="middle" fill="#2a2a30">기술 스택</text></g>
+<g><rect x="742.6" y="3072.0" width="308.8" height="32" rx="7.0" fill="#efeafc" stroke="#ddd3fb" stroke-width="1"/><text x="897.0" y="3092.5" text-anchor="middle" fill="#2a2a30">역할 — 단일 사용자, 로그인·권한 체계 없음</text></g>
+<g><rect x="1115.4" y="136.0" width="226.0" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1228.4" y="156.5" text-anchor="middle" fill="#ffffff">얼마나 썼지? → 얼마나 남았지?</text></g>
+<g><rect x="1115.4" y="180.0" width="235.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1233.1" y="200.5" text-anchor="middle" fill="#ffffff">지출=죄책감 → 소비=관심의 표현</text></g>
+<g><rect x="1115.4" y="224.0" width="174.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1202.7" y="244.5" text-anchor="middle" fill="#ffffff">과거 기록 → 현재 상태</text></g>
+<g><rect x="1115.4" y="268.0" width="174.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1202.7" y="288.5" text-anchor="middle" fill="#ffffff">분석 중심 → 확인 중심</text></g>
+<g><rect x="1115.4" y="312.0" width="201.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1216.1" y="332.5" text-anchor="middle" fill="#ffffff">금융앱 느낌 → 일상앱 느낌</text></g>
+<g><rect x="1115.4" y="558.0" width="133.0" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1181.9" y="578.5" text-anchor="middle" fill="#ffffff">하루 3~6회 실행</text></g>
+<g><rect x="1115.4" y="602.0" width="175.0" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1202.9" y="622.5" text-anchor="middle" fill="#ffffff">확인 3~5회 · 회당 3초</text></g>
+<g><rect x="1115.4" y="646.0" width="182.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1206.5" y="666.5" text-anchor="middle" fill="#ffffff">기록 2~3회 · 회당 10초</text></g>
+<g><rect x="1115.4" y="848.0" width="222.8" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1226.8" y="868.5" text-anchor="middle" fill="#ffffff">설치 → 며칠 사용 → 삭제 반복</text></g>
+<g><rect x="1115.4" y="892.0" width="170.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1200.7" y="912.5" text-anchor="middle" fill="#ffffff">소비 인식 자체를 포기</text></g>
+<g><rect x="1115.4" y="962.0" width="312.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1271.5" y="982.5" text-anchor="middle" fill="#ffffff">로컬 IndexedDB — 로딩·오프라인 제약 없음</text></g>
+<g><rect x="1115.4" y="1006.0" width="197.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1214.1" y="1026.5" text-anchor="middle" fill="#ffffff">시간대 기반 카테고리 추천</text></g>
+<g><rect x="1115.4" y="1050.0" width="274.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1252.5" y="1070.5" text-anchor="middle" fill="#ffffff">날짜 "오늘" 기본값 · 마지막 수단 유지</text></g>
+<g><rect x="1115.4" y="1094.0" width="237.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1234.2" y="1114.5" text-anchor="middle" fill="#ffffff">예산 초과에도 경고·빨간색 없음</text></g>
+<g><rect x="1115.4" y="1182.0" width="223.3" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1227.0" y="1202.5" text-anchor="middle" fill="#ffffff">밀린 회차 catch-up 최대 365건</text></g>
+<g><rect x="1115.4" y="2606.0" width="204.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1217.5" y="2626.5" text-anchor="middle" fill="#ffffff">JSON 내보내기 · 가져오기</text></g>
+<g><rect x="1115.4" y="2650.0" width="146.8" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1188.8" y="2670.5" text-anchor="middle" fill="#ffffff">Phase 2 이후 검토</text></g>
+<g><rect x="1115.4" y="2694.0" width="241.2" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1236.0" y="2714.5" text-anchor="middle" fill="#ffffff">Phase 2 Capacitor 전환으로 해소</text></g>
+<g><rect x="1115.4" y="2738.0" width="241.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1236.2" y="2758.5" text-anchor="middle" fill="#ffffff">반복거래 자동화 · 알림으로 완화</text></g>
+<g><rect x="1115.4" y="2852.0" width="308.1" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1269.4" y="2872.5" text-anchor="middle" fill="#ffffff">vite-plugin-pwa + Workbox · 오프라인 동작</text></g>
+<g><rect x="1115.4" y="2896.0" width="249.6" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1240.2" y="2916.5" text-anchor="middle" fill="#ffffff">푸시 알림 · 홈화면 설치 경험 개선</text></g>
+<g><rect x="1115.4" y="2940.0" width="266.1" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1248.4" y="2960.5" text-anchor="middle" fill="#ffffff">React 18 + TypeScript strict + Vite</text></g>
+<g><rect x="1115.4" y="2984.0" width="246.4" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1238.6" y="3004.5" text-anchor="middle" fill="#ffffff">Zustand · Dexie.js (IndexedDB)</text></g>
+<g><rect x="1115.4" y="3028.0" width="277.3" height="32" rx="16.0" fill="#1e1e22" stroke="#1e1e22" stroke-width="1"/><text x="1254.0" y="3048.5" text-anchor="middle" fill="#ffffff">Tailwind CSS · Recharts · date-fns</text></g>
+</svg></div>
+<div id="hd" class="ui"><h1>PinPig 제품 기획서</h1><p>"얼마나 썼지?"가 아니라 "얼마나 남았지?" — 비춰주는 거울 가계부</p><div class="m">기준 앱 v0.2.5 (#137 반영) · 2026-08-07 · 드래그로 이동, 휠로 확대</div></div>
+<div id="lg" class="ui">
+  <span><i style="background:#7461e6;border-radius:3px"></i>영역·화면</span>
+  <span><i style="background:#efeafc;border:1px solid #ddd3fb;border-radius:3px"></i>구성 요소</span>
+  <span><i style="background:#1e1e22;border-radius:6px"></i>동작·규칙</span>
+</div>
+<div id="hud" class="ui"><button id="fit">화면 맞춤</button><button id="z1">100%</button></div>
+<script>
+(function(){
+  var vp=document.getElementById('vp'),cv=document.getElementById('cv');
+  var W=+cv.getAttribute('width'),H=+cv.getAttribute('height');
+  var s=1,tx=0,ty=0,drag=null;
+  function apply(){cv.style.transform='translate('+tx+'px,'+ty+'px) scale('+s+')';}
+  function fit(){
+    var r=vp.getBoundingClientRect();
+    s=Math.min(1,(r.width-40)/W,(r.height-40)/H);
+    tx=(r.width-W*s)/2; ty=(r.height-H*s)/2; apply();
+  }
+  vp.addEventListener('wheel',function(e){
+    e.preventDefault();
+    var r=vp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    var ns=Math.min(4,Math.max(0.15,s*(e.deltaY<0?1.12:0.89)));
+    tx=mx-(mx-tx)*(ns/s); ty=my-(my-ty)*(ns/s); s=ns; apply();
+  },{passive:false});
+  vp.addEventListener('pointerdown',function(e){
+    drag={x:e.clientX-tx,y:e.clientY-ty};
+    vp.classList.add('drag'); vp.setPointerCapture(e.pointerId);
+  });
+  vp.addEventListener('pointermove',function(e){
+    if(drag){tx=e.clientX-drag.x;ty=e.clientY-drag.y;apply();}
+  });
+  vp.addEventListener('pointerup',function(){drag=null;vp.classList.remove('drag');});
+  document.getElementById('fit').onclick=fit;
+  document.getElementById('z1').onclick=function(){s=1;tx=20;ty=20;apply();};
+  fit();
+})();
+</script>
+</body>
+</html>
