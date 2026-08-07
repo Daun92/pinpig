@@ -7,8 +7,11 @@
  * 상세 설계: docs/UPCOMING_TRANSACTIONS.md
  */
 
-import { isAfter, startOfDay } from 'date-fns';
+import { isAfter, isBefore, differenceInDays, startOfDay } from 'date-fns';
 import type { Transaction } from '@/types';
+
+/** 도래한 예정 거래에 '확인' 배지를 유지하는 기간(일). 지나면 조용히 확정으로 굳는다. */
+export const SETTLEMENT_CHECK_WINDOW_DAYS = 7;
 
 /**
  * 예정 거래 여부 — 오늘보다 뒤의 날짜인가
@@ -34,6 +37,30 @@ export function filterSettled<T extends { date: Date }>(transactions: T[]): T[] 
  */
 export function filterUpcoming<T extends { date: Date }>(transactions: T[]): T[] {
   return transactions.filter((tx) => isUpcoming(tx.date));
+}
+
+/**
+ * 도래한 예정 거래 중 아직 확인하지 않은 것인가 — 시한부 '확인' 배지의 판정.
+ *
+ * 선입력한 예정 거래는 날짜가 지나면 자동으로 확정 지출이 된다. 고지 금액이 예상과
+ * 달랐어도 알아챌 방법이 없으므로, 도래 직후 일정 기간만 조용히 표시해 둔다.
+ * 사용자가 손대지 않으면 기간이 지나 사라지고 그대로 확정된다 — 무응답 = 확정.
+ *
+ * 저장 필드를 늘리지 않고 기존 값만으로 판정한다.
+ * - `createdAt < date`  : 발생 전에 미리 넣은 거래였다 (당일·소급 입력은 해당 없음)
+ * - `updatedAt < date`  : 도래 후 손대지 않았다 (수정했다면 확인한 것으로 본다)
+ * - '반복' 태그 제외    : 반복거래 자동 생성분은 금액이 고정이고 별도 알림이 있다
+ */
+export function needsSettlementCheck(
+  tx: Pick<Transaction, 'date' | 'createdAt' | 'updatedAt' | 'tags'>,
+  windowDays: number = SETTLEMENT_CHECK_WINDOW_DAYS
+): boolean {
+  const due = startOfDay(tx.date);
+  if (isUpcoming(tx.date)) return false;
+  if (!isBefore(startOfDay(tx.createdAt), due)) return false;
+  if (!isBefore(startOfDay(tx.updatedAt), due)) return false;
+  if (tx.tags?.includes('반복')) return false;
+  return differenceInDays(startOfDay(new Date()), due) <= windowDays;
 }
 
 /**

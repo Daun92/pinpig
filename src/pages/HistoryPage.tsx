@@ -17,6 +17,7 @@ import {
   UpcomingSummary,
 } from '@/components/history';
 import { getInsightDetail } from '@/services/queries';
+import { needsSettlementCheck } from '@/utils/date';
 import { isToday, isYesterday, format, subMonths, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { Transaction, DateGroup, MonthGroup, InsightType, InsightDetailData } from '@/types';
@@ -289,6 +290,12 @@ export function HistoryPage() {
     return monthGroups.flatMap(mg => mg.dateGroups);
   }, [monthGroups]);
 
+  // '확인' 딥링크가 앉을 자리 — 확인 대상이 있는 가장 최근 그룹 (목록은 날짜 내림차순)
+  const firstCheckGroupTime = useMemo(() => {
+    const g = allDateGroups.find((gr) => gr.transactions.some((tx) => needsSettlementCheck(tx)));
+    return g ? g.date.getTime() : null;
+  }, [allDateGroups]);
+
   // Horizontal swipe for month navigation (left = next, right = previous)
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [swipeDistance, setSwipeDistance] = useState(0);
@@ -375,6 +382,9 @@ export function HistoryPage() {
         selector = '[data-scroll-target="future"]';
       } else if (scrollToTarget === 'today') {
         selector = '[data-scroll-target="today"]';
+      } else if (scrollToTarget === 'check') {
+        // 확인 대상 그룹은 today/yesterday와 겹칠 수 있어 별도 속성을 쓴다
+        selector = '[data-scroll-check]';
       }
 
       if (selector) {
@@ -736,6 +746,9 @@ export function HistoryPage() {
                     key={groupKey}
                     className="date-group relative"
                     data-scroll-target={scrollTargetAttr}
+                    data-scroll-check={
+                      firstCheckGroupTime === group.date.getTime() ? '1' : undefined
+                    }
                   >
                     {/* Date Group Header - sticky below fixed header */}
                     {(() => {
@@ -776,6 +789,7 @@ export function HistoryPage() {
                     {/* Transactions */}
                     <ul>
                       {group.transactions.map((tx, txIndex) => {
+                        const needsCheck = needsSettlementCheck(tx);
                         const category = categoryMap.get(tx.categoryId);
                         const paymentMethod = tx.paymentMethodId ? paymentMethodMap.get(tx.paymentMethodId) : null;
                         // Add tour attribute to first transaction of first date group of first month
@@ -800,6 +814,13 @@ export function HistoryPage() {
                                 {/* 1행: 메모 + 태그 | 시간 */}
                                 <div className="flex justify-between items-start gap-2 leading-tight">
                                   <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1">
+                                    {/* 예정이었다가 도래한 건 — 고지 금액이 달랐을 수 있으니 시한부로 표시.
+                                        손대지 않으면 기간이 지나 사라지고 그대로 확정된다 */}
+                                    {needsCheck && (
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-caption text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                                        확인
+                                      </span>
+                                    )}
                                     {tx.memo && (
                                       <span className="text-sub text-ink-black truncate max-w-[120px]">
                                         {tx.memo}

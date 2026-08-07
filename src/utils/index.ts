@@ -27,6 +27,8 @@ export {
   filterUpcoming,
   splitByUpcoming,
   createDayChangeGuard,
+  needsSettlementCheck,
+  SETTLEMENT_CHECK_WINDOW_DAYS,
 } from './date';
 
 // Export utilities

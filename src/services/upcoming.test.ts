@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vites
 import { db } from '@/services/database';
 import { getCategoryBreakdown, getMonthlyBudgetStructure } from '@/services/queries';
 import { selectBudgetStatus } from '@/stores/transactionStore';
-import { isUpcoming, createDayChangeGuard } from '@/utils/date';
+import { isUpcoming, createDayChangeGuard, needsSettlementCheck } from '@/utils/date';
 import type { Transaction } from '@/types';
 
 // 기준일: 2026-08-07 (월 중반 — 확정과 예정이 같은 달에 공존하는 시점)
@@ -73,6 +73,57 @@ describe('isUpcoming — 경계', () => {
 
   it('과거는 예정이 아니다', () => {
     expect(isUpcoming(new Date(2026, 7, 6, 23, 59, 59))).toBe(false);
+  });
+});
+
+describe('needsSettlementCheck — 도래한 예정 거래의 시한부 확인 배지', () => {
+  /** 거래일보다 이전에 미리 넣어둔 거래 (createdAt < date) */
+  const preEntered = (date: Date, over: Partial<Transaction> = {}) => {
+    const entered = new Date(date.getTime() - 10 * 86400000); // 거래일 10일 전에 입력
+    return makeTx({ date, createdAt: entered, updatedAt: entered, ...over });
+  };
+
+  it('도래 당일부터 확인 대상이다', () => {
+    expect(needsSettlementCheck(preEntered(new Date(2026, 7, 7)))).toBe(true);
+  });
+
+  it('아직 도래하지 않았으면 대상이 아니다 (예정 배지가 담당)', () => {
+    expect(needsSettlementCheck(preEntered(new Date(2026, 7, 8)))).toBe(false);
+  });
+
+  it('시한(7일) 안이면 유지되고 지나면 조용히 사라진다', () => {
+    expect(needsSettlementCheck(preEntered(new Date(2026, 6, 31)))).toBe(true);  // 7일 전
+    expect(needsSettlementCheck(preEntered(new Date(2026, 6, 30)))).toBe(false); // 8일 전
+  });
+
+  it('당일 입력·소급 입력은 선입력이 아니므로 대상이 아니다', () => {
+    const sameDay = makeTx({
+      date: new Date(2026, 7, 5),
+      createdAt: new Date(2026, 7, 5, 13, 0),
+      updatedAt: new Date(2026, 7, 5, 13, 0),
+    });
+    const backdated = makeTx({
+      date: new Date(2026, 7, 3),
+      createdAt: TODAY,
+      updatedAt: TODAY,
+    });
+    expect(needsSettlementCheck(sameDay)).toBe(false);
+    expect(needsSettlementCheck(backdated)).toBe(false);
+  });
+
+  it('도래 후 수정했으면 확인한 것으로 보고 대상에서 빠진다', () => {
+    const edited = preEntered(new Date(2026, 7, 5), { updatedAt: new Date(2026, 7, 6) });
+    expect(needsSettlementCheck(edited)).toBe(false);
+  });
+
+  it('도래 전 수정은 확인으로 치지 않는다 (실제 금액은 아직 모른다)', () => {
+    const editedEarly = preEntered(new Date(2026, 7, 5), { updatedAt: new Date(2026, 7, 3) });
+    expect(needsSettlementCheck(editedEarly)).toBe(true);
+  });
+
+  it('반복거래 자동 생성분은 제외한다 (금액 고정 · 별도 알림 있음)', () => {
+    const recurring = preEntered(new Date(2026, 7, 5), { tags: ['반복'] });
+    expect(needsSettlementCheck(recurring)).toBe(false);
   });
 });
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, AlertCircle } from 'lucide-react';
+import { needsSettlementCheck } from '@/utils/date';
 import { useTransactionStore, selectBudgetStatus, selectCategoryBreakdown } from '@/stores/transactionStore';
 import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
 import { useCategoryStore, selectCategoryMap } from '@/stores/categoryStore';
@@ -233,9 +234,18 @@ export function HomePage() {
   const upcomingExpenseTotal =
     budgetStatus.upcomingExpense + (budgetStructure?.fixedExpenses ?? 0);
 
+  // 예정이었다가 도래한 건 — 손대지 않으면 시한이 지나 그대로 확정된다
+  const needsCheckSummary = useMemo(() => {
+    const items = transactions.filter((tx) => needsSettlementCheck(tx));
+    const expense = items.filter((tx) => tx.type === 'expense').reduce((s, tx) => s + tx.amount, 0);
+    const income = items.filter((tx) => tx.type === 'income').reduce((s, tx) => s + tx.amount, 0);
+    return { count: items.length, total: income - expense };
+  }, [transactions]);
+
   const hasYesterday = yesterdaySummary.count > 0;
   const hasFuture = futureSummary.count > 0;
-  const hasBottomCards = hasYesterday || hasFuture;
+  const hasNeedsCheck = needsCheckSummary.count > 0;
+  const hasBottomCards = hasYesterday || hasFuture || hasNeedsCheck;
 
   if (isLoading && transactions.length === 0) {
     return (
@@ -404,16 +414,37 @@ export function HomePage() {
         )}
       </section>
 
-      {/* Bottom Cards: Yesterday | Future (2-column summary) */}
+      {/* Bottom Cards: 확인 | 어제 | 예정 (요약) */}
       {hasBottomCards && (
         <section className="bg-paper-light/50 border-t border-paper-dark/20 px-6 py-4">
           <div className="flex gap-3">
+            {/* 확인 Card — 도래한 예정 거래. 시한이 지나면 조용히 사라진다 */}
+            {hasNeedsCheck && (
+              <button
+                onClick={() => navigate('/history?scrollTo=check')}
+                className={`flex-1 bg-paper-light rounded-xl p-4 text-left active:bg-paper-mid transition-colors ${
+                  !hasYesterday && !hasFuture ? 'max-w-[50%]' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle size={16} className="text-amber-600 dark:text-amber-400" />
+                  <span className="text-sub text-ink-dark">확인</span>
+                </div>
+                <p className="text-caption text-ink-light">
+                  {needsCheckSummary.count}건 예정대로 기록됨
+                </p>
+                <p className="text-body mt-1 text-ink-black">
+                  {Math.abs(needsCheckSummary.total).toLocaleString()}원
+                </p>
+              </button>
+            )}
+
             {/* Yesterday Card */}
             {hasYesterday && (
               <button
                 onClick={() => navigate('/history?scrollTo=yesterday')}
                 className={`flex-1 bg-paper-light rounded-xl p-4 text-left active:bg-paper-mid transition-colors ${
-                  !hasFuture ? 'max-w-[50%]' : ''
+                  !hasFuture && !hasNeedsCheck ? 'max-w-[50%]' : ''
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -436,7 +467,7 @@ export function HomePage() {
               <button
                 onClick={() => navigate('/history?scrollTo=future')}
                 className={`flex-1 bg-paper-light rounded-xl p-4 text-left active:bg-paper-mid transition-colors ${
-                  !hasYesterday ? 'max-w-[50%]' : ''
+                  !hasYesterday && !hasNeedsCheck ? 'max-w-[50%]' : ''
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">
