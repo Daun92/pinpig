@@ -12,7 +12,6 @@ export {
 
 // Calculation utilities
 export {
-  getBudgetPeriod,
   calculateBudgetStatus,
   calculateMoMChange,
   getDefaultCategoryByTime,
@@ -27,6 +26,7 @@ export {
   filterSettled,
   filterUpcoming,
   splitByUpcoming,
+  createDayChangeGuard,
 } from './date';
 
 // Export utilities

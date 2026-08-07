@@ -13,6 +13,7 @@ import { useSettingsStore, selectIsOnboardingComplete } from '@/stores/settingsS
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useToastStore } from '@/stores/toastStore';
 import { processRecurringTransactions } from '@/services/budgetAlert';
+import { createDayChangeGuard } from '@/utils/date';
 
 // 홈·입력 외 페이지는 지연 로드로 분할 — 초기 번들 축소 + 업데이트 시 변경 청크만 재다운로드
 // (PWA 프리캐시 대상이라 지연 청크도 설치 후에는 캐시에서 즉시 로드됨)
@@ -51,6 +52,17 @@ function RouteFallback() {
 // 반복 거래 처리 가드: 날짜 키로 하루 1회 보장
 // (PWA가 메모리에 며칠 유지돼도 날짜가 바뀌면 재실행, StrictMode 중복 실행 방지 겸용)
 let lastRecurringProcessDate: string | null = null;
+
+// 날짜 변경 감시: PWA가 백그라운드에 머무는 동안 자정·월초를 넘기면
+// 화면의 "오늘"·"이번 달" 기준이 낡는다. 반복거래 생성 여부와 무관하게 다시 읽는다.
+const hasDayChanged = createDayChangeGuard();
+
+function refreshForDateChange() {
+  if (!hasDayChanged()) return;
+  const now = new Date();
+  useTransactionStore.getState().fetchTransactions(now);
+  useTransactionStore.getState().fetchCategoryBreakdown(now.getFullYear(), now.getMonth() + 1);
+}
 
 function runRecurringProcessing() {
   const today = new Date().toDateString();
@@ -96,6 +108,7 @@ export default function App() {
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
+        refreshForDateChange();
         runRecurringProcessing();
       }
     };

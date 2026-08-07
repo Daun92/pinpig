@@ -2637,3 +2637,25 @@
 - **수정 1건**: IA 초안에서 설정 → 하위 5영역을 별도 레인 + cross edge로 두니 수직선이 겹쳐 판독 불가 → 단일 트리로 재구성해 해소
 - **검증**: 3종 모두 로컬 HTTP로 실브라우저 렌더 확인 — 레이아웃·라벨 오버플로 없음, 팬/줌 동작, 리포 경로에서 재생성 성공
 - **결과**: 완료 · 미배포 (문서만, 앱 코드 변경 없음)
+
+### #139 시나리오·가설 점검 + 발견 공백 4건 수정
+- **요청**: 예상 가능한 사용자 시나리오와 가설을 검토하고 개발 공백 점검 → 수정 범위 선택
+- **점검 결과 (신규 발견 6건)**:
+  1. **급여일 기준 예산 주기 미배선** — `Settings.payday`·`startDayOfMonth`, `setPayday`·`setStartDayOfMonth`, `selectPayday`·`selectStartDayOfMonth`, `getBudgetPeriod()`가 전부 구현돼 있으나 **UI·호출처 0**. 예산 계산은 전부 달력 월. 페르소나(25일 급여)와 어긋남
+  2. **예산 초과 금액이 홈에서 사라짐** — `getBudgetInsight`가 `subMessage: "N원 초과"`를 만들지만 `HeroSection`이 렌더하지 않음. 이를 렌더하는 `BudgetInsightCard.tsx`는 **import하는 파일 0** (#105 캐러셀 교체 잔재)
+  3. **PWA 장기 체류 시 홈이 낡음** — `visibilitychange`가 `runRecurringProcessing`만 부르고 `count>0`일 때만 refetch. HomePage 데이터 로드는 마운트 1회 → 자정·월초를 넘겨 복귀하면 어제 기준이 그대로
+  4. 예정 거래 도래 시 확인 흐름 없음 (#137 후속 — 수동 선입력분 알림 부재)
+  5. 검색이 전체 테이블 스캔 (`db.transactions.filter`, 인덱스 미사용)
+  6. 카테고리 정리 불가 (거래 있으면 삭제 차단, 숨김 개념 없음)
+- **가설 점검**: H1(예산 주기=달력 월)이 페르소나와 충돌, H4·H6(핵심 질문·3터치 달성)은 **계측 수단 0** — 후자는 이미 Track 0/S1로 식별돼 대기 중이라 신규 목록에서 제외
+- **결정 (사용자 선택)**: 예산 주기는 **달력 월로 확정 + 데드 코드 제거** / 수정 범위는 ②③ + **배포마다 앱 버전정보 자동 갱신**
+- **변경**:
+  - **A. 데드 코드 제거**: `payday`·`startDayOfMonth` 필드·세터·셀렉터, `getBudgetPeriod()` 삭제 (types·settingsStore·stores/index·utils/calculate·utils/index·seedDatabase). 기존 사용자 DB에 남은 두 필드는 읽는 곳이 없어 무해
+  - **B. 초과 금액 표시**: `HeroSection`에 `insight.type === 'danger'`일 때만 `subMessage` 렌더 (나머지 단계는 "N일 남음 · 하루 M원"과 중복이라 제외). `BudgetInsightCard.tsx` 삭제 + barrel 정리
+  - **C. 날짜 변경 감지**: `createDayChangeGuard()` 신규(`utils/date.ts`) — `App.tsx`의 `visibilitychange`에서 반복거래 생성 여부와 무관하게 날짜가 바뀌면 `fetchTransactions`·`fetchCategoryBreakdown` 재호출
+  - **D. 빌드 식별자 자동 주입**: `vite.config.ts`에 `__BUILD_TIME__`·`__BUILD_COMMIT__` 추가 (CI는 `VERCEL_GIT_COMMIT_SHA`, 로컬은 `git rev-parse --short HEAD`, 실패 시 `local`). 설정 > 정보에 "빌드 26.08.07 10:56 · b3fec0e" 행 추가. **package.json 버전을 올리지 않아도 배포마다 값이 바뀌어 프로덕션 커밋을 앱에서 바로 확인 가능** — #130·#135처럼 번들을 뜯어 확인하던 작업이 불필요해짐
+- **문서**: `01_PRD.md` Out of Scope에 "급여일 기준 예산 주기 — 달력 월 고정" 명시, 시각화 문서 3종 재생성
+- **테스트**: `createDayChangeGuard` 4건 추가 (같은 날 false / 자정 넘김 1회만 true / 월 변경 / 며칠 건너뜀) — 총 29건
+- **검증**: type-check·lint 0-0·vitest 29건·build 통과 + **실브라우저 확인** — 예산 200만에 245만 지출 시 히어로에 "450,000원 초과" 표시, 설정에 "빌드 26.08.07 10:56 · b3fec0e" 표시(HEAD와 일치)
+- **미수정 (보고만)**: 발견 ④⑤⑥ + `HeroCarousel.tsx`도 미사용 컴포넌트로 확인됨 (승인 범위 밖이라 미삭제)
+- **결과**: 완료 · 미배포

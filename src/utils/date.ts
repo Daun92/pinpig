@@ -37,6 +37,25 @@ export function filterUpcoming<T extends { date: Date }>(transactions: T[]): T[]
 }
 
 /**
+ * 날짜가 바뀌었는지 감시하는 가드를 만든다.
+ *
+ * PWA는 탭이 메모리에 며칠 살아있을 수 있어, 백그라운드에 있는 동안 자정이나 월초를
+ * 넘기면 화면의 "오늘"·"이번 달" 기준이 낡은 채로 남는다. 복귀 시점에 이 가드로
+ * 날짜 변경을 감지해 데이터를 다시 읽는다.
+ *
+ * 생성 시점의 날짜를 기준으로 삼으므로, 만든 직후 첫 호출은 false다.
+ */
+export function createDayChangeGuard(): () => boolean {
+  let last = new Date().toDateString();
+  return () => {
+    const today = new Date().toDateString();
+    if (today === last) return false;
+    last = today;
+    return true;
+  };
+}
+
+/**
  * 거래 목록을 확정/예정으로 나눈다
  */
 export function splitByUpcoming(transactions: Transaction[]): {

@@ -40,8 +40,6 @@ export {
 export {
   useSettingsStore,
   selectMonthlyBudget,
-  selectPayday,
-  selectStartDayOfMonth,
   selectIsOnboardingComplete,
   selectTheme,
   selectCurrency,

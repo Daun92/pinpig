@@ -15,8 +15,6 @@ interface SettingsActions {
   fetchSettings: () => Promise<void>;
   updateSettings: (updates: Partial<Settings>) => Promise<void>;
   setMonthlyBudget: (budget: number) => Promise<void>;
-  setPayday: (day: number) => Promise<void>;
-  setStartDayOfMonth: (day: number) => Promise<void>;
   setTheme: (theme: ThemeMode) => Promise<void>;
   completeOnboarding: () => Promise<void>;
   markTourComplete: (tourKey: TourKey) => Promise<void>;
@@ -89,20 +87,6 @@ export const useSettingsStore = create<SettingsStore>()(
         await get().updateSettings({ monthlyBudget: budget });
       },
 
-      setPayday: async (day: number) => {
-        if (day < 1 || day > 31) {
-          throw new Error('급여일은 1-31 사이여야 합니다.');
-        }
-        await get().updateSettings({ payday: day });
-      },
-
-      setStartDayOfMonth: async (day: number) => {
-        if (day < 1 || day > 31) {
-          throw new Error('시작일은 1-31 사이여야 합니다.');
-        }
-        await get().updateSettings({ startDayOfMonth: day });
-      },
-
       setTheme: async (theme: ThemeMode) => {
         await get().updateSettings({ theme });
       },
@@ -124,12 +108,6 @@ export const useSettingsStore = create<SettingsStore>()(
 // Selectors
 export const selectMonthlyBudget = (state: SettingsStore) =>
   state.settings?.monthlyBudget ?? 0;
-
-export const selectPayday = (state: SettingsStore) =>
-  state.settings?.payday ?? 25;
-
-export const selectStartDayOfMonth = (state: SettingsStore) =>
-  state.settings?.startDayOfMonth ?? 1;
 
 export const selectIsOnboardingComplete = (state: SettingsStore) =>
   state.settings?.isOnboardingComplete ?? false;

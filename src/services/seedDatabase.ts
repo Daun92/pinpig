@@ -114,8 +114,6 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
   await db.settings.update('default', {
     monthlyBudget: 2500000,
     isOnboardingComplete: true,
-    payday: 25,
-    startDayOfMonth: 1,
     updatedAt: new Date(),
   });
 

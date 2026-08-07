@@ -1,34 +1,6 @@
 import type { BudgetStatus } from '@/types';
 
 /**
- * Calculate budget period based on payday
- * If payday is 25th, budget period is 25th to 24th of next month
- */
-export function getBudgetPeriod(
-  referenceDate: Date,
-  payday: number
-): { start: Date; end: Date } {
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth();
-  const day = referenceDate.getDate();
-
-  let start: Date;
-  let end: Date;
-
-  if (day >= payday) {
-    // Current period started this month
-    start = new Date(year, month, payday);
-    end = new Date(year, month + 1, payday - 1, 23, 59, 59);
-  } else {
-    // Current period started last month
-    start = new Date(year, month - 1, payday);
-    end = new Date(year, month, payday - 1, 23, 59, 59);
-  }
-
-  return { start, end };
-}
-
-/**
  * Calculate remaining budget status
  */
 export function calculateBudgetStatus(

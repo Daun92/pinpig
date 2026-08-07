@@ -8,6 +8,17 @@ import { useCoachMark } from '@/components/coachmark';
 import { SegmentedControl } from '@/components/common';
 import type { Settings, ThemeMode } from '@/types';
 
+// 배포된 빌드 식별자 — 빌드 시각(현지)과 커밋 해시. vite.config.ts에서 주입된다.
+const buildLabel = (() => {
+  const d = new Date(__BUILD_TIME__);
+  const stamp = Number.isNaN(d.getTime())
+    ? __BUILD_TIME__
+    : `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, '0')}.` +
+      `${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:` +
+      `${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${stamp} · ${__BUILD_COMMIT__}`;
+})();
+
 export function SettingsPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -462,6 +473,12 @@ export function SettingsPage() {
           <div className="flex items-center justify-between py-4">
             <span className="text-body text-ink-black">버전</span>
             <span className="text-body text-ink-mid">{__APP_VERSION__}</span>
+          </div>
+        </div>
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <span className="text-body text-ink-black">빌드</span>
+            <span className="text-body text-ink-mid">{buildLabel}</span>
           </div>
         </div>
         <div className="border-b border-paper-mid">

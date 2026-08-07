@@ -146,8 +146,7 @@ export interface Settings {
   monthlyBudget: number;
   currency: string;
   currencySymbol: string;
-  startDayOfMonth: number;
-  payday: number;                    // 급여일 (1-31)
+  // 예산 주기는 달력 월(1일~말일) 고정. 급여일 기준 주기는 지원하지 않는다.
   isOnboardingComplete: boolean;     // 온보딩 완료 여부
   theme: ThemeMode;
   // Coach mark (투어) 완료 플래그
@@ -181,8 +180,6 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updatedAt'> = {
   monthlyBudget: 0,
   currency: 'KRW',
   currencySymbol: '원',
-  startDayOfMonth: 1,
-  payday: 25,
   isOnboardingComplete: false,
   theme: 'system',
   hasSeenHomeTour: false,

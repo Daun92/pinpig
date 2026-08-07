@@ -75,6 +75,11 @@ export function HeroSection({
             {remainingDays}일 남음 · 하루 {formatCurrency(dailyRecommended)}
           </p>
         )}
+        {/* 초과분은 히어로 금액이 0으로 잘려 사라지므로 여기서만 알 수 있다.
+            나머지 단계의 subMessage는 위 "N일 남음 · 하루 M원"과 중복이라 쓰지 않는다 */}
+        {insight.type === 'danger' && insight.subMessage && (
+          <p className="text-sub text-semantic-negative mt-1">{insight.subMessage}</p>
+        )}
         {/* 금액이 줄어든 이유를 밝힌다 — 예정 지출은 아직 나가지 않았지만 이미 빠져 있다 */}
         {upcomingExpense > 0 && (
           <p className="text-caption text-ink-light mt-1">

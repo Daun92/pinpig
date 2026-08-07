@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vites
 import { db } from '@/services/database';
 import { getCategoryBreakdown, getMonthlyBudgetStructure } from '@/services/queries';
 import { selectBudgetStatus } from '@/stores/transactionStore';
-import { isUpcoming } from '@/utils/date';
+import { isUpcoming, createDayChangeGuard } from '@/utils/date';
 import type { Transaction } from '@/types';
 
 // 기준일: 2026-08-07 (월 중반 — 확정과 예정이 같은 달에 공존하는 시점)
@@ -73,6 +73,35 @@ describe('isUpcoming — 경계', () => {
 
   it('과거는 예정이 아니다', () => {
     expect(isUpcoming(new Date(2026, 7, 6, 23, 59, 59))).toBe(false);
+  });
+});
+
+describe('createDayChangeGuard — PWA 장기 체류 대응', () => {
+  it('같은 날 안에서는 계속 false다', () => {
+    const changed = createDayChangeGuard();
+    expect(changed()).toBe(false);
+    vi.setSystemTime(new Date(2026, 7, 7, 23, 59, 59));
+    expect(changed()).toBe(false);
+  });
+
+  it('자정을 넘기면 한 번만 true를 준다', () => {
+    const changed = createDayChangeGuard();
+    vi.setSystemTime(new Date(2026, 7, 8, 0, 0, 1));
+    expect(changed()).toBe(true);
+    expect(changed()).toBe(false);
+  });
+
+  it('월이 바뀌어도 감지한다', () => {
+    vi.setSystemTime(new Date(2026, 7, 31, 23, 0, 0));
+    const changed = createDayChangeGuard();
+    vi.setSystemTime(new Date(2026, 8, 1, 9, 0, 0));
+    expect(changed()).toBe(true);
+  });
+
+  it('며칠을 건너뛰어도 감지한다', () => {
+    const changed = createDayChangeGuard();
+    vi.setSystemTime(new Date(2026, 7, 12, 8, 0, 0));
+    expect(changed()).toBe(true);
   });
 });
 
@@ -144,7 +173,6 @@ describe('getMonthlyBudgetStructure — 이중계상 없음', () => {
       id: 'default',
       monthlyBudget: 2_000_000,
       currency: 'KRW',
-      startDayOfMonth: 1,
       theme: 'system',
       createdAt: TODAY,
       updatedAt: TODAY,
