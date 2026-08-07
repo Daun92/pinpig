@@ -22,7 +22,8 @@ import { db } from '@/services/database';
 import { getRecentTags, createRecurringTransaction, calculateNextExecutionDate } from '@/services/queries';
 import { processSingleRecurringTransaction } from '@/services/budgetAlert';
 import type { Transaction, TransactionType, RecurrenceFrequency } from '@/types';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, isTomorrow } from 'date-fns';
+import { isUpcoming } from '@/utils';
 import { ko } from 'date-fns/locale';
 
 export function EditTransactionPage() {
@@ -260,6 +261,7 @@ export function EditTransactionPage() {
   const formatDateLabel = (d: Date) => {
     if (isToday(d)) return '오늘';
     if (isYesterday(d)) return '어제';
+    if (isTomorrow(d)) return '내일';
     return format(d, 'M월 d일', { locale: ko });
   };
 
@@ -445,6 +447,11 @@ export function EditTransactionPage() {
               <div className="flex flex-col items-start">
                 <span className="text-body text-ink-dark">
                   {formatDateLabel(date)}
+                  {isUpcoming(date) && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-caption text-blue-600 dark:text-blue-400">
+                      예정
+                    </span>
+                  )}
                 </span>
                 <span className="text-caption text-ink-light">
                   {format(date, 'yyyy.M.d', { locale: ko })} {time}
@@ -608,7 +615,7 @@ export function EditTransactionPage() {
         selectedTime={time}
         onClose={() => setShowDatePicker(false)}
         onSelect={handleDateTimeSelect}
-        disableFuture={true}
+        disableFuture={false}
       />
     </div>
   );

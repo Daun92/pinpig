@@ -746,7 +746,14 @@ export function HistoryPage() {
                           className="flex justify-between items-center px-4 py-2 bg-paper-light border-b border-paper-mid/50 sticky z-10"
                           style={{ top: `${FIXED_HEADER_HEIGHT}px` }}
                         >
-                          <span className="text-body text-ink-dark">{group.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-body text-ink-dark">{group.label}</span>
+                            {isFutureGroup && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-caption text-blue-600 dark:text-blue-400">
+                                예정
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-3">
                             {dailyIncome > 0 && (
                               <span className="text-sub text-semantic-positive">

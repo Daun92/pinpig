@@ -12,6 +12,7 @@ import {
   exportTransactionsToCSV,
   searchTransactions,
 } from '@/services/queries';
+import { filterSettled, filterUpcoming } from '@/utils/date';
 import type {
   Transaction,
   CreateTransactionInput,
@@ -272,9 +273,14 @@ export const selectBudgetStatus =
   (state: TransactionStore): BudgetStatus => {
     const { transactions, currentMonth } = state;
 
-    const totalExpense = transactions
-      .filter((tx) => tx.type === 'expense')
-      .reduce((sum, tx) => sum + tx.amount, 0);
+    // 확정/예정을 분리해 노출하되, 남은 예산·사용률은 예정 포함 기준을 유지한다.
+    // "고지 확정된 돈은 이미 쓸 수 없는 돈" — docs/UPCOMING_TRANSACTIONS.md §2.3
+    const expenses = transactions.filter((tx) => tx.type === 'expense');
+    const sum = (list: typeof expenses) => list.reduce((acc, tx) => acc + tx.amount, 0);
+
+    const actualExpense = sum(filterSettled(expenses));
+    const upcomingExpense = sum(filterUpcoming(expenses));
+    const totalExpense = actualExpense + upcomingExpense;
 
     const remaining = monthlyBudget - totalExpense;
     const today = new Date();
@@ -286,6 +292,8 @@ export const selectBudgetStatus =
     return {
       monthlyBudget,
       totalExpense,
+      actualExpense,
+      upcomingExpense,
       remaining,
       remainingDays,
       dailyRecommended: Math.round(dailyRecommended),

@@ -13,6 +13,8 @@ interface HeroSectionProps {
   remaining: number;
   dailyRecommended: number;
   currentDateLabel: string;
+  /** 남은 예산에서 이미 빠진 예정 지출 (수동 선입력 + 반복 예상) */
+  upcomingExpense?: number;
 }
 
 export function HeroSection({
@@ -20,6 +22,7 @@ export function HeroSection({
   remaining,
   dailyRecommended,
   currentDateLabel,
+  upcomingExpense = 0,
 }: HeroSectionProps) {
   const { percentUsed, remainingDays, monthlyBudget } = budgetStatus;
   const insight = getBudgetInsight(budgetStatus);
@@ -70,6 +73,12 @@ export function HeroSection({
         {monthlyBudget > 0 && (
           <p className="text-sub text-ink-mid mt-1">
             {remainingDays}일 남음 · 하루 {formatCurrency(dailyRecommended)}
+          </p>
+        )}
+        {/* 금액이 줄어든 이유를 밝힌다 — 예정 지출은 아직 나가지 않았지만 이미 빠져 있다 */}
+        {upcomingExpense > 0 && (
+          <p className="text-caption text-ink-light mt-1">
+            예정 {formatCurrency(upcomingExpense)} 포함
           </p>
         )}
       </div>

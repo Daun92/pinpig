@@ -21,6 +21,14 @@ export {
   isValidDayOfMonth,
 } from './calculate';
 
+// Date / upcoming utilities
+export {
+  isUpcoming,
+  filterSettled,
+  filterUpcoming,
+  splitByUpcoming,
+} from './date';
+
 // Export utilities
 export { downloadCSV, generateExportFilename, exportAndDownload } from './export';
 

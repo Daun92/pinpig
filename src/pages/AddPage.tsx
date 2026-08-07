@@ -6,10 +6,12 @@ import { useCategoryStore, selectExpenseCategories, selectIncomeCategories } fro
 import { usePaymentMethodStore, selectPaymentMethods, selectDefaultPaymentMethod } from '@/stores/paymentMethodStore';
 import { useIncomeSourceStore, selectIncomeSources, selectDefaultIncomeSource } from '@/stores/incomeSourceStore';
 import { useFabStore } from '@/stores/fabStore';
+import { useToastStore } from '@/stores/toastStore';
 import { useCoachMark } from '@/components/coachmark';
 import { Icon, DateTimePicker } from '@/components/common';
 import { getCategorySuggestions, createRecurringTransaction, calculateNextExecutionDate } from '@/services/queries';
 import { processSingleRecurringTransaction } from '@/services/budgetAlert';
+import { isUpcoming } from '@/utils';
 import type { TransactionType, RecurrenceFrequency } from '@/types';
 import { format, isToday, isYesterday, isTomorrow, isFuture, startOfDay, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -35,6 +37,7 @@ export function AddPage() {
   const { fetchPaymentMethods } = usePaymentMethodStore();
   const { fetchIncomeSources } = useIncomeSourceStore();
   const { setSubmitHandler, setCanSubmit } = useFabStore();
+  const showToast = useToastStore((state) => state.showToast);
   const { startTour } = useCoachMark();
   const expenseCategories = useCategoryStore(selectExpenseCategories);
   const incomeCategories = useCategoryStore(selectIncomeCategories);
@@ -323,8 +326,16 @@ export function AddPage() {
       });
     }
 
+    // 미래 날짜로 저장하면 실지출이 아닌 '예정'으로 잡힌다는 것을 알린다
+    if (isUpcoming(date)) {
+      showToast({
+        type: 'info',
+        message: `${format(date, 'M월 d일', { locale: ko })}에 기록될 예정이에요`,
+      });
+    }
+
     navigate('/');
-  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, selectedIncomeSourceId, customMemo, tags, date, time, addTransaction, navigate, recurringMode, installmentMonths, recurringFrequency, recurringDayOfMonth]);
+  }, [type, amount, selectedCategoryId, selectedPaymentMethodId, selectedIncomeSourceId, customMemo, tags, date, time, addTransaction, navigate, recurringMode, installmentMonths, recurringFrequency, recurringDayOfMonth, showToast]);
 
   useEffect(() => {
     setSubmitHandler(handleSubmit);

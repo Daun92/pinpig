@@ -228,6 +228,11 @@ export function HomePage() {
   const remainingDays = budgetStatus.remainingDays;
   const dailyRecommended = remainingDays > 0 ? Math.round(remaining / remainingDays) : 0;
 
+  // 남은 예산에서 이미 차감됐지만 아직 나가지 않은 돈
+  // = 선입력·선반영된 미래 거래(budgetStatus) + 아직 생성되지 않은 반복 예상(fixedExpenses)
+  const upcomingExpenseTotal =
+    budgetStatus.upcomingExpense + (budgetStructure?.fixedExpenses ?? 0);
+
   const hasYesterday = yesterdaySummary.count > 0;
   const hasFuture = futureSummary.count > 0;
   const hasBottomCards = hasYesterday || hasFuture;
@@ -255,6 +260,7 @@ export function HomePage() {
             remaining={remaining}
             dailyRecommended={dailyRecommended}
             currentDateLabel={currentDateLabel}
+            upcomingExpense={upcomingExpenseTotal}
           />
 
           {/* Insight Card - 상황별 인사이트 캐러셀 */}
@@ -443,7 +449,8 @@ export function HomePage() {
                 <p className={`text-body mt-1 ${
                   futureSummary.total >= 0 ? 'text-semantic-positive' : 'text-ink-black'
                 }`}>
-                  {futureSummary.total >= 0 ? '+' : ''}{futureSummary.total.toLocaleString()}원
+                  {/* 마이너스 기호는 쓰지 않는다 (디자인 가이드) — 지출은 부호 없이 금액만 */}
+                  {futureSummary.total >= 0 ? '+' : ''}{Math.abs(futureSummary.total).toLocaleString()}원
                 </p>
               </button>
             )}

@@ -84,7 +84,9 @@ export function DateTimePicker({
   };
 
   // Generate arrays for selection
-  const years = Array.from({ length: 10 }, (_, i) => currentYear - 9 + i);
+  // 다음 해까지 포함 — 연말에 확정된 고지를 미리 입력할 수 있어야 한다.
+  // disableFuture=true인 호출부는 isYearDisabled가 계속 막는다.
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - 8 + i);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const hours = Array.from({ length: 24 }, (_, i) => i);

@@ -360,7 +360,12 @@ export interface PaymentMethodTrend {
 
 export interface BudgetStatus {
   monthlyBudget: number;
+  /** 확정 + 예정 지출 합계 — 남은 예산·프로그레스·전체 예산 알림의 기준 */
   totalExpense: number;
+  /** 확정 지출만 (date ≤ 오늘) */
+  actualExpense: number;
+  /** 예정 지출만 (date > 오늘) — 수동 선입력 + 반복 월초 선반영분 */
+  upcomingExpense: number;
   remaining: number;
   remainingDays: number;
   dailyRecommended: number;

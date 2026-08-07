@@ -16,7 +16,8 @@ import { Icon, DateTimePicker } from '@/components/common';
 import { db } from '@/services/database';
 import { getCategorySuggestions } from '@/services/queries';
 import type { Transaction, TransactionType } from '@/types';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, isTomorrow } from 'date-fns';
+import { isUpcoming } from '@/utils';
 import { ko } from 'date-fns/locale';
 
 type ExpandedSection = 'none' | 'category' | 'payment' | 'extra';
@@ -258,6 +259,8 @@ export function TransactionDetailPage() {
   const formatDateLabel = (d: Date) => {
     if (isToday(d)) return '오늘';
     if (isYesterday(d)) return '어제';
+    if (isTomorrow(d)) return '내일';
+    if (isUpcoming(d)) return format(d, 'M/d (EEE)', { locale: ko }) + ' 예정';
     return format(d, 'M/d (EEE)', { locale: ko });
   };
 
@@ -365,10 +368,12 @@ export function TransactionDetailPage() {
         <div className="pt-[50px] pb-4 flex justify-center">
           <button
             onClick={() => setShowDatePicker(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-paper-light"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+              isUpcoming(date) ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-paper-light'
+            }`}
           >
-            <Calendar size={14} className="text-ink-mid" />
-            <span className="text-sub text-ink-dark">
+            <Calendar size={14} className={isUpcoming(date) ? 'text-blue-500' : 'text-ink-mid'} />
+            <span className={`text-sub ${isUpcoming(date) ? 'text-blue-600 dark:text-blue-400' : 'text-ink-dark'}`}>
               {formatDateLabel(date)} {time}
             </span>
           </button>
@@ -735,7 +740,7 @@ export function TransactionDetailPage() {
         selectedTime={time}
         onClose={() => setShowDatePicker(false)}
         onSelect={handleDateTimeSelect}
-        disableFuture={true}
+        disableFuture={false}
       />
     </div>
   );

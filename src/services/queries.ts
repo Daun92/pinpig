@@ -1,4 +1,5 @@
 import { db, generateId } from './database';
+import { filterSettled, filterUpcoming } from '@/utils/date';
 import { endOfMonth, subMonths, startOfYear, endOfYear, format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay, differenceInDays, startOfDay } from 'date-fns';
 import type {
   Transaction,
@@ -51,6 +52,20 @@ export async function getTransactionsByMonth(
 }
 
 /**
+ * 확정 거래만 조회 (예정 제외) — 분석·집계 경로 전용
+ *
+ * 홈 남은 예산·예정 영역은 예정을 포함해야 하므로 getTransactionsByMonth를 그대로 쓴다.
+ * 과거 월에는 예정 건이 없으므로 결과 차이는 현재 월에만 나타난다.
+ * 기준: docs/UPCOMING_TRANSACTIONS.md §2.3
+ */
+export async function getSettledTransactionsByMonth(
+  year: number,
+  month: number
+): Promise<Transaction[]> {
+  return filterSettled(await getTransactionsByMonth(year, month));
+}
+
+/**
  * Get recent transactions with limit
  */
 export async function getRecentTransactions(
@@ -70,7 +85,7 @@ export async function getMonthlySummary(
   year: number,
   month: number
 ): Promise<MonthSummary> {
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
 
   const income = transactions
     .filter((tx) => tx.type === 'income')
@@ -96,7 +111,7 @@ export async function getCategoryBreakdown(
   month: number,
   type: 'income' | 'expense' = 'expense'
 ): Promise<CategorySummary[]> {
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const categories = await db.categories.where('type').equals(type).toArray();
 
   // Filter by type and group by category
@@ -145,7 +160,7 @@ export async function getPaymentMethodBreakdown(
   month: number,
   type: 'income' | 'expense' = 'expense'
 ): Promise<PaymentMethodSummary[]> {
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const paymentMethods = await db.paymentMethods.orderBy('order').toArray();
 
   // Filter by type and group by payment method
@@ -220,7 +235,7 @@ export async function getAnnualTrend(years: number = 3): Promise<AnnualTrend[]> 
 
   for (let i = 0; i < years; i++) {
     const year = currentYear - i;
-    const transactions = await getTransactionsByYear(year);
+    const transactions = await getSettledTransactionsByYear(year);
 
     const income = transactions
       .filter((tx) => tx.type === 'income')
@@ -285,7 +300,7 @@ export async function getCategoryTrend(
  * Get yearly summary (income, expense, balance for entire year)
  */
 export async function getYearlySummary(year: number): Promise<MonthSummary> {
-  const transactions = await getTransactionsByYear(year);
+  const transactions = await getSettledTransactionsByYear(year);
 
   const income = transactions
     .filter((tx) => tx.type === 'income')
@@ -310,7 +325,7 @@ export async function getYearlyCategoryBreakdown(
   year: number,
   type: 'income' | 'expense' = 'expense'
 ): Promise<CategorySummary[]> {
-  const transactions = await getTransactionsByYear(year);
+  const transactions = await getSettledTransactionsByYear(year);
   const categories = await db.categories.where('type').equals(type).toArray();
 
   const typeTransactions = transactions.filter((tx) => tx.type === type);
@@ -350,7 +365,7 @@ export async function getYearlyPaymentMethodBreakdown(
   year: number,
   type: 'income' | 'expense' = 'expense'
 ): Promise<PaymentMethodSummary[]> {
-  const transactions = await getTransactionsByYear(year);
+  const transactions = await getSettledTransactionsByYear(year);
   const paymentMethods = await db.paymentMethods.orderBy('order').toArray();
 
   const typeTransactions = transactions.filter((tx) => tx.type === type);
@@ -715,6 +730,13 @@ export async function getTransactionsByYear(year: number): Promise<Transaction[]
     .where('date')
     .between(start, end, true, true)
     .toArray();
+}
+
+/**
+ * 확정 거래만 조회 (예정 제외) — 연간 분석 전용
+ */
+export async function getSettledTransactionsByYear(year: number): Promise<Transaction[]> {
+  return filterSettled(await getTransactionsByYear(year));
 }
 
 /**
@@ -1209,18 +1231,27 @@ export async function getMonthlyBudgetStructure(
   const incomeProjections = projectedTransactions.filter((p) => p.type === 'income');
   const expectedIncome = incomeProjections.reduce((sum, p) => sum + p.amount, 0);
 
-  // Calculate current spending by category
+  // 확정/예정 분리 — 카테고리 '지금까지 쓴 돈'은 확정만, '월말 예상'에 예정을 더한다
+  const expenseTransactions = transactions.filter((t) => t.type === 'expense');
+  const settledExpenses = filterSettled(expenseTransactions);
+  const upcomingExpenses = filterUpcoming(expenseTransactions);
+
+  // Calculate current spending by category (확정만)
   const categorySpending = new Map<string, number>();
-  for (const tx of transactions.filter((t) => t.type === 'expense')) {
+  for (const tx of settledExpenses) {
     const current = categorySpending.get(tx.categoryId) || 0;
     categorySpending.set(tx.categoryId, current + tx.amount);
   }
 
-  // Calculate projected spending by category
+  // Calculate projected spending by category (반복 예상 + 수동 예정)
   const categoryProjected = new Map<string, number>();
   for (const proj of fixedExpenseProjections) {
     const current = categoryProjected.get(proj.categoryId) || 0;
     categoryProjected.set(proj.categoryId, current + proj.amount);
+  }
+  for (const tx of upcomingExpenses) {
+    const current = categoryProjected.get(tx.categoryId) || 0;
+    categoryProjected.set(tx.categoryId, current + tx.amount);
   }
 
   // Build category budget summaries
@@ -1245,16 +1276,17 @@ export async function getMonthlyBudgetStructure(
   });
 
   // Calculate totals
-  const actualExpense = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const actualExpense = settledExpenses.reduce((sum, t) => sum + t.amount, 0);
+  const upcomingExpense = upcomingExpenses.reduce((sum, t) => sum + t.amount, 0);
 
   const actualIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const variableBudget = totalBudget - fixedExpenses;
-  const projectedBalance = actualIncome + expectedIncome - actualExpense - fixedExpenses;
+  // 예정 지출도 이미 확정된 나갈 돈이므로 월말 잔액 전망에서 뺀다 (값은 종전과 동일)
+  const projectedBalance =
+    actualIncome + expectedIncome - actualExpense - upcomingExpense - fixedExpenses;
 
   return {
     totalBudget,
@@ -1613,7 +1645,7 @@ export async function getCategoryBudgetStatus(
     return { caution: [], room: [], hasCategoryBudget: false };
   }
 
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const expenseTransactions = transactions.filter((tx) => tx.type === 'expense');
 
   // Calculate spending per category
@@ -1769,7 +1801,10 @@ export async function getUpcomingThisMonth(
 
   const projections = await getProjectedTransactions(startDate, monthEnd);
 
-  const items: UpcomingItem[] = projections.map((p) => ({
+  const toDaysUntil = (d: Date) =>
+    Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  const projectedItems: UpcomingItem[] = projections.map((p) => ({
     id: p.id,
     type: p.type,
     amount: p.amount,
@@ -1778,8 +1813,32 @@ export async function getUpcomingThisMonth(
     categoryColor: p.categoryColor,
     memo: p.memo,
     scheduledDate: p.scheduledDate,
-    daysUntil: Math.ceil((p.scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+    daysUntil: toDaysUntil(p.scheduledDate),
   }));
+
+  // 수동으로 선입력한 미래 거래도 예정에 포함한다 (반복 템플릿 기반 예상만 보면 누락된다)
+  const categories = await db.categories.toArray();
+  const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const monthTransactions = await getTransactionsByMonth(year, month);
+
+  const manualItems: UpcomingItem[] = filterUpcoming(monthTransactions).map((tx) => {
+    const category = categoryMap.get(tx.categoryId);
+    return {
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      categoryName: category?.name || '기타',
+      categoryIcon: category?.icon || 'MoreHorizontal',
+      categoryColor: category?.color || '#B8B8B8',
+      memo: tx.memo,
+      scheduledDate: tx.date,
+      daysUntil: toDaysUntil(tx.date),
+    };
+  });
+
+  const items = [...projectedItems, ...manualItems].sort(
+    (a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime()
+  );
 
   const totalExpense = items
     .filter((i) => i.type === 'expense')
@@ -1857,7 +1916,7 @@ export async function getCautionDetail(
     return null;
   }
 
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const categoryTransactions = transactions.filter(
     (tx) => tx.type === 'expense' && tx.categoryId === categoryId
   );
@@ -1912,7 +1971,7 @@ export async function getRoomDetail(
     return null;
   }
 
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const categoryTransactions = transactions.filter(
     (tx) => tx.type === 'expense' && tx.categoryId === categoryId
   );
@@ -1930,7 +1989,7 @@ export async function getRoomDetail(
   const prevDate = subMonths(new Date(year, month - 1, 1), 1);
   const prevYear = prevDate.getFullYear();
   const prevMonth = prevDate.getMonth() + 1;
-  const lastMonthTransactions = await getTransactionsByMonth(prevYear, prevMonth);
+  const lastMonthTransactions = await getSettledTransactionsByMonth(prevYear, prevMonth);
   const lastMonthCategoryTx = lastMonthTransactions.filter(
     (tx) =>
       tx.type === 'expense' &&
@@ -1970,7 +2029,7 @@ export async function getInterestDetail(
     return null;
   }
 
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const categoryTransactions = transactions.filter(
     (tx) => tx.type === 'expense' && tx.categoryId === categoryId
   );
@@ -2052,7 +2111,7 @@ export async function getCompareDetail(
   }
 
   // Current month
-  const currentTransactions = await getTransactionsByMonth(year, month);
+  const currentTransactions = await getSettledTransactionsByMonth(year, month);
   const currentCategoryTx = currentTransactions.filter(
     (tx) => tx.type === 'expense' && tx.categoryId === categoryId
   );
@@ -2063,7 +2122,7 @@ export async function getCompareDetail(
   const prevDate = subMonths(new Date(year, month - 1, 1), 1);
   const prevYear = prevDate.getFullYear();
   const prevMonth = prevDate.getMonth() + 1;
-  const lastMonthTransactions = await getTransactionsByMonth(prevYear, prevMonth);
+  const lastMonthTransactions = await getSettledTransactionsByMonth(prevYear, prevMonth);
   const lastMonthCategoryTx = lastMonthTransactions.filter(
     (tx) => tx.type === 'expense' && tx.categoryId === categoryId
   );
@@ -2249,7 +2308,7 @@ export async function getCategoryPaymentBreakdown(
   month: number,
   categoryId: string
 ): Promise<PaymentBreakdownItem[]> {
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const paymentMethods = await db.paymentMethods.orderBy('order').toArray();
 
   // 해당 카테고리의 지출만 필터
@@ -2297,7 +2356,7 @@ export async function getPaymentMethodCategoryBreakdown(
   month: number,
   paymentMethodId: string
 ): Promise<CategoryBreakdownItem[]> {
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const categories = await db.categories.where('type').equals('expense').toArray();
 
   // 해당 결제수단의 지출만 필터
@@ -2359,7 +2418,7 @@ export async function getBudgetOverview(
   totalSpent: number;
   overBudgetCount: number;
 }> {
-  const transactions = await getTransactionsByMonth(year, month);
+  const transactions = await getSettledTransactionsByMonth(year, month);
   const categories = await db.categories.where('type').equals('expense').toArray();
 
   // 예산이 설정된 카테고리만 필터

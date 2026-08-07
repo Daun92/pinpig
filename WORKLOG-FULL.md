@@ -2592,3 +2592,26 @@
 - **검증**: type-check 통과 / lint 0-0 / vitest 15건 통과 / build 통과. **UI 실브라우저 확인은 미실행**
 - **배포**: 커밋 edc306d → feat·main 푸시(ff) → `vercel --prod` (dpl_D2cP3JruWTfbj4E4mUdxaXQNJvv3, READY). 프로덕션 반영 확인 — `StatsPage-BIexjUpr.js`에 '금액순·예산순·예산 미설정' 포함, '(초과)' 잔존 1건은 수단별 탭('한도의')분으로 카테고리 리스트에서는 제거 확인
 - **결과**: 완료·배포 (수단별 탭의 동일 구조 '한도의 X% (초과)'는 요청 범위 밖 — 미변경)
+
+### #137 예정 거래(미래 날짜 선입력) 정합화
+- **요청**: "예정 고지 확정 후 미래 일정을 선입력해두고 싶은데 입력이 막혀 있다" → 구현 상태 파악 + 기존 의도 확인 + 브리핑 + 설계 → 문서 → 착수
+- **진단 (실브라우저 확인)**: **미래 입력은 이미 열려 있었다.** #119(2026-01-13)에서 AddPage만 `disableFuture={false}`로 열고 파란 "예정" 라벨까지 붙임. 막힌 것은 입력이 아니라 **입력 이후의 정합성**
+  - 예정 거래가 분석·카테고리 예산 사용률에 실지출로 집계됨 (`selectBudgetStatus`, `getCategoryBreakdown` 등 날짜 필터 없음)
+  - 편집·상세 화면은 `disableFuture={true}` — 잘못 넣은 미래 거래의 **날짜를 고칠 수 없었음** (삭제 후 재입력만 가능)
+  - 기록 탭은 `isFutureGroup`을 계산하지만 스크롤 타겟에만 쓰고 시각 구분 없음
+  - `getUpcomingThisMonth`가 반복 projections만 봐서 **수동 선입력분이 예정 위젯에 누락**
+  - 근본 원인: `ProjectedTransaction`(반복)은 전용 타입으로 구분되는데 수동 미래 입력은 그냥 `Transaction` — 구분 수단 부재
+- **결정 (사용자 선택)**:
+  - 홈 남은 예산: **예정 차감 유지** + 보조문구에 "예정 N원 포함" 명시 ("고지 확정된 돈은 이미 쓸 수 없는 돈")
+  - 분석 탭·카테고리 예산 사용률: **실지출만**
+  - 상태 필드 없이 `date > 오늘`로 파생 — Dexie 스키마 변경·마이그레이션 없음, 날짜 도래 시 자동 확정
+- **설계 문서**: `docs/UPCOMING_TRANSACTIONS.md` 신규 (3층 구조 확정/예정/예상, 영역별 집계 기준표, 이중계상 검증)
+- **변경**:
+  - `src/utils/date.ts` 신규 — `isUpcoming` / `filterSettled` / `filterUpcoming` / `splitByUpcoming`
+  - **C(입력·수정)**: 편집·상세 `disableFuture={false}`, DateTimePicker 연도 `currentYear-8 ~ +1`(2018~2027), AddPage 저장 시 "8월 25일에 기록될 예정이에요" 토스트
+  - **B(표시)**: 기록 탭 날짜 그룹 헤더에 파란 "예정" 배지, 상세·편집 화면 예정 표시, `getUpcomingThisMonth`에 수동 미래 거래 포함, 홈 예정 카드 마이너스 기호 제거(디자인 가이드)
+  - **A(집계)**: `BudgetStatus`에 `actualExpense`/`upcomingExpense` 추가(`totalExpense`·`remaining`·`percentUsed`는 예정 포함 유지 → 회귀 없음), `getMonthlyBudgetStructure`의 `currentSpent`=확정만·`projectedSpent`=+반복예상+수동예정, `getSettledTransactionsByMonth/Year` 헬퍼 신설 후 **분석 계열 17개 호출부 전환**(월간·연간·인사이트 상세·breakdown·예산 위젯), 히어로 "예정 N원 포함" 보조문구
+- **의도적 비대칭**: 전체 예산 알림은 예정 포함(쓸 수 있는 돈 경고), 카테고리 예산 알림은 실지출만 — 문서 §2.3에 근거 명시
+- **테스트**: `src/services/upcoming.test.ts` 신규 10건 — isUpcoming 경계(오늘 23:59/내일 00:00), 실/예정 분리 후 remaining 불변 회귀 고정, 분석 확정만 집계, **선반영 반복거래+수동예정 이중계상 없음**
+- **검증**: type-check·lint 0-0·vitest **25건 전부 통과**·build 통과. **실브라우저 확인 완료** — 예산 200만 기준: 확정 30만+예정 50만 입력 시 홈 1,200,000원 + "예정 500,000원 포함", 분석 탭 **300,000원(15%)**만 집계, 기록 탭 "25일 (화) [예정]" 배지, 상세 화면 연도 2018~2027 전부 선택 가능
+- **결과**: 완료 · **미배포** (배포 지시 대기)
