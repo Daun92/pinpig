@@ -1,6 +1,6 @@
 # watchtower 상태 파일 — 세션 종료 시 갱신 (정적 정보는 watchtower\config\registry.toml)
 phase = "완료"   # 구상 · 설계 · 개발 · 검증 · 완료 — v0.2.5 MVP 100%, Vercel 배포 완료. Phase 2(iOS)는 방향 확정 단계
 updated = 2026-09-07
-last_session = "iOS 홈화면 앱으로 데이터를 옮길 수 있도록 PinPig 백업 복원 전용 경로를 만들었다. 설정 > 데이터 가져오기에서 전체 백업 JSON을 판별해 7개 테이블을 그대로 복원 (작업 #141, 미배포, build는 환경 OOM으로 미실행)"
-next_action = "#141 iOS 실기기 확인 후 배포 여부 지시 (Safari 백업 → 홈화면 앱 복원) / #139·#140 배포 여부 지시 / #138 시각화 문서 검토 후 내용 보완 / #137 실사용 확인 후 피드백 반영 / 검증용 테스트 데이터 정리(이 PC Chrome의 pinpig.vercel.app — 설정 → 데이터베이스 초기화) / Mac mini에서 S0 환경 준비 (docs/PHASE2_PLAN.md 참조)"
-waiting_on = ["#141 실기기 확인 결과 (iOS Safari → 홈화면 앱 복원 흐름)", "빌드 OOM — 시스템 커밋 메모리 고갈(잔여 404MB), 프로세스 정리 후 npm run build 재실행 필요", "#140 시한 7일이 적절한지 실사용 확인 (SETTLEMENT_CHECK_WINDOW_DAYS)", "검색 인덱스·카테고리 숨김은 현행 유지 결정 — 데이터 축적/실사용 신호 시 재검토", "#137 실사용 피드백 (기록 탭 행 단위 '예정' 배지 필요 여부 — 현재는 날짜 그룹 헤더에만 표시)", "#136 실사용 피드백 (초과 시 막대 빨강 처리·수단별 탭 동일 적용 여부)", "원인 리포 확인 (pinpig.git으로 push하는 외부 리포의 origin 수정 — 재발 방지)", "GitHub main 브랜치 보호 설정 여부", "S1(Track 0 계측) 착수 지시"]
+last_session = "iOS 홈화면 앱으로 데이터를 옮길 수 있도록 PinPig 백업 복원 전용 경로를 만들었다. 설정 > 데이터 가져오기에서 전체 백업 JSON을 판별해 7개 테이블을 그대로 복원 (작업 #141, 배포 완료 2026-09-07)"
+next_action = "#141 iOS 실기기에서 Safari 백업 → 홈화면 앱 복원 흐름 확인 / #138 시각화 문서 검토 후 내용 보완 / #137 실사용 확인 후 피드백 반영 / 검증용 테스트 데이터 정리(이 PC Chrome의 pinpig.vercel.app — 설정 → 데이터베이스 초기화) / Mac mini에서 S0 환경 준비 (docs/PHASE2_PLAN.md 참조)"
+waiting_on = ["#141 실기기 확인 결과 (iOS Safari → 홈화면 앱 복원 흐름)", "#140 시한 7일이 적절한지 실사용 확인 (SETTLEMENT_CHECK_WINDOW_DAYS)", "검색 인덱스·카테고리 숨김은 현행 유지 결정 — 데이터 축적/실사용 신호 시 재검토", "#137 실사용 피드백 (기록 탭 행 단위 '예정' 배지 필요 여부 — 현재는 날짜 그룹 헤더에만 표시)", "#136 실사용 피드백 (초과 시 막대 빨강 처리·수단별 탭 동일 적용 여부)", "원인 리포 확인 (pinpig.git으로 push하는 외부 리포의 origin 수정 — 재발 방지)", "GitHub main 브랜치 보호 설정 여부", "S1(Track 0 계측) 착수 지시"]
