@@ -1,6 +1,6 @@
 # PinPig 프로젝트 컨텍스트
 
-> **최종 갱신**: 2026-08-07
+> **최종 갱신**: 2026-09-07
 > **버전**: 0.2.5
 > **이 파일은 새 대화 시작 시 빠른 맥락 파악용입니다.**
 
@@ -15,7 +15,7 @@
 | 배포 URL | https://pinpig.vercel.app |
 | ESLint | 0 에러 0 경고 |
 | 빌드 | 통과 (시작 JS 1,048KB, 26페이지 lazy 분할) |
-| 테스트 | vitest + fake-indexeddb, 36건 통과 |
+| 테스트 | vitest + fake-indexeddb, 45건 통과 |
 
 ---
 
@@ -67,6 +67,12 @@
 ---
 
 ## 최근 작업 (최신순)
+
+### #141 PinPig 백업 복원 전용 경로 — iOS 홈화면 앱 데이터 이전 (2026-09-07)
+- **문제**: iOS는 Safari 탭과 홈화면 PWA의 IndexedDB를 분리(Apple 정책) → 유일한 이동 경로인 "전체 백업 → 가져오기"가 막혀 있었음. `parseJSON`이 백업 구조(`data:{transactions,…}`)를 못 읽어 빈 배열, 래핑을 풀어도 `categoryId`·`type:'income'` 유실
+- **구현**: `services/backupRestore.ts` 신규 — 백업 판별 → 7개 테이블 단일 트랜잭션 복원(전체 교체/병합), Date 필드 되살림. `ImportDataPage`에 `backup_preview → restoring → restore_complete` 단계 추가, 완료 후 `location.replace('/')`로 스토어 전체 재로드. 백업에 `incomeSources`·`annualExpenses` 추가(v1.1)
+- **검증**: type-check·lint 0-0·vitest **45건** 통과. **build 미실행**(환경 OOM — 변경 없이도 재현, 커밋 메모리 고갈) · 실기기 미확인
+- **미배포** — 배포 지시 대기
 
 ### #140 예정 거래 도래 후 시한부 '확인' 배지 (2026-08-07)
 - **결정**: #139 잔여 4건 중 ①은 **시한부 배지**(조용히 경고 · 무응답이면 확정), ②③ 현행 유지, ④ `HeroCarousel` 삭제

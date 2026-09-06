@@ -215,9 +215,12 @@ export async function exportAllDataToJSON(): Promise<ExportResult> {
     const paymentMethods = await db.paymentMethods.toArray();
     const settings = await db.settings.toArray();
     const recurringTransactions = await db.recurringTransactions.toArray();
+    const incomeSources = await db.incomeSources.toArray();
+    const annualExpenses = await db.annualExpenses.toArray();
 
+    // 복원은 services/backupRestore.ts — 구조를 바꾸면 그쪽 판별·날짜 필드도 함께 갱신
     const exportData = {
-      version: '1.0',
+      version: '1.1', // 1.1: incomeSources·annualExpenses 추가
       exportedAt: new Date().toISOString(),
       data: {
         transactions,
@@ -225,6 +228,8 @@ export async function exportAllDataToJSON(): Promise<ExportResult> {
         paymentMethods,
         settings,
         recurringTransactions,
+        incomeSources,
+        annualExpenses,
       },
     };
 

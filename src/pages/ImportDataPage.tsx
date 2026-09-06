@@ -13,6 +13,7 @@ import {
   X,
   Copy,
   AlertTriangle,
+  DatabaseBackup,
 } from 'lucide-react';
 import {
   importExcelData,
@@ -31,8 +32,27 @@ import {
   type DuplicateCheckResult,
   type SupportedFileType,
 } from '@/services/excelImport';
+import {
+  parsePinPigBackup,
+  getBackupSummary,
+  restorePinPigBackup,
+  type PinPigBackup,
+  type RestoreSummary,
+  type RestoreResult,
+  type RestoreMode,
+  type RestoreProgress,
+} from '@/services/backupRestore';
 
-type Step = 'upload' | 'preview' | 'duplicate_check' | 'importing' | 'complete';
+type Step =
+  | 'upload'
+  | 'preview'
+  | 'duplicate_check'
+  | 'importing'
+  | 'complete'
+  // PinPig 전체 백업 복원 전용 경로
+  | 'backup_preview'
+  | 'restoring'
+  | 'restore_complete';
 
 export function ImportDataPage() {
   const navigate = useNavigate();
@@ -52,6 +72,13 @@ export function ImportDataPage() {
   const [importStatus, setImportStatus] = useState<Awaited<ReturnType<typeof getImportStatus>> | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // PinPig 백업 복원 상태
+  const [backup, setBackup] = useState<PinPigBackup | null>(null);
+  const [backupSummary, setBackupSummary] = useState<RestoreSummary | null>(null);
+  const [restoreMode, setRestoreMode] = useState<RestoreMode>('replace');
+  const [restoreProgress, setRestoreProgress] = useState<RestoreProgress | null>(null);
+  const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
 
   // 파일 타입에 따른 아이콘
   const getFileIcon = (type: SupportedFileType | null, size = 48) => {
@@ -110,8 +137,20 @@ export function ImportDataPage() {
         const text = await file.text();
         jsonData = parseCSV(text);
       } else if (detectedType === 'json') {
-        // JSON 파일 처리
         const text = await file.text();
+
+        // PinPig 전체 백업이면 전용 복원 경로로 분기 (타 앱 파서는 이 구조를 읽지 못한다)
+        const pinpigBackup = parsePinPigBackup(text);
+        if (pinpigBackup) {
+          setBackup(pinpigBackup);
+          setBackupSummary(getBackupSummary(pinpigBackup));
+          const status = await getImportStatus();
+          setImportStatus(status);
+          setStep('backup_preview');
+          return;
+        }
+
+        // 타 앱 JSON 파일 처리
         jsonData = parseJSON(text);
       }
 
@@ -229,6 +268,30 @@ export function ImportDataPage() {
     }
   };
 
+  // PinPig 백업 복원 실행
+  const handleRestore = useCallback(async () => {
+    if (!backup) return;
+
+    setStep('restoring');
+    setError('');
+    setRestoreProgress(null);
+
+    const result = await restorePinPigBackup(backup, { mode: restoreMode }, setRestoreProgress);
+    setRestoreResult(result);
+
+    if (!result.success) {
+      setError('복원 중 오류가 발생했습니다: ' + (result.error ?? '알 수 없는 오류'));
+      setStep('backup_preview');
+      return;
+    }
+    setStep('restore_complete');
+  }, [backup, restoreMode]);
+
+  // 복원 후에는 카테고리·설정 등 모든 스토어가 낡으므로 앱을 통째로 다시 연다
+  const handleRestoreDone = () => {
+    window.location.replace('/');
+  };
+
   // 기존 데이터 삭제
   const handleClearExisting = async () => {
     if (!window.confirm('모든 기존 거래 데이터가 삭제됩니다. 계속하시겠습니까?')) return;
@@ -251,6 +314,10 @@ export function ImportDataPage() {
     setFileType(null);
     setDuplicateResult(null);
     setError('');
+    setBackup(null);
+    setBackupSummary(null);
+    setRestoreProgress(null);
+    setRestoreResult(null);
   };
 
   // 날짜 포맷
@@ -265,6 +332,9 @@ export function ImportDataPage() {
 
   // 진행률 퍼센트 계산
   const progressPercent = progress ? Math.round((progress.current / progress.total) * 100) : 0;
+  const restorePercent = restoreProgress && restoreProgress.total > 0
+    ? Math.round((restoreProgress.current / restoreProgress.total) * 100)
+    : 0;
 
   return (
     <div className="min-h-screen bg-paper-white pb-nav">
@@ -287,7 +357,7 @@ export function ImportDataPage() {
                 <FileJson size={32} className="text-ink-mid" />
               </div>
               <h2 className="text-title text-ink-black mb-2">파일 업로드</h2>
-              <p className="text-body text-ink-mid">다른 가계부 앱에서 내보낸 파일을 선택하세요</p>
+              <p className="text-body text-ink-mid">PinPig 전체 백업 또는 다른 가계부 앱에서 내보낸 파일을 선택하세요</p>
             </div>
 
             <input
@@ -657,6 +727,197 @@ export function ImportDataPage() {
             >
               <X size={16} />
               <span>취소</span>
+            </button>
+          </div>
+        )}
+
+        {/* PinPig 백업: 미리보기 */}
+        {step === 'backup_preview' && backup && backupSummary && (
+          <div className="space-y-6">
+            <div className="text-center py-4">
+              <div className="w-16 h-16 rounded-full bg-paper-light mx-auto flex items-center justify-center mb-4">
+                <DatabaseBackup size={28} className="text-ink-black" />
+              </div>
+              <h2 className="text-title text-ink-black mb-1">PinPig 백업 파일</h2>
+              <p className="text-caption text-ink-light">{fileName}</p>
+              {backupSummary.exportedAt && (
+                <p className="text-caption text-ink-light mt-1">
+                  {formatDate(backupSummary.exportedAt)} 백업
+                </p>
+              )}
+            </div>
+
+            <div className="bg-paper-light rounded-md p-4 space-y-3">
+              <h3 className="text-sub text-ink-mid">백업 내용</h3>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">거래</span>
+                <span className="text-body text-ink-black font-medium">
+                  {backupSummary.transactions.toLocaleString()}개
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">카테고리</span>
+                <span className="text-body text-ink-black">{backupSummary.categories}개</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">결제수단 · 수입수단</span>
+                <span className="text-body text-ink-black">
+                  {backupSummary.paymentMethods}개 · {backupSummary.incomeSources}개
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">반복거래</span>
+                <span className="text-body text-ink-black">{backupSummary.recurringTransactions}개</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">설정</span>
+                <span className="text-body text-ink-black">
+                  {backupSummary.settings > 0 ? '포함' : '없음'}
+                </span>
+              </div>
+              {backupSummary.dateRange.oldest && backupSummary.dateRange.newest && (
+                <div className="pt-2 border-t border-paper-mid">
+                  <p className="text-caption text-ink-light">
+                    {formatDate(backupSummary.dateRange.oldest)} ~ {formatDate(backupSummary.dateRange.newest)}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {importStatus && (
+              <div className="bg-paper-light rounded-md p-4">
+                <h3 className="text-sub text-ink-mid mb-2">이 기기의 현재 데이터</h3>
+                <p className="text-body text-ink-black">
+                  거래 {importStatus.totalTransactions.toLocaleString()}개 · 카테고리 {importStatus.totalCategories}개
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h3 className="text-sub text-ink-mid">복원 방식</h3>
+              <label className="flex items-start gap-3 p-3 rounded-md border border-paper-mid cursor-pointer">
+                <input
+                  type="radio"
+                  name="restoreMode"
+                  checked={restoreMode === 'replace'}
+                  onChange={() => setRestoreMode('replace')}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="text-body text-ink-black block">전체 교체</span>
+                  <span className="text-caption text-ink-mid">
+                    이 기기의 데이터를 모두 지우고 백업 내용으로 바꿉니다. 새 기기·홈화면 앱으로 옮길 때 권장
+                  </span>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-md border border-paper-mid cursor-pointer">
+                <input
+                  type="radio"
+                  name="restoreMode"
+                  checked={restoreMode === 'merge'}
+                  onChange={() => setRestoreMode('merge')}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="text-body text-ink-black block">병합</span>
+                  <span className="text-caption text-ink-mid">
+                    같은 항목은 백업 값으로 덮어쓰고, 이 기기에만 있는 항목은 남깁니다. 기본 카테고리가 중복될 수 있어요
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 bg-paper-light rounded-md">
+                <AlertCircle size={18} className="text-ink-mid flex-shrink-0 mt-0.5" />
+                <p className="text-caption text-ink-mid">{error}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={resetState}
+                className="flex-1 py-3 rounded-sm border border-paper-mid text-ink-mid"
+              >
+                다른 파일
+              </button>
+              <button
+                onClick={handleRestore}
+                className="flex-1 py-3 rounded-sm bg-ink-black text-paper-white font-medium"
+              >
+                복원하기
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* PinPig 백업: 복원 중 */}
+        {step === 'restoring' && (
+          <div className="text-center py-12 space-y-4">
+            <Loader2 size={40} className="text-ink-black mx-auto animate-spin" />
+            <p className="text-body text-ink-black">
+              {restoreProgress?.message ?? '복원 준비 중...'}
+            </p>
+            {restoreProgress && restoreProgress.phase === 'restoring' && (
+              <div className="max-w-xs mx-auto">
+                <div className="h-0.5 bg-paper-mid rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-ink-black transition-all duration-300"
+                    style={{ width: `${restorePercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PinPig 백업: 완료 */}
+        {step === 'restore_complete' && restoreResult && (
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-full bg-money-green/10 mx-auto flex items-center justify-center mb-4">
+                <Check size={28} className="text-money-green" />
+              </div>
+              <h2 className="text-title text-ink-black mb-2">복원 완료</h2>
+              <p className="text-body text-ink-mid">
+                {restoreResult.mode === 'replace' ? '백업 내용으로 교체했어요' : '백업 내용을 병합했어요'}
+              </p>
+            </div>
+
+            <div className="bg-paper-light rounded-md p-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">거래</span>
+                <span className="text-body text-ink-black font-medium">
+                  {restoreResult.restored.transactions.toLocaleString()}개
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">카테고리</span>
+                <span className="text-body text-ink-black">{restoreResult.restored.categories}개</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">결제수단 · 수입수단</span>
+                <span className="text-body text-ink-black">
+                  {restoreResult.restored.paymentMethods}개 · {restoreResult.restored.incomeSources}개
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-body text-ink-mid">반복거래</span>
+                <span className="text-body text-ink-black">{restoreResult.restored.recurringTransactions}개</span>
+              </div>
+              {restoreResult.skipped > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-body text-ink-mid">건너뛴 항목</span>
+                  <span className="text-body text-ink-mid">{restoreResult.skipped}개</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleRestoreDone}
+              className="w-full py-3 rounded-sm bg-ink-black text-paper-white font-medium"
+            >
+              홈으로 돌아가기
             </button>
           </div>
         )}

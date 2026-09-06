@@ -2678,3 +2678,19 @@
 - **테스트**: `needsSettlementCheck` 7건 추가 (도래 당일 / 미도래 / 시한 경계 7일·8일 / 당일·소급 입력 / 도래 후 수정 / 도래 전 수정 / 반복 태그) — 총 36건
 - **검증**: type-check·lint 0-0·vitest 36건·build 통과 + **실브라우저 전 흐름 확인** — 선입력 건 주입 → 홈 "확인 1건 예정대로 기록됨 150,000원" 카드 → 딥링크로 8/5 그룹 이동 → 행에 앰버 "확인" 배지 → 금액 172,000으로 수정 → **배지 소멸**
 - **결과**: 완료 · 미배포
+
+### #141 PinPig 백업 복원 전용 경로 — iOS 홈화면 앱 데이터 이전
+- **요청**: iOS에서 홈화면에 추가한 PWA가 Safari에서 보던 데이터를 공유하지 않고, 설정 > 데이터 가져오기로 백업을 넣어도 반영되지 않음 → 원인 진단 후 "PinPig 백업 복원" 전용 경로 추가
+- **진단**:
+  - iOS는 Safari 탭과 standalone PWA의 저장소(IndexedDB)를 분리한다 — Apple 정책, 앱 설정으로 해결 불가. 유일한 이동 경로는 "Safari에서 전체 백업 → 홈화면 앱에서 복원"
+  - 그 경로가 막혀 있었음: `exportAllDataToJSON`은 `{version, exportedAt, data:{transactions,…}}` 구조인데 `excelImport.parseJSON`은 `data.data`가 배열일 때만 읽어 빈 배열 반환 → "파일에서 데이터를 찾을 수 없습니다"
+  - 래핑을 풀어도 정상 복원 불가: 타 앱 파서는 카테고리명으로 매핑(백업은 `categoryId`) → 전부 '기타', `determineTransactionType`이 '수입' 문자열만 인식 → `type:'income'`이 지출로 변환, 결제수단·설정·반복거래 폐기
+- **변경**:
+  - `src/services/backupRestore.ts` 신규 — `parsePinPigBackup`(version 문자열 + data.transactions 배열로 판별, 타 앱 JSON은 null), `getBackupSummary`, `restorePinPigBackup(mode: 'replace'|'merge')`. 7개 테이블을 단일 Dexie 트랜잭션으로 복원(중간 실패 시 원상 복구), JSON 직렬화로 문자열이 된 Date 필드를 테이블별 필드 목록으로 되살림, id 없는 행은 건너뜀. v1.0 백업에 없는 테이블(incomeSources·annualExpenses)은 건드리지 않음
+  - `src/services/exportData.ts` — 백업에 `incomeSources`·`annualExpenses` 추가, version `1.1`. (복원 시 수입수단 참조가 끊기지 않게 하기 위한 최소 확장)
+  - `src/pages/ImportDataPage.tsx` — JSON 분기에서 PinPig 백업이면 전용 단계로 분기: `backup_preview`(백업 내용·이 기기 현재 데이터·복원 방식 라디오: 전체 교체[기본]/병합) → `restoring`(진행률) → `restore_complete`. 완료 후 "홈으로"는 `window.location.replace('/')`로 앱을 다시 열어 카테고리·설정 등 모든 스토어를 새로 로드. 타 앱 파일 경로는 그대로
+- **테스트**: `src/services/backupRestore.test.ts` 9건 — 버그 재현(parseJSON이 백업에서 빈 배열) / v1.1·v1.0 판별 / 타 앱 JSON은 null / 요약 / replace(기존 삭제, id·type·categoryId·incomeSourceId 보존, Date 복원, 선택 필드 endDate 키 제거, 설정 교체) / v1.0은 incomeSources 유지 / id 없는 행 건너뜀 / merge(같은 id 덮어쓰기·다른 id 유지) — 총 45건
+- **검증**: type-check 통과 · lint 0-0 · vitest 45건 통과. **build 미실행** — `vite build`가 Node 힙 OOM으로 실패하는데 변경을 stash한 상태에서도 동일 재현, 시스템 커밋 메모리 잔여 404MB(총 40.9GB)로 환경 문제. 실기기(iOS) 확인 미실행
+- **사용자 흐름**: Safari(또는 기존 기기)에서 설정 > 데이터 내보내기 > 전체 백업 → 파일 앱 저장 → 홈화면 앱에서 설정 > 데이터 가져오기 > 그 파일 선택 → "PinPig 백업 파일" 화면에서 전체 교체 → 복원하기
+- **미수정 (제안만)**: ① 병합 모드에서 기본 카테고리가 이름 중복될 수 있음(id가 달라서) — 이름 기준 병합은 별도 판단 ② 설정 > 내보내기 안내문 "추후 복원 기능에서 사용할 수 있습니다"를 현재형으로 갱신 ③ 데이터 가져오기 진입부에 iOS 저장소 분리 안내 문구
+- **결과**: 완료 · 미배포

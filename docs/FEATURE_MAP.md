@@ -194,6 +194,34 @@
 
 ---
 
+## 8. 데이터 백업/복원 (Backup & Restore)
+
+```
+백업/복원
+├── ExportDataPage              # 전체 백업(JSON) · CSV/Excel 내보내기
+├── exportData.ts               # exportAllDataToJSON() — 백업 구조의 정본
+├── ImportDataPage              # 파일 선택 → PinPig 백업이면 복원 경로, 아니면 타 앱 파서
+├── backupRestore.ts            # PinPig 백업 판별·복원 (id 그대로, 7개 테이블)
+└── excelImport.ts              # 타 앱(머니매니저 등) xlsx/csv/json 변환 가져오기
+```
+
+### 공유 개념
+| 개념 | 위치 | 설명 |
+|------|------|------|
+| 백업 구조 | exportData.ts | `{version, exportedAt, data:{transactions, categories, paymentMethods, settings, recurringTransactions, incomeSources, annualExpenses}}` |
+| 백업 판별 | backupRestore.ts `isPinPigBackup` | `version` 문자열 + `data.transactions` 배열. 타 앱 JSON은 null → excelImport로 |
+| Date 되살림 | backupRestore.ts `DATE_FIELDS` | 테이블별 Date 필드 목록 — JSON 왕복으로 문자열이 된 값을 Date로 |
+| 복원 모드 | backupRestore.ts | `replace`(테이블 비우고 채움) / `merge`(bulkPut, 같은 id 덮어씀) |
+| iOS 저장소 분리 | — | Safari 탭과 홈화면 PWA는 IndexedDB가 별개. 백업→복원이 유일한 이동 경로 |
+
+### 수정 시 체크리스트
+- [ ] 테이블(Dexie store) 추가 시 `exportAllDataToJSON`·`backupRestore.ts`(`PinPigBackupData`, `DATE_FIELDS`, `TABLE_ORDER`, 트랜잭션 테이블 목록) 모두 갱신
+- [ ] 타입에 Date 필드 추가 시 `DATE_FIELDS`에 등록 (빠지면 복원 후 문자열로 남음)
+- [ ] 백업 구조를 바꾸면 `version` 올리고 구버전 백업이 여전히 복원되는지 테스트 추가 (`backupRestore.test.ts`)
+- [ ] 복원 완료 후 스토어 재로드는 `location.replace('/')`에 의존 — SPA 내 navigate로 바꾸면 카테고리·설정 스토어가 낡음
+
+---
+
 ## 빠른 참조: 파일별 연관 기능
 
 | 파일 | 연관 기능 그룹 |
@@ -209,6 +237,8 @@
 | `RecurringTransactionEditPage.tsx` | 반복거래, 거래입력, 태그, 결제수단 |
 | `StatsPage.tsx` | 통계, 카테고리 |
 | `HomePage.tsx` | 예산, 통계, 거래입력, 반복거래 |
+| `ImportDataPage.tsx` | 백업/복원, 카테고리, 결제수단 |
+| `ExportDataPage.tsx` | 백업/복원 |
 
 ---
 
