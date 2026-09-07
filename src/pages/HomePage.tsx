@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, HardDriveDownload } from 'lucide-react';
 import { needsSettlementCheck } from '@/utils/date';
 import { useTransactionStore, selectBudgetStatus, selectCategoryBreakdown } from '@/stores/transactionStore';
 import { useSettingsStore, selectMonthlyBudget } from '@/stores/settingsStore';
@@ -12,6 +12,9 @@ import { isToday, isYesterday, isFuture, startOfDay, endOfMonth, startOfMonth } 
 import { getMonthlyBudgetStructure } from '@/services/queries';
 import { checkBudgetAlerts, checkRecurringAlerts, checkPaymentMethodAlerts } from '@/services/budgetAlert';
 import { DEFAULT_INSIGHT_WIDGETS } from '@/types';
+import { db } from '@/services/database';
+import { getBackupStatus, runBackup, webDownloadStorage } from '@/services/backupEngine';
+import { useToastStore } from '@/stores/toastStore';
 import type { Transaction, MonthlyBudgetStructure } from '@/types';
 
 // 감성적 메시지 생성
@@ -245,7 +248,31 @@ export function HomePage() {
   const hasYesterday = yesterdaySummary.count > 0;
   const hasFuture = futureSummary.count > 0;
   const hasNeedsCheck = needsCheckSummary.count > 0;
-  const hasBottomCards = hasYesterday || hasFuture || hasNeedsCheck;
+
+  // 백업 알림 — 마지막 백업이 주기를 넘겼거나, 백업한 적 없이 거래가 쌓였을 때만
+  const [totalTxCount, setTotalTxCount] = useState(0);
+  const [backupDismissed, setBackupDismissed] = useState(false);
+  const showToast = useToastStore((s) => s.showToast);
+  useEffect(() => {
+    db.transactions.count().then(setTotalTxCount).catch(() => setTotalTxCount(0));
+  }, [transactions.length]);
+  const backupStatus = useMemo(
+    () => getBackupStatus(settings, totalTxCount),
+    [settings, totalTxCount]
+  );
+  const hasBackupDue = backupStatus.isDue && !backupDismissed;
+  const handleBackupNow = useCallback(async () => {
+    const result = await runBackup(webDownloadStorage);
+    if (result.success) {
+      setBackupDismissed(true);
+      await fetchSettings();
+      showToast({ type: 'info', message: '백업 파일을 저장했어요' });
+    } else {
+      showToast({ type: 'warning', message: '백업에 실패했어요: ' + (result.error ?? '') });
+    }
+  }, [fetchSettings, showToast]);
+
+  const hasBottomCards = hasYesterday || hasFuture || hasNeedsCheck || hasBackupDue;
 
   if (isLoading && transactions.length === 0) {
     return (
@@ -417,6 +444,25 @@ export function HomePage() {
       {/* Bottom Cards: 확인 | 어제 | 예정 (요약) */}
       {hasBottomCards && (
         <section className="bg-paper-light/50 border-t border-paper-dark/20 px-6 py-4">
+          {/* 백업 Card — 한 번 탭으로 파일 저장. 저장되면 사라진다 */}
+          {hasBackupDue && (
+            <button
+              onClick={handleBackupNow}
+              className="w-full bg-paper-light rounded-xl p-4 text-left active:bg-paper-mid transition-colors mb-3"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <HardDriveDownload size={16} className="text-ink-mid" />
+                <span className="text-sub text-ink-dark">백업</span>
+              </div>
+              <p className="text-caption text-ink-light">
+                {backupStatus.reason === 'never'
+                  ? `거래 ${totalTxCount.toLocaleString()}건이 이 기기에만 있어요`
+                  : `마지막 백업 ${backupStatus.daysSince}일 전`}
+              </p>
+              <p className="text-body mt-1 text-ink-black">탭해서 파일로 저장</p>
+            </button>
+          )}
+          {(hasYesterday || hasFuture || hasNeedsCheck) && (
           <div className="flex gap-3">
             {/* 확인 Card — 도래한 예정 거래. 시한이 지나면 조용히 사라진다 */}
             {hasNeedsCheck && (
@@ -486,6 +532,7 @@ export function HomePage() {
               </button>
             )}
           </div>
+          )}
         </section>
       )}
     </div>

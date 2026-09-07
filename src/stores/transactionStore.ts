@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { track } from '@/services/telemetry';
 import { devtools } from 'zustand/middleware';
 import { db, generateId } from '@/services/database';
 import {
@@ -127,6 +128,7 @@ export const useTransactionStore = create<TransactionStore>()(
           };
 
           await db.transactions.add(newTransaction);
+          track('transaction_added', { type: newTransaction.type });
 
           // Update local state if transaction is in current month
           const current = get().currentMonth;

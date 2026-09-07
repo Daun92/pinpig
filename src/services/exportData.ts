@@ -4,6 +4,7 @@
  */
 
 import { db } from './database';
+import { runBackup, webDownloadStorage } from './backupEngine';
 import type { Transaction, Category, PaymentMethod } from '@/types';
 
 export interface ExportOptions {
@@ -207,42 +208,16 @@ export async function exportPaymentMethodsToCSV(): Promise<ExportResult> {
 
 /**
  * 전체 데이터를 JSON으로 내보내기 (백업용)
+ * 구조·검증·마지막 백업 시각 기록은 services/backupEngine.ts가 담당한다.
  */
 export async function exportAllDataToJSON(): Promise<ExportResult> {
   try {
-    const transactions = await db.transactions.toArray();
-    const categories = await db.categories.toArray();
-    const paymentMethods = await db.paymentMethods.toArray();
-    const settings = await db.settings.toArray();
-    const recurringTransactions = await db.recurringTransactions.toArray();
-    const incomeSources = await db.incomeSources.toArray();
-    const annualExpenses = await db.annualExpenses.toArray();
-
-    // 복원은 services/backupRestore.ts — 구조를 바꾸면 그쪽 판별·날짜 필드도 함께 갱신
-    const exportData = {
-      version: '1.1', // 1.1: incomeSources·annualExpenses 추가
-      exportedAt: new Date().toISOString(),
-      data: {
-        transactions,
-        categories,
-        paymentMethods,
-        settings,
-        recurringTransactions,
-        incomeSources,
-        annualExpenses,
-      },
-    };
-
-    const jsonContent = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-
-    const filename = generateFilename('pinpig_백업', 'json');
-    downloadBlob(blob, filename);
-
+    const result = await runBackup(webDownloadStorage);
     return {
-      success: true,
-      filename,
-      recordCount: transactions.length,
+      success: result.success,
+      filename: result.filename,
+      recordCount: result.recordCount,
+      error: result.error,
     };
   } catch (error) {
     console.error('Export all data failed:', error);

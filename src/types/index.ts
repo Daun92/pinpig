@@ -173,6 +173,14 @@ export interface Settings {
   paymentMethodAlertSettings: Record<string, PaymentMethodAlertSetting>;  // 결제수단별 개별 설정
   // 홈 인사이트 설정
   insightWidgets: InsightWidgetType[];  // 최대 3개 선택
+  // 계측 (Phase 2 S1) — 기본 꺼짐. 온보딩·설정에서 사용자가 켠다
+  telemetryErrorsEnabled: boolean;   // 오류 보고 (금액·메모 미포함)
+  telemetryUsageEnabled: boolean;    // 익명 사용 통계 (D1/D7 리텐션용)
+  telemetryInstallId?: string;       // 익명 설치 식별자 — 켤 때 생성, 끄면 삭제
+  telemetryInstalledAt?: string;     // 통계를 처음 켠 날 (YYYY-MM-DD) — 리텐션 기준일
+  // 백업 (Phase 2 S2)
+  backupReminderDays: number;        // 마지막 백업 후 며칠 지나면 알릴지 (0 = 알림 끔)
+  lastBackupAt?: Date;               // 마지막 백업 성공 시각
   updatedAt: Date;
 }
 
@@ -203,7 +211,15 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updatedAt'> = {
   paymentMethodAlertSettings: {},    // 결제수단별 개별 설정 (빈 객체 = 전체 기본값 사용)
   // 홈 인사이트 기본값
   insightWidgets: DEFAULT_INSIGHT_WIDGETS,
+  // 계측 기본값 — 둘 다 꺼짐 (opt-in)
+  telemetryErrorsEnabled: false,
+  telemetryUsageEnabled: false,
+  // 백업 기본값 — 7일마다 알림
+  backupReminderDays: 7,
 };
+
+// 백업 알림 주기 선택지 (일). 0은 알림 끔
+export const BACKUP_REMINDER_OPTIONS = [0, 7, 30] as const;
 
 // 카테고리 알림 기본 임계값
 export const DEFAULT_CATEGORY_ALERT_THRESHOLDS = [70, 100];

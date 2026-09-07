@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart, Sun, Moon, Monitor, Repeat, PieChart, Bell, BellOff, LayoutGrid } from 'lucide-react';
+import { ChevronRight, Download, Trash2, Upload, RefreshCw, Tag, CreditCard, Wand2, CalendarClock, FileBarChart, Sun, Moon, Monitor, Repeat, PieChart, Bell, BellOff, LayoutGrid, HardDriveDownload, ShieldCheck } from 'lucide-react';
 import { getSettings, updateSettings, resetDatabase } from '@/services/database';
 import { getImportStatus, clearAllTransactions } from '@/services/excelImport';
+import { getBackupStatus, runBackup, webDownloadStorage } from '@/services/backupEngine';
+import {
+  applyTelemetrySettings,
+  buildTelemetryConsentUpdate,
+  getRecentErrors,
+  clearRecentErrors,
+} from '@/services/telemetry';
+import { BACKUP_REMINDER_OPTIONS } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 import { useCoachMark } from '@/components/coachmark';
 import { SegmentedControl } from '@/components/common';
@@ -45,6 +53,17 @@ export function SettingsPage() {
   } | null>(null);
   const [importMessage, setImportMessage] = useState('');
 
+  // 백업 (S2)
+  const [backupReminderDays, setBackupReminderDays] = useState<number>(7);
+  const [lastBackupAt, setLastBackupAt] = useState<Date | null>(null);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupMessage, setBackupMessage] = useState('');
+
+  // 계측 (S1)
+  const [telemetryErrors, setTelemetryErrors] = useState(false);
+  const [telemetryUsage, setTelemetryUsage] = useState(false);
+  const [recentErrorCount, setRecentErrorCount] = useState(0);
+
   // 예산 표시 포맷 (천단위 콤마)
   const formatBudgetDisplay = (value: string) => {
     const num = parseInt(value.replace(/,/g, '')) || 0;
@@ -66,8 +85,13 @@ export function SettingsPage() {
         setCategoryAlertEnabled(s.categoryAlertEnabled ?? true);
         setRecurringAlertEnabled(s.recurringAlertEnabled ?? true);
         setPaymentMethodAlertEnabled(s.paymentMethodAlertEnabled ?? true);
+        setBackupReminderDays(s.backupReminderDays ?? 7);
+        setLastBackupAt(s.lastBackupAt ? new Date(s.lastBackupAt) : null);
+        setTelemetryErrors(s.telemetryErrorsEnabled ?? false);
+        setTelemetryUsage(s.telemetryUsageEnabled ?? false);
       }
     });
+    setRecentErrorCount(getRecentErrors().length);
 
     refreshImportStatus();
     // Start settings tour on first visit
@@ -133,6 +157,69 @@ export function SettingsPage() {
       day: 'numeric',
     });
   };
+
+  // ---- 백업 ----
+  const backupStatus = getBackupStatus(
+    { backupReminderDays, lastBackupAt: lastBackupAt ?? undefined },
+    importStatus?.totalTransactions ?? 0
+  );
+  const backupStatusLabel = (() => {
+    if (!lastBackupAt) return '아직 백업한 적 없어요';
+    const d = backupStatus.daysSince ?? 0;
+    return d === 0 ? '오늘 백업했어요' : `마지막 백업 ${d}일 전`;
+  })();
+
+  const handleBackupNow = async () => {
+    setIsBackingUp(true);
+    setBackupMessage('');
+    try {
+      const result = await runBackup(webDownloadStorage);
+      if (result.success) {
+        setLastBackupAt(new Date());
+        setBackupMessage(`${result.recordCount.toLocaleString()}건을 ${result.filename}으로 저장했어요`);
+      } else {
+        setBackupMessage('백업 실패: ' + (result.error ?? '알 수 없는 오류'));
+      }
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleReminderChange = async (days: number) => {
+    setBackupReminderDays(days);
+    await updateSettings({ backupReminderDays: days });
+  };
+
+  // ---- 계측 ----
+  const handleTelemetryToggle = async (kind: 'errors' | 'usage') => {
+    const next = kind === 'errors' ? !telemetryErrors : !telemetryUsage;
+    const current = await getSettings();
+    const update = buildTelemetryConsentUpdate(current, { [kind]: next });
+    await updateSettings(update);
+    setTelemetryErrors(update.telemetryErrorsEnabled);
+    setTelemetryUsage(update.telemetryUsageEnabled);
+    applyTelemetrySettings({ ...current, ...update });
+  };
+
+  const handleClearRecentErrors = () => {
+    clearRecentErrors();
+    setRecentErrorCount(0);
+  };
+
+  const Toggle = ({ on, onClick }: { on: boolean; onClick: () => void }) => (
+    <button
+      onClick={onClick}
+      className={`w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+        on ? 'bg-ink-black dark:bg-pig-pink' : 'bg-paper-mid'
+      }`}
+    >
+      <div
+        className={`w-5 h-5 bg-paper-white rounded-full transition-transform ${
+          on ? 'translate-x-6' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-paper-white pb-nav">
@@ -418,6 +505,42 @@ export function SettingsPage() {
             <ChevronRight size={20} className="text-ink-light" />
           </button>
         </div>
+
+        {/* 백업 (S2) — 전체 백업 파일 저장 + 알림 주기 */}
+        <div className="border-b border-paper-mid py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <HardDriveDownload size={20} className="text-ink-mid" />
+              <div>
+                <span className="text-body text-ink-black block">백업</span>
+                <span className="text-caption text-ink-light">{backupStatusLabel}</span>
+              </div>
+            </div>
+            <button
+              onClick={handleBackupNow}
+              disabled={isBackingUp}
+              className="px-3 py-1.5 rounded-sm bg-ink-black text-paper-white text-sub disabled:opacity-50"
+            >
+              {isBackingUp ? '저장 중' : '지금 백업'}
+            </button>
+          </div>
+          <div className="mt-3">
+            <SegmentedControl
+              options={BACKUP_REMINDER_OPTIONS.map((d) => ({
+                value: String(d),
+                label: d === 0 ? '알림 끔' : `${d}일마다 알림`,
+              }))}
+              value={String(backupReminderDays)}
+              onChange={(v) => handleReminderChange(Number(v))}
+            />
+          </div>
+          {backupMessage && (
+            <p className="text-caption text-ink-mid mt-2">{backupMessage}</p>
+          )}
+          <p className="text-caption text-ink-light mt-2">
+            iOS는 저장 공간이 부족하면 브라우저 데이터를 지울 수 있어요. 백업 파일은 파일 앱에 남습니다
+          </p>
+        </div>
         <div className="border-b border-paper-mid">
           <button
             onClick={handleClearData}
@@ -466,6 +589,36 @@ export function SettingsPage() {
         )}
       </section>
 
+      {/* Privacy / Telemetry Section (S1) */}
+      <section className="px-6 pt-6">
+        <h2 className="text-sub text-ink-light mb-2">개인정보</h2>
+        <div className="py-3 flex items-start gap-3">
+          <ShieldCheck size={20} className="text-ink-mid flex-shrink-0 mt-0.5" />
+          <p className="text-caption text-ink-mid">
+            기록은 이 기기에만 저장돼요. 아래 두 항목을 켜면 그것만 익명으로 보내고, 금액·메모·카테고리 이름은 어떤 경우에도 포함되지 않아요.
+            현재 버전은 전송처가 연결되어 있지 않아 기기 안에만 기록됩니다.
+          </p>
+        </div>
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <div>
+              <span className="text-body text-ink-black block">오류 보고</span>
+              <span className="text-caption text-ink-light">앱이 멈추면 오류 내용만 보내요</span>
+            </div>
+            <Toggle on={telemetryErrors} onClick={() => handleTelemetryToggle('errors')} />
+          </div>
+        </div>
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <div>
+              <span className="text-body text-ink-black block">익명 사용 통계</span>
+              <span className="text-caption text-ink-light">앱을 연 날, 기록 횟수 정도만 셉니다</span>
+            </div>
+            <Toggle on={telemetryUsage} onClick={() => handleTelemetryToggle('usage')} />
+          </div>
+        </div>
+      </section>
+
       {/* App Info Section */}
       <section className="px-6 pt-6 pb-20">
         <h2 className="text-sub text-ink-light mb-2">정보</h2>
@@ -479,6 +632,19 @@ export function SettingsPage() {
           <div className="flex items-center justify-between py-4">
             <span className="text-body text-ink-black">빌드</span>
             <span className="text-body text-ink-mid">{buildLabel}</span>
+          </div>
+        </div>
+        <div className="border-b border-paper-mid">
+          <div className="flex items-center justify-between py-4">
+            <span className="text-body text-ink-black">이 기기의 최근 오류</span>
+            <div className="flex items-center gap-3">
+              <span className="text-body text-ink-mid">{recentErrorCount}건</span>
+              {recentErrorCount > 0 && (
+                <button onClick={handleClearRecentErrors} className="text-sub text-ink-mid underline">
+                  지우기
+                </button>
+              )}
+            </div>
           </div>
         </div>
         <div className="border-b border-paper-mid">

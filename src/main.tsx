@@ -4,6 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './styles/globals.css';
 import { initializeDatabase } from '@/services/database';
+import { installGlobalErrorHandlers, registerTelemetryProvider, consoleTelemetryProvider } from '@/services/telemetry';
+
+// 전역 오류 훅 — 기기 내 최근 오류 목록에 남기고, 동의 시에만 외부 provider로 간다
+installGlobalErrorHandlers();
+if (import.meta.env.DEV) registerTelemetryProvider(consoleTelemetryProvider);
 
 // Development: Expose seed functions to window for console access
 if (import.meta.env.DEV) {

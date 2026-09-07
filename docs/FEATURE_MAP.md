@@ -202,23 +202,55 @@
 ├── exportData.ts               # exportAllDataToJSON() — 백업 구조의 정본
 ├── ImportDataPage              # 파일 선택 → PinPig 백업이면 복원 경로, 아니면 타 앱 파서
 ├── backupRestore.ts            # PinPig 백업 판별·복원 (id 그대로, 7개 테이블)
+├── backupEngine.ts             # 백업 구조 정본(v1.2)·체크섬·검증·저장소 어댑터·주기 판정
+├── HomePage                    # "백업" 카드 (due일 때 1탭 저장)
 └── excelImport.ts              # 타 앱(머니매니저 등) xlsx/csv/json 변환 가져오기
 ```
 
 ### 공유 개념
 | 개념 | 위치 | 설명 |
 |------|------|------|
-| 백업 구조 | exportData.ts | `{version, exportedAt, data:{transactions, categories, paymentMethods, settings, recurringTransactions, incomeSources, annualExpenses}}` |
+| 백업 구조 | backupEngine.ts `buildBackupPayload` | `{version:'1.2', exportedAt, checksum, data:{transactions, categories, paymentMethods, settings, recurringTransactions, incomeSources, annualExpenses}}` — exportData는 위임만 |
+| 체크섬 | backupEngine.ts | FNV-1a(`JSON.stringify(data)`). 구버전(1.0·1.1) 파일은 absent로 통과 |
+| 저장소 어댑터 | backupEngine.ts `BackupStorage` | 웹=`webDownloadStorage`(파일 다운로드). 네이티브는 S3에서 추가 |
+| 백업 알림 | backupEngine.ts `getBackupStatus` | `backupReminderDays`(0/7/30)·`lastBackupAt`. 백업한 적 없으면 거래 10건부터 |
 | 백업 판별 | backupRestore.ts `isPinPigBackup` | `version` 문자열 + `data.transactions` 배열. 타 앱 JSON은 null → excelImport로 |
 | Date 되살림 | backupRestore.ts `DATE_FIELDS` | 테이블별 Date 필드 목록 — JSON 왕복으로 문자열이 된 값을 Date로 |
 | 복원 모드 | backupRestore.ts | `replace`(테이블 비우고 채움) / `merge`(bulkPut, 같은 id 덮어씀) |
 | iOS 저장소 분리 | — | Safari 탭과 홈화면 PWA는 IndexedDB가 별개. 백업→복원이 유일한 이동 경로 |
 
 ### 수정 시 체크리스트
-- [ ] 테이블(Dexie store) 추가 시 `exportAllDataToJSON`·`backupRestore.ts`(`PinPigBackupData`, `DATE_FIELDS`, `TABLE_ORDER`, 트랜잭션 테이블 목록) 모두 갱신
+- [ ] 테이블(Dexie store) 추가 시 `backupEngine.buildBackupPayload`·`verifySnapshot` 테이블 목록·`backupRestore.ts`(`PinPigBackupData`, `DATE_FIELDS`, `TABLE_ORDER`, 트랜잭션 테이블 목록) 모두 갱신
 - [ ] 타입에 Date 필드 추가 시 `DATE_FIELDS`에 등록 (빠지면 복원 후 문자열로 남음)
 - [ ] 백업 구조를 바꾸면 `version` 올리고 구버전 백업이 여전히 복원되는지 테스트 추가 (`backupRestore.test.ts`)
 - [ ] 복원 완료 후 스토어 재로드는 `location.replace('/')`에 의존 — SPA 내 navigate로 바꾸면 카테고리·설정 스토어가 낡음
+
+---
+
+## 9. 계측 (Telemetry, opt-in)
+
+```
+계측
+├── telemetry.ts                # provider 인터페이스·동의 게이팅·정제·최근 오류·전역 훅
+├── AppErrorBoundary            # 렌더 오류 → captureError + 다시 열기
+├── App.tsx                     # 설정→동의 반영, app_open 하루 1회
+├── OnboardingPage (6단계)       # 동의 체크박스 (기본 해제)
+└── SettingsPage "개인정보"      # 토글 2개 + 최근 오류 N건
+```
+
+### 공유 개념
+| 개념 | 위치 | 설명 |
+|------|------|------|
+| 동의 | Settings `telemetryErrorsEnabled`·`telemetryUsageEnabled` | 기본 false. 하나라도 켜면 `telemetryInstallId`·`telemetryInstalledAt` 생성, 둘 다 끄면 삭제 |
+| 정제 | telemetry.ts `ALLOWED_PROP_KEYS` | 이벤트 속성은 화이트리스트만 통과. 금액·메모·카테고리명은 키가 없어 못 실림 |
+| 이벤트 | `app_open{days_since_install}`, `transaction_added{type}`, `backup_created{count,source}` | D1/D7은 app_open을 installedAt 기준으로 집계 |
+| 전송처 | `registerTelemetryProvider` | 현재 없음(DEV 콘솔만). 서비스 결정 후 어댑터 1개 추가 |
+
+### 수정 시 체크리스트
+- [ ] 새 이벤트 속성은 `ALLOWED_PROP_KEYS`에 먼저 등록 — 등록 없이 넣으면 조용히 버려진다 (의도된 동작)
+- [ ] 사용자 텍스트·금액을 속성으로 넣지 않는다. 필요하면 범주(type)로 바꾼다
+- [ ] provider 추가 시 `init`은 installId만 받는다 — 이메일·기기명 같은 식별 정보를 붙이지 않는다
+- [ ] 고지문(온보딩 6단계·설정 개인정보)과 실제 전송 내용이 어긋나지 않게 함께 고친다
 
 ---
 
@@ -239,6 +271,8 @@
 | `HomePage.tsx` | 예산, 통계, 거래입력, 반복거래 |
 | `ImportDataPage.tsx` | 백업/복원, 카테고리, 결제수단 |
 | `ExportDataPage.tsx` | 백업/복원 |
+| `OnboardingPage.tsx` | 예산, 계측 |
+| `SettingsPage.tsx` | 예산, 알림, 백업/복원, 계측 |
 
 ---
 

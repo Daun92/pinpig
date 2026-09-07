@@ -1,28 +1,42 @@
 import { useState } from 'react';
-import { PiggyBank, Wallet, CalendarDays, TrendingUp } from 'lucide-react';
+import { PiggyBank, Wallet, CalendarDays, TrendingUp, ShieldCheck } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { buildTelemetryConsentUpdate } from '@/services/telemetry';
 import { HomeIllustration, AddFlowIllustration, ChartIllustration } from '@/components/onboarding/illustrations';
 
-type OnboardingStep = 1 | 2 | 3 | 4 | 5;
+type OnboardingStep = 1 | 2 | 3 | 4 | 5 | 6;
 
 export function OnboardingPage() {
   const [step, setStep] = useState<OnboardingStep>(1);
   const [budget, setBudget] = useState(2000000);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [skipBudget, setSkipBudget] = useState(false);
+  // 계측 동의 — 기본 둘 다 꺼짐 (opt-in)
+  const [errorsOptIn, setErrorsOptIn] = useState(false);
+  const [usageOptIn, setUsageOptIn] = useState(false);
 
-  const { setMonthlyBudget, completeOnboarding } = useSettingsStore();
+  const { setMonthlyBudget, completeOnboarding, updateSettings } = useSettingsStore();
 
   const handleNext = () => {
-    if (step < 5) {
+    if (step < 6) {
       setStep((prev) => (prev + 1) as OnboardingStep);
     }
   };
 
-  const handleComplete = async (skipBudget = false) => {
+  // 예산 단계에서 결정(설정/건너뜀)만 기억하고 마지막 단계로
+  const handleBudgetDecision = (skip: boolean) => {
+    setSkipBudget(skip);
+    setStep(6);
+  };
+
+  const handleComplete = async () => {
     setIsSubmitting(true);
     try {
       if (!skipBudget) {
         await setMonthlyBudget(budget);
+      }
+      if (errorsOptIn || usageOptIn) {
+        await updateSettings(buildTelemetryConsentUpdate(null, { errors: errorsOptIn, usage: usageOptIn }));
       }
       await completeOnboarding();
     } catch (error) {
@@ -35,7 +49,7 @@ export function OnboardingPage() {
     return amount.toLocaleString() + '원';
   };
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   return (
     <div className="fixed inset-0 bg-paper-white flex flex-col">
@@ -199,6 +213,52 @@ export function OnboardingPage() {
             </p>
           </div>
         )}
+
+        {/* Step 6: 계측 동의 (opt-in) */}
+        {step === 6 && (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 animate-fade-in">
+            <div className="w-14 h-14 bg-paper-light rounded-2xl flex items-center justify-center mb-6">
+              <ShieldCheck className="w-7 h-7 text-ink-black" strokeWidth={1.5} />
+            </div>
+            <h1 className="text-xl font-medium text-ink-black text-center mb-2">
+              기록은 이 기기에만 남아요
+            </h1>
+            <p className="text-sub text-ink-mid text-center mb-8 max-w-xs">
+              계정도 서버도 없어요. 아래 두 가지만 원하시면 켜 주세요. 금액·메모는 어떤 경우에도 보내지 않아요
+            </p>
+
+            <div className="w-full max-w-xs space-y-3">
+              <label className="flex items-start gap-3 p-4 bg-paper-light rounded-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={errorsOptIn}
+                  onChange={(e) => setErrorsOptIn(e.target.checked)}
+                  className="mt-1 w-5 h-5 accent-ink-black"
+                />
+                <div>
+                  <span className="text-body text-ink-black block">오류 보고</span>
+                  <span className="text-caption text-ink-mid">앱이 멈추면 오류 내용만 익명으로 보내 고치는 데 써요</span>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-4 bg-paper-light rounded-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usageOptIn}
+                  onChange={(e) => setUsageOptIn(e.target.checked)}
+                  className="mt-1 w-5 h-5 accent-ink-black"
+                />
+                <div>
+                  <span className="text-body text-ink-black block">익명 사용 통계</span>
+                  <span className="text-caption text-ink-mid">앱을 연 날, 기록한 횟수 정도만. 누구인지 알 수 없는 무작위 번호로 셉니다</span>
+                </div>
+              </label>
+            </div>
+
+            <p className="text-caption text-ink-light text-center mt-6">
+              설정에서 언제든 바꿀 수 있어요
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Footer Button */}
@@ -211,24 +271,31 @@ export function OnboardingPage() {
           >
             {step === 1 ? '시작하기' : '다음'}
           </button>
-        ) : (
+        ) : step === 5 ? (
           <div className="space-y-3">
             <button
-              onClick={() => handleComplete(false)}
-              disabled={isSubmitting}
+              onClick={() => handleBudgetDecision(false)}
               className="w-full py-4 bg-ink-black text-paper-white rounded-xl text-body font-medium
-                active:bg-ink-dark transition-colors disabled:opacity-50"
+                active:bg-ink-dark transition-colors"
             >
-              {isSubmitting ? '설정 중...' : '완료'}
+              다음
             </button>
             <button
-              onClick={() => handleComplete(true)}
-              disabled={isSubmitting}
+              onClick={() => handleBudgetDecision(true)}
               className="w-full py-3 text-ink-mid text-sub"
             >
               나중에 설정할게요
             </button>
           </div>
+        ) : (
+          <button
+            onClick={handleComplete}
+            disabled={isSubmitting}
+            className="w-full py-4 bg-ink-black text-paper-white rounded-xl text-body font-medium
+              active:bg-ink-dark transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? '설정 중...' : '시작하기'}
+          </button>
         )}
 
         {/* Step indicators (dots) */}

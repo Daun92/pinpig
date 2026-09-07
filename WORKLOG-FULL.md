@@ -2703,3 +2703,25 @@
 - **배포**: `vercel --prod` → dpl_72ojaTE45AsfHSt22QvF5XsFjAkx, target production, READY (2026-09-07 08:56 KST)
 - **검증**: pinpig.vercel.app 번들 `index-fH72DDxY.js`에 빌드 커밋 606a229 포함, `ImportDataPage-_2e6zGPW.js`에 "PinPig 백업 파일·복원하기·전체 교체" 문자열 확인. iOS 실기기 흐름은 미확인
 - **결과**: 완료 · 배포 완료
+
+### #142 Phase 2 S1(계측 어댑터) + S2(백업 엔진) 착수
+- **요청**: Phase 2 준비 중 Windows에서 가능한 S1·S2 진행
+- **결정 (사용자 선택)**: ① 계측 서비스 미정 — 어댑터만 구현, 전송처 없음 ② 백업은 엔진+어댑터, 웹은 알림·1탭 저장 ③ 계측 기본값 둘 다 꺼짐, 온보딩·설정에서 켬(opt-in)
+- **S1 변경**:
+  - `services/telemetry.ts` 신규 — provider 인터페이스(`init/captureError/track/shutdown`), `registerTelemetryProvider`, 동의 게이팅(`configureTelemetry`), 정제(`sanitizeProps` 허용 키 화이트리스트 — amount·memo·categoryName 등은 절대 통과 못 함), 오류 정규화(메시지 300자·스택 6줄·pathname만), 기기 내 최근 오류 localStorage 20건, 전역 `error`·`unhandledrejection` 훅, 설정 연동 헬퍼(`applyTelemetrySettings`, `buildTelemetryConsentUpdate` — 켜면 installId·installedAt 생성, 둘 다 끄면 삭제), DEV 콘솔 provider
+  - `Settings`에 `telemetryErrorsEnabled`·`telemetryUsageEnabled`(기본 false)·`telemetryInstallId?`·`telemetryInstalledAt?` 추가
+  - `App.tsx` — 설정 로드 시 동의 반영 + 하루 1회 `app_open{days_since_install}` (D1/D7 기준 이벤트), `AppErrorBoundary`로 라우트 전체 감쌈 (렌더 오류 시 "다시 열기" 화면 + captureError)
+  - `main.tsx` — 전역 오류 훅 설치. `transactionStore.addTransaction` — `transaction_added{type}` 이벤트
+  - `OnboardingPage` — 6단계 신설 "기록은 이 기기에만 남아요": 오류 보고·익명 통계 체크박스(기본 해제) → 시작하기. 예산 단계의 완료/건너뜀은 결정만 기억하고 6단계로
+  - `SettingsPage` — "개인정보" 섹션(고지문 + 토글 2개, 전송처 미연결 안내), 정보 섹션에 "이 기기의 최근 오류 N건 · 지우기"
+- **S2 변경**:
+  - `services/backupEngine.ts` 신규 — `buildBackupPayload`(백업 구조 정본, version 1.2 = checksum 추가), FNV-1a 체크섬, `createSnapshot`, `verifySnapshot`(재파싱·건수·체크섬), `verifyChecksum`(구버전 파일은 absent), `BackupStorage` 어댑터 + `webDownloadStorage`, `runBackup`(검증 실패면 저장 안 함, 성공 시 `lastBackupAt` 기록 + `backup_created` 이벤트), `getBackupStatus`(disabled/no-data/never/overdue/ok — 백업한 적 없으면 거래 10건부터, 이후 주기 경과 시)
+  - `exportData.exportAllDataToJSON`은 엔진에 위임. `backupRestore`는 `checksum` 필드 보존 + settings `lastBackupAt` Date 되살림
+  - `Settings`에 `backupReminderDays`(기본 7, 0=끔)·`lastBackupAt?` 추가, `BACKUP_REMINDER_OPTIONS = [0,7,30]`
+  - `HomePage` — 하단 카드 영역 위에 "백업" 카드(due일 때만): "거래 N건이 이 기기에만 있어요 / 마지막 백업 N일 전 · 탭해서 파일로 저장" → 한 번 탭으로 파일 저장 + 토스트, 카드 소멸
+  - `SettingsPage` 데이터 섹션 — "백업" 행(상태 문구 + 지금 백업 버튼 + 알림 주기 세그먼트 끔/7일/30일 + iOS 저장소 삭제 안내)
+- **테스트**: `telemetry.test.ts` 16건(opt-in 게이팅·정제·최근 오류 20건·installId·경과일·동의 갱신), `backupEngine.test.ts` 13건(체크섬·변조 감지·**기기 초기화 시나리오: 스냅샷→전부 삭제→파일로 복원→동일**·runBackup 성공/실패·상태 판정 경계) — 총 **74건**
+- **검증**: type-check 통과 · lint 0-0 · vitest 74건 · build 통과 + **실브라우저(Playwright) 확인** — 온보딩 6단계 표시·오류 보고 체크 후 시작 → settings에 `telemetryErrorsEnabled:true`+installId+installedAt 저장 / 시드 245건 후 홈 "백업 · 거래 245건이 이 기기에만 있어요" 카드 → 탭 → `pinpig_백업_20260907_0945.json` 다운로드·`lastBackupAt` 기록·토스트·카드 소멸 / 다운로드 파일 version 1.2, 체크섬 재계산 일치, 7개 테이블 / 설정 "오늘 백업했어요"·주기 옵션 3개·개인정보 섹션·토글 켜면 저장 반영 / `setTimeout throw`+`Promise.reject` → 최근 오류 2건(window·promise, path·buildCommit 포함)
+- **참고**: `seedDatabase()`는 settings를 초기화한다 — 검증 중 오류 보고 토글이 꺼진 건 시드 때문(버그 아님)
+- **미수정 (제안만)**: ① 실제 전송처(PostHog 등) 어댑터는 서비스 결정 후 `registerTelemetryProvider`로 추가 ② 네이티브 백업 어댑터(Capacitor Filesystem)는 S3에서 ③ `AppErrorBoundary`는 라우트 전체 단위 — 페이지 단위 경계는 필요 시 ④ 내보내기 화면 안내문 "추후 복원 기능…" 현재형으로 갱신(#141 제안 그대로)
+- **결과**: 완료 · 미커밋 · 미배포

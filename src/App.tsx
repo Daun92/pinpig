@@ -13,6 +13,8 @@ import { useSettingsStore, selectIsOnboardingComplete } from '@/stores/settingsS
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useToastStore } from '@/stores/toastStore';
 import { processRecurringTransactions } from '@/services/budgetAlert';
+import { applyTelemetrySettings, track, daysSinceInstall } from '@/services/telemetry';
+import { AppErrorBoundary } from '@/components/common/AppErrorBoundary';
 import { createDayChangeGuard } from '@/utils/date';
 
 // 홈·입력 외 페이지는 지연 로드로 분할 — 초기 번들 축소 + 업데이트 시 변경 청크만 재다운로드
@@ -52,6 +54,7 @@ function RouteFallback() {
 // 반복 거래 처리 가드: 날짜 키로 하루 1회 보장
 // (PWA가 메모리에 며칠 유지돼도 날짜가 바뀌면 재실행, StrictMode 중복 실행 방지 겸용)
 let lastRecurringProcessDate: string | null = null;
+let lastAppOpenTracked: string | null = null;
 
 // 날짜 변경 감시: PWA가 백그라운드에 머무는 동안 자정·월초를 넘기면
 // 화면의 "오늘"·"이번 달" 기준이 낡는다. 반복거래 생성 여부와 무관하게 다시 읽는다.
@@ -101,6 +104,16 @@ export default function App() {
     fetchSettings();
   }, [fetchSettings]);
 
+  // 계측 동의 반영 + 하루 1회 app_open (D1/D7 리텐션의 기준 이벤트). 동의 없으면 track은 아무것도 안 한다
+  useEffect(() => {
+    applyTelemetrySettings(settings);
+    if (!settings?.isOnboardingComplete) return;
+    const today = new Date().toDateString();
+    if (lastAppOpenTracked === today) return;
+    lastAppOpenTracked = today;
+    track('app_open', { days_since_install: daysSinceInstall(settings.telemetryInstalledAt) });
+  }, [settings]);
+
   // 반복 거래 도래분 자동 기록 (홈을 거치지 않고 어느 탭으로 진입해도 실행되도록 루트에서 처리)
   // 앱 시작 시 + 백그라운드에 머물다 날짜가 바뀐 뒤 돌아온 경우 재실행
   useEffect(() => {
@@ -131,6 +144,7 @@ export default function App() {
   }
 
   return (
+    <AppErrorBoundary>
     <CoachMarkProvider>
       <div className="flex flex-col h-full bg-paper-white text-ink-black">
         <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none">
@@ -174,5 +188,6 @@ export default function App() {
         <ToastContainer />
       </div>
     </CoachMarkProvider>
+    </AppErrorBoundary>
   );
 }

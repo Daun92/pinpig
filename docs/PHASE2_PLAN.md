@@ -38,11 +38,13 @@
 - 에러 추적 (Sentry류) + privacy-friendly 익명 계측 (opt-in·고지 명확히)
 - **산출물**: 외부 테스터 유입 첫날부터 D1/D7 리텐션이 쌓이는 상태
 - **이유**: 테스터가 생기는 순간부터 데이터가 쌓여야 함. 며칠짜리 작업
+- **진행 (2026-09-07, #142)**: 어댑터·동의 UI·이벤트까지 완료. **전송처 미정** — 서비스(PostHog 단일 vs Sentry+Vercel) 결정 후 `registerTelemetryProvider`로 어댑터 1개 추가하면 S1 종료
 
 ### S2. 데이터 내구성 — iOS 전환의 물리적 전제
 - 자동 로컬 백업 + 복원 UI (Track 1의 "필수 승격" 항목)
 - **이유**: iOS WKWebView의 IndexedDB는 저장 공간 압박 시 OS가 삭제 가능. "기록을 잃지 않는다"는 신뢰 축이 iOS에서 깨지는 것을 선제 차단
 - **산출물**: 기기 초기화 시나리오에서 복원 성공하는 백업 체계
+- **진행**: #141 복원 UI, #142 백업 엔진(체크섬·검증·`BackupStorage` 어댑터·주기 알림·홈 1탭 저장) + 기기 초기화 시나리오 테스트 통과. **웹에서 할 수 있는 S2는 완료.** S3에서 네이티브 어댑터(Capacitor Filesystem → 앱 Documents)만 갈아끼운다
 
 ### S3. Capacitor 셸 + TestFlight (한국어 그대로, P-2)
 - Apple Developer Program 등록($99/년) → Xcode + Capacitor 래핑 → 네이티브 영역 백업 연결(S2 산출물) → TestFlight 배포

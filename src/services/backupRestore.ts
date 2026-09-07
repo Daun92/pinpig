@@ -38,6 +38,7 @@ export interface PinPigBackupData {
 export interface PinPigBackup {
   version: string;
   exportedAt: string;
+  checksum?: string; // 1.2부터. 검증은 backupEngine.verifyChecksum
   data: PinPigBackupData;
 }
 
@@ -117,6 +118,7 @@ export function parsePinPigBackup(jsonContent: string): PinPigBackup | null {
   return {
     version: parsed.version,
     exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : '',
+    checksum: typeof parsed.checksum === 'string' ? parsed.checksum : undefined,
     data: {
       transactions: asArray<Transaction>(data.transactions),
       categories: asArray<Category>(data.categories),
@@ -174,7 +176,7 @@ const DATE_FIELDS: Record<keyof PinPigBackupData, string[]> = {
   categories: ['createdAt', 'updatedAt'],
   paymentMethods: ['createdAt', 'updatedAt'],
   incomeSources: ['createdAt', 'updatedAt'],
-  settings: ['updatedAt'],
+  settings: ['updatedAt', 'lastBackupAt'],
   recurringTransactions: [
     'startDate',
     'endDate',

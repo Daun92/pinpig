@@ -15,7 +15,7 @@
 | 배포 URL | https://pinpig.vercel.app |
 | ESLint | 0 에러 0 경고 |
 | 빌드 | 통과 (시작 JS 1,048KB, 26페이지 lazy 분할) |
-| 테스트 | vitest + fake-indexeddb, 45건 통과 |
+| 테스트 | vitest + fake-indexeddb, 74건 통과 |
 
 ---
 
@@ -67,6 +67,13 @@
 ---
 
 ## 최근 작업 (최신순)
+
+### #142 Phase 2 S1 계측 어댑터 + S2 백업 엔진 (2026-09-07)
+- **결정**: 계측 서비스 미정(어댑터만, 전송처 없음) / 백업은 엔진+어댑터, 웹은 알림·1탭 저장 / 계측 기본 둘 다 꺼짐(opt-in)
+- **S1**: `services/telemetry.ts` — provider 인터페이스·동의 게이팅·허용 키 화이트리스트 정제·기기 내 최근 오류 20건·전역 오류 훅·`AppErrorBoundary`. 온보딩 6단계(동의 체크)·설정 "개인정보" 섹션. 이벤트는 `app_open{days_since_install}`·`transaction_added{type}`·`backup_created`
+- **S2**: `services/backupEngine.ts` — 백업 구조 정본(v1.2 checksum)·검증·`BackupStorage` 어댑터(웹=다운로드)·`runBackup`·`getBackupStatus`. 홈 "백업" 카드(1탭 저장)·설정 백업 행(주기 끔/7일/30일). 기기 초기화 시나리오 테스트 통과
+- **검증**: type-check·lint 0-0·vitest **74건**·build 통과 + Playwright 실브라우저 전 흐름 확인
+- **미커밋·미배포** — 커밋·배포 지시 대기
 
 ### #141 PinPig 백업 복원 전용 경로 — iOS 홈화면 앱 데이터 이전 (2026-09-07)
 - **문제**: iOS는 Safari 탭과 홈화면 PWA의 IndexedDB를 분리(Apple 정책) → 유일한 이동 경로인 "전체 백업 → 가져오기"가 막혀 있었음. `parseJSON`이 백업 구조(`data:{transactions,…}`)를 못 읽어 빈 배열, 래핑을 풀어도 `categoryId`·`type:'income'` 유실
@@ -210,6 +217,7 @@
 
 ### 🟡 권장
 - 예측 카드 - 월말 예상 잔액
+- 계측 전송처 결정 (PostHog 단일 vs Sentry+Vercel) → provider 어댑터 추가
 
 ### 🟢 선택
 - PWA 푸시 알림
