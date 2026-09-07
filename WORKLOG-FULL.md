@@ -2724,4 +2724,4 @@
 - **검증**: type-check 통과 · lint 0-0 · vitest 74건 · build 통과 + **실브라우저(Playwright) 확인** — 온보딩 6단계 표시·오류 보고 체크 후 시작 → settings에 `telemetryErrorsEnabled:true`+installId+installedAt 저장 / 시드 245건 후 홈 "백업 · 거래 245건이 이 기기에만 있어요" 카드 → 탭 → `pinpig_백업_20260907_0945.json` 다운로드·`lastBackupAt` 기록·토스트·카드 소멸 / 다운로드 파일 version 1.2, 체크섬 재계산 일치, 7개 테이블 / 설정 "오늘 백업했어요"·주기 옵션 3개·개인정보 섹션·토글 켜면 저장 반영 / `setTimeout throw`+`Promise.reject` → 최근 오류 2건(window·promise, path·buildCommit 포함)
 - **참고**: `seedDatabase()`는 settings를 초기화한다 — 검증 중 오류 보고 토글이 꺼진 건 시드 때문(버그 아님)
 - **미수정 (제안만)**: ① 실제 전송처(PostHog 등) 어댑터는 서비스 결정 후 `registerTelemetryProvider`로 추가 ② 네이티브 백업 어댑터(Capacitor Filesystem)는 S3에서 ③ `AppErrorBoundary`는 라우트 전체 단위 — 페이지 단위 경계는 필요 시 ④ 내보내기 화면 안내문 "추후 복원 기능…" 현재형으로 갱신(#141 제안 그대로)
-- **결과**: 완료 · 미커밋 · 미배포
+- **결과**: 완료 · 커밋 3804c10 → feat·main 병합(ff) · 미배포
